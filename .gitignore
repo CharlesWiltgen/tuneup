@@ -139,9 +139,9 @@ tests/test_audio/
 scripts/dev/
 
 # Claude Code guidance files  
-CLAUDE.md
+CLAUDE*.md
 BACKLOG.md
-.claude/
+.claude
 
 # Tool version management
 mise.toml
@@ -151,4 +151,3 @@ amusic.code-workspace
 
 # Linter configuration
 .markdownlint.json
-CLAUDE.md
