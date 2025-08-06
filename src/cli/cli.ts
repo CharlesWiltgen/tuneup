@@ -3,6 +3,7 @@ import { defaultCommand } from "../commands/default.ts";
 import { easyCommand } from "../commands/easy.ts";
 import { encodeCommand } from "../commands/encode.ts";
 import { processCommand } from "../commands/process.ts";
+import { discoverCommand } from "../commands/discover.ts";
 import { VERSION } from "../version.ts";
 import { dirname, fromFileUrl, join } from "jsr:@std/path";
 import { loadSync } from "jsr:@std/dotenv";
@@ -42,6 +43,11 @@ export function setupCLI() {
       "--api-key <key:string>",
       "AcoustID API key (required for lookups).",
       { default: Deno.env.get("ACOUSTID_API_KEY") },
+    )
+    .option(
+      "--debug",
+      "Enable debug output for troubleshooting.",
+      { default: false },
     )
     .arguments("<...files:string>")
     .action(defaultCommand);
@@ -166,6 +172,29 @@ export function setupCLI() {
       { default: Deno.env.get("ACOUSTID_API_KEY") },
     )
     .action(processCommand);
+
+  // Add discover subcommand for testing/debugging
+  program
+    .command(
+      "discover <files...:string>",
+      "Test the music discovery system without processing files. Useful for debugging.",
+    )
+    .option(
+      "--for-encoding",
+      "Validate MPEG-4 codecs as if preparing for encoding.",
+      { default: false },
+    )
+    .option(
+      "--singles <patterns...:string>",
+      "Folder patterns to treat as singles instead of albums.",
+      { collect: true },
+    )
+    .option(
+      "--debug",
+      "Enable debug output.",
+      { default: false },
+    )
+    .action(discoverCommand);
 
   return program;
 }

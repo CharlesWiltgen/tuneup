@@ -1,7 +1,7 @@
 import { basename, extname } from "jsr:@std/path";
 import { generateOutputPath, isLosslessFormat } from "../lib/encoding.ts";
 import { getComprehensiveMetadata } from "../lib/tagging.ts";
-import { collectAudioFiles } from "../utils/file_discovery.ts";
+import { discoverMusic } from "../utils/fast_discovery.ts";
 import type { CommandOptions } from "../types/command.ts";
 import { EncodingStats } from "../utils/encoding_stats.ts";
 import { exitWithError, validateFiles } from "../utils/console_output.ts";
@@ -182,16 +182,53 @@ async function prepareEncodingTask(
 
 async function collectAllFiles(
   files: string[],
+  forceEncode?: boolean,
 ): Promise<{ filesToProcess: string[]; fileBaseMap: Map<string, string> }> {
-  const filesToProcess: string[] = [];
+  const discovery = await discoverMusic(files, {
+    forEncoding: true, // This will validate MPEG-4 codecs
+    forceEncode, // Pass through force encode option
+    onProgress: (phase, current) => {
+      Deno.stdout.writeSync(
+        new TextEncoder().encode(
+          `\x1b[2K\r→ ${phase}: ${current} files`,
+        ),
+      );
+    },
+  });
+
+  // Clear progress line
+  Deno.stdout.writeSync(new TextEncoder().encode("\x1b[2K\r"));
+
+  const filesToProcess = discovery.filesToEncode || [];
   const fileBaseMap = new Map<string, string>();
 
-  for (const fileOrDir of files) {
-    const collectedFiles = await collectAudioFiles([fileOrDir]);
-    filesToProcess.push(...collectedFiles);
+  // Map each file to its original argument
+  for (const file of filesToProcess) {
+    // Find which original argument this file came from
+    for (const fileOrDir of files) {
+      if (file.startsWith(fileOrDir) || file === fileOrDir) {
+        fileBaseMap.set(file, fileOrDir);
+        break;
+      }
+    }
+  }
 
-    for (const file of collectedFiles) {
-      fileBaseMap.set(file, fileOrDir);
+  // Report skipped files
+  if (discovery.skippedFiles && discovery.skippedFiles.length > 0) {
+    const aacFiles = discovery.skippedFiles.filter((f) => f.reason === "aac");
+    const alreadyEncoded = discovery.skippedFiles.filter((f) =>
+      f.reason === "already-encoded"
+    );
+
+    if (aacFiles.length > 0) {
+      console.log(
+        `\n⏭️  Skipping ${aacFiles.length} files already in AAC format`,
+      );
+    }
+    if (alreadyEncoded.length > 0) {
+      console.log(
+        `🔄 Skipping ${alreadyEncoded.length} files that already have encoded versions`,
+      );
     }
   }
 

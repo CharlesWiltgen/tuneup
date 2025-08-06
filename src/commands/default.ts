@@ -2,7 +2,7 @@ import {
   batchProcessAcoustIDTagging,
   processAcoustIDTagging,
 } from "../lib/acoustid.ts";
-import { collectAudioFiles } from "../utils/file_discovery.ts";
+import { discoverMusic } from "../utils/fast_discovery.ts";
 import type { CommandOptions } from "../types/command.ts";
 import { ProcessingStats } from "../utils/processing_stats.ts";
 import {
@@ -13,7 +13,7 @@ import { showTagsWithFolderAPI } from "./show_tags_folder.ts";
 import { HIGH_CONCURRENCY } from "../constants.ts";
 
 export async function defaultCommand(
-  options: CommandOptions,
+  options: CommandOptions & { debug?: boolean },
   ...files: string[]
 ): Promise<void> {
   // Hide cursor
@@ -21,30 +21,35 @@ export async function defaultCommand(
     Deno.stdout.writeSync(new TextEncoder().encode("\x1b[?25l"));
   }
 
-  let lastCount = 0;
   if (!options.quiet) {
-    Deno.stdout.writeSync(
-      new TextEncoder().encode("→ Collecting audio files: 0 files found"),
-    );
+    console.log("→ Discovering audio files...");
   }
 
-  const filesToProcess = await collectAudioFiles(files, (count) => {
-    if (!options.quiet && count !== lastCount) {
-      // Move cursor to beginning of line and clear it
-      Deno.stdout.writeSync(
-        new TextEncoder().encode(
-          `\x1b[2K\r→ Collecting audio files: ${count} files found`,
-        ),
-      );
-      lastCount = count;
-    }
+  const discovery = await discoverMusic(files, {
+    debug: options.debug,
+    onProgress: (phase, current) => {
+      if (!options.quiet) {
+        // Move cursor to beginning of line and clear it
+        Deno.stdout.writeSync(
+          new TextEncoder().encode(
+            `\x1b[2K\r→ ${phase}: ${current} files`,
+          ),
+        );
+      }
+    },
   });
+
+  // Get all files from albums and singles
+  const filesToProcess = [
+    ...discovery.singles,
+    ...Array.from(discovery.albums.values()).flat(),
+  ].sort();
 
   if (!options.quiet) {
     // Update with final count and checkmark
     Deno.stdout.writeSync(
       new TextEncoder().encode(
-        `\x1b[2K\r✅ Collecting audio files: ${filesToProcess.length} files found\n`,
+        `\x1b[2K\r✅ Discovered ${filesToProcess.length} audio files\n`,
       ),
     );
     // Show cursor

@@ -4,10 +4,8 @@ import {
   processAlbum,
   TrackProcessorPool,
 } from "../lib/track_processor.ts";
-import {
-  analyzeFolderStructure,
-  getAlbumDisplayName,
-} from "../lib/folder_processor.ts";
+import { discoverMusic } from "../utils/fast_discovery.ts";
+import { getAlbumDisplayName } from "../lib/folder_processor.ts";
 import type { CommandOptions } from "../types/command.ts";
 
 export interface ProcessCommandOptions extends CommandOptions {
@@ -41,20 +39,43 @@ export async function processCommand(
   try {
     const stats = new ProcessingStats();
 
-    // Analyze folder structure
+    // Discover music files
     if (!options.quiet) {
-      console.log("🎵 Analyzing folder structure...\n");
+      console.log("🎵 Discovering music files...\n");
     }
 
-    const folderAnalysis = await analyzeFolderStructure(paths, {
-      singlesPatterns: options.singles || [],
-      quiet: options.quiet,
+    const discovery = await discoverMusic(paths, {
+      singlePatterns: options.singles || [],
+      forEncoding: options.encode, // Validate MPEG-4 codecs if encoding
+      onProgress: (phase, current) => {
+        if (!options.quiet) {
+          Deno.stdout.writeSync(
+            new TextEncoder().encode(
+              `\x1b[2K\r→ ${phase}: ${current} files`,
+            ),
+          );
+        }
+      },
     });
 
     if (!options.quiet) {
-      console.log(
-        `\n📊 Found ${folderAnalysis.albums.size} albums and ${folderAnalysis.singles.length} singles\n`,
+      // Clear progress line
+      Deno.stdout.writeSync(
+        new TextEncoder().encode(`\x1b[2K\r`),
       );
+      console.log(
+        `📊 Found ${discovery.albums.size} albums and ${discovery.singles.length} singles\n`,
+      );
+
+      // Report skipped files if encoding
+      if (
+        options.encode && discovery.skippedFiles &&
+        discovery.skippedFiles.length > 0
+      ) {
+        console.log(
+          `⏭️  Skipping ${discovery.skippedFiles.length} files already in AAC format\n`,
+        );
+      }
     }
 
     // Determine what operations to perform
@@ -74,13 +95,32 @@ export async function processCommand(
       console.log(`Operations: ${operations.join(", ")}\n`);
     }
 
+    // If encoding, we need to filter files
+    let albumsToProcess = discovery.albums;
+    let singlesToProcess = discovery.singles;
+
+    if (options.encode && discovery.filesToEncode) {
+      // Rebuild albums and singles with only encodable files
+      const encodableSet = new Set(discovery.filesToEncode);
+      albumsToProcess = new Map();
+
+      for (const [dir, files] of discovery.albums) {
+        const encodableFiles = files.filter((f) => encodableSet.has(f));
+        if (encodableFiles.length > 0) {
+          albumsToProcess.set(dir, encodableFiles);
+        }
+      }
+
+      singlesToProcess = discovery.singles.filter((f) => encodableSet.has(f));
+    }
+
     // Process albums
-    if (folderAnalysis.albums.size > 0) {
+    if (albumsToProcess.size > 0) {
       if (!options.quiet) {
         console.log("🎼 Processing albums...\n");
       }
 
-      for (const [albumDir, albumFiles] of folderAnalysis.albums) {
+      for (const [albumDir, albumFiles] of albumsToProcess) {
         if (!options.quiet) {
           const albumName = getAlbumDisplayName(albumDir);
           console.log(`\n💿 Processing album: ${albumName}`);
@@ -127,14 +167,14 @@ export async function processCommand(
     }
 
     // Process singles
-    if (folderAnalysis.singles.length > 0) {
+    if (singlesToProcess.length > 0) {
       if (!options.quiet) {
         console.log("\n🎵 Processing singles...\n");
       }
 
       const pool = new TrackProcessorPool(4);
 
-      const results = await batchProcessTracks(folderAnalysis.singles, {
+      const results = await batchProcessTracks(singlesToProcess, {
         encode: options.encode,
         forceLossyTranscodes: options.forceLossyTranscodes,
         outputDirectory: options.outputDir,

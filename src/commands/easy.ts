@@ -3,7 +3,7 @@ import type { CommandOptions } from "../types/command.ts";
 import { ensureCommandExists } from "../utils/command.ts";
 import { ProcessingStats } from "../utils/processing_stats.ts";
 import { exitWithError } from "../utils/console_output.ts";
-import { analyzeFolderStructure } from "../lib/folder_processor.ts";
+import { discoverMusic } from "../utils/fast_discovery.ts";
 import { processAlbum } from "../lib/track_processor.ts";
 
 /**
@@ -31,33 +31,42 @@ export async function easyCommand(
     console.log("🎵 Analyzing music library structure...\n");
   }
 
-  // Use the new folder analyzer to find albums
-  const folderAnalysis = await analyzeFolderStructure([library], {
-    singlesPatterns: [], // Easy mode treats everything as albums
-    quiet: options.quiet,
+  // Use fast discovery with folder-based grouping
+  const discovery = await discoverMusic([library], {
+    onProgress: (phase, current) => {
+      if (!options.quiet) {
+        Deno.stdout.writeSync(
+          new TextEncoder().encode(
+            `\x1b[2K\r→ ${phase}: ${current} files`,
+          ),
+        );
+      }
+    },
   });
 
   if (!options.quiet) {
+    // Clear progress line and show results
+    Deno.stdout.writeSync(
+      new TextEncoder().encode(`\x1b[2K\r`),
+    );
     console.log(
-      `\n✅ Found ${folderAnalysis.albums.size} albums to process\n`,
+      `✅ Found ${discovery.albums.size} albums to process\n`,
     );
   }
 
-  if (folderAnalysis.singles.length > 0 && !options.quiet) {
+  if (discovery.singles.length > 0 && !options.quiet) {
     console.warn(
-      `⚠️  Found ${folderAnalysis.singles.length} single files not in album folders. ` +
+      `⚠️  Found ${discovery.singles.length} single files not in album folders. ` +
         `These will be skipped in easy mode.\n`,
     );
   }
 
   // Process each album using unified track processor
-  for (const [albumDir, files] of folderAnalysis.albums) {
+  for (const [albumDir, files] of discovery.albums) {
     if (!options.quiet) {
       console.log(`\n📁 Processing album: ${albumDir}`);
       console.log(`  Files: ${files.length}`);
     }
-
-    // No need to map paths, 'files' already contains the paths
 
     // Use unified track processor for album
     const results = await processAlbum(albumDir, files, {
@@ -100,16 +109,11 @@ export async function easyCommand(
   // Optional: Show library statistics
   if (!options.quiet) {
     console.log("\n📊 Library Statistics:");
-    console.log(`  Total albums: ${folderAnalysis.albums.size}`);
+    console.log(`  Total albums: ${discovery.albums.size}`);
+    console.log(`  Total tracks: ${discovery.totalFiles}`);
 
-    let totalTracks = 0;
-    for (const [_albumDir, files] of folderAnalysis.albums) {
-      totalTracks += files.length;
-    }
-    console.log(`  Total tracks: ${totalTracks}`);
-
-    if (folderAnalysis.singles.length > 0) {
-      console.log(`  Skipped singles: ${folderAnalysis.singles.length}`);
+    if (discovery.singles.length > 0) {
+      console.log(`  Skipped singles: ${discovery.singles.length}`);
     }
   }
 }

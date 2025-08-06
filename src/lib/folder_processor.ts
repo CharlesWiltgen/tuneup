@@ -1,6 +1,8 @@
-import { join } from "jsr:@std/path";
-import { collectAudioFiles } from "../utils/file_discovery.ts";
-import { AUDIO_EXTENSIONS } from "../constants.ts";
+import { extname, join } from "jsr:@std/path";
+import {
+  collectAudioFiles,
+  SUPPORTED_EXTENSIONS,
+} from "../utils/file_discovery.ts";
 
 export interface FolderProcessingResult {
   albums: Map<string, string[]>; // album path -> audio files
@@ -170,8 +172,8 @@ function shouldTreatAsSingles(
  * Check if a file is an audio file based on extension
  */
 function isAudioFile(filename: string): boolean {
-  const ext = filename.toLowerCase();
-  return AUDIO_EXTENSIONS.some((audioExt) => ext.endsWith(audioExt));
+  const ext = extname(filename).toLowerCase().slice(1);
+  return SUPPORTED_EXTENSIONS.includes(ext);
 }
 
 /**
