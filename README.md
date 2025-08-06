@@ -247,6 +247,58 @@ By default, `amusic` intelligently processes folders:
 This makes it easy to process entire music libraries organized by artist/album
 hierarchy.
 
+### Album/Single Detection Rules
+
+`amusic` uses both directory structure and metadata to determine whether tracks
+should be processed as albums or singles:
+
+**Core Principle**: An album is a group of 2+ audio files that share the same
+album tag.
+
+**Detection Rules**:
+
+1. **Album Requirements**
+   - Must have 2+ files with identical album tags (non-empty)
+   - Artist can vary (supports compilation albums)
+   - Files must be in the same directory
+
+2. **Single Classification** A file is treated as a single if:
+   - It has no album tag (empty/missing)
+   - It's the only file with that album tag in its directory
+   - It's in a directory but doesn't meet album requirements
+
+3. **Directory Scanning**
+   - When scanning a directory, files are grouped by album tag
+   - Each group with 2+ files becomes an album
+   - Remaining files become singles
+
+4. **Special Cases**
+   - **Mixed content**: A directory can contain multiple albums AND singles
+   - **Compilation albums**: Different artists + same album tag = valid album
+
+**Example Scenarios**:
+
+```
+/Music/Album1/
+  ├── track1.mp3 (album: "Greatest Hits")
+  ├── track2.mp3 (album: "Greatest Hits")
+  └── track3.mp3 (album: "Greatest Hits")
+  → Result: 1 album with 3 tracks
+
+/Music/Mixed/
+  ├── song1.mp3 (album: "Album A")
+  ├── song2.mp3 (album: "Album A")
+  ├── song3.mp3 (album: "Album B")
+  ├── song4.mp3 (no album tag)
+  └── song5.mp3 (album: "Album C")
+  → Result: 1 album ("Album A" with 2 tracks) + 3 singles
+
+/Music/Singles/
+  ├── track1.mp3 (album: "Solo Album")
+  └── track2.mp3 (album: "Different Album")
+  → Result: 2 singles
+```
+
 ## Examples
 
 1. **Generate and add fingerprint to an audio file:**

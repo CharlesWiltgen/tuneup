@@ -6,6 +6,7 @@ import {
 } from "jsr:@charlesw/taglib-wasm@0.5.4/simple";
 import { ensureTagLib } from "./taglib_init.ts";
 import { readFileAsync } from "../utils/async-file-reader.ts";
+import { formatError } from "../utils/error_utils.ts";
 
 /**
  * Helper to open a file for reading or writing
@@ -50,8 +51,7 @@ export async function getAcoustIDTags(
 
     return Object.keys(tags).length > 0 ? tags : null;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`Error reading tags from ${filePath}: ${errorMessage}`);
+    console.error(`Error reading tags from ${filePath}: ${formatError(error)}`);
     return null;
   } finally {
     if (audioFile) {
@@ -86,9 +86,8 @@ export async function getAudioDuration(filePath: string): Promise<number> {
     const properties = await readProperties(filePath);
     return properties?.length || 0;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(
-      `Error getting audio duration from ${filePath}: ${errorMessage}`,
+      `Error getting audio duration from ${filePath}: ${formatError(error)}`,
     );
     return 0;
   }
@@ -133,9 +132,8 @@ export async function writeAcoustIDTags(
 
     return true;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(
-      `Error writing AcoustID tags to ${filePath}: ${errorMessage}`,
+      `Error writing AcoustID tags to ${filePath}: ${formatError(error)}`,
     );
     return false;
   } finally {
@@ -196,9 +194,8 @@ export async function getReplayGainTags(
 
     return Object.keys(tags).length > 0 ? tags : null;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(
-      `Error reading ReplayGain tags from ${filePath}: ${errorMessage}`,
+      `Error reading ReplayGain tags from ${filePath}: ${formatError(error)}`,
     );
     return null;
   } finally {
@@ -257,9 +254,8 @@ export async function writeReplayGainTags(
 
     return true;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(
-      `Error writing ReplayGain tags to ${filePath}: ${errorMessage}`,
+      `Error writing ReplayGain tags to ${filePath}: ${formatError(error)}`,
     );
     return false;
   } finally {
@@ -287,9 +283,8 @@ export async function getComprehensiveMetadataWithPropertyMap(
     // Return all properties as-is for maximum flexibility
     return properties;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(
-      `Error reading property map from ${filePath}: ${errorMessage}`,
+      `Error reading property map from ${filePath}: ${formatError(error)}`,
     );
     return null;
   } finally {
@@ -433,9 +428,10 @@ export async function getComprehensiveMetadata(
 
     return Object.keys(metadata).length > 0 ? metadata : null;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(
-      `Error reading comprehensive metadata from ${filePath}: ${errorMessage}`,
+      `Error reading comprehensive metadata from ${filePath}: ${
+        formatError(error)
+      }`,
     );
     return null;
   } finally {

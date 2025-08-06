@@ -3,6 +3,7 @@
 
 import { encodeToM4A } from "../lib/encoding.ts";
 import type { EncodingOptions } from "../lib/encoding.ts";
+import { formatError } from "../utils/error_utils.ts";
 
 interface WorkerTask {
   id: number;
@@ -76,7 +77,7 @@ self.onmessage = async (e: MessageEvent<WorkerTask>) => {
       outputPath,
     } as WorkerMessage);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = formatError(error);
     postError(`Error encoding ${inputPath}: ${errorMessage}`);
 
     // Still send done message to indicate worker has finished

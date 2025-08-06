@@ -2,6 +2,7 @@
 import { extname } from "jsr:@std/path";
 import { VERSION } from "../version.ts";
 import { ensureTagLib } from "./taglib_init.ts";
+import { formatError } from "../utils/error_utils.ts";
 
 const LOSSLESS_FORMATS = ["wav", "flac"]; // m4a removed - will check codec
 const LOSSY_FORMATS = ["mp3", "ogg"];
@@ -81,7 +82,7 @@ export async function encodeToM4A(
     // Return warning but don't fail if metadata copy fails
     return {
       metadataInfo: `⚠️  Warning: Failed to copy metadata: ${
-        error instanceof Error ? error.message : String(error)
+        formatError(error)
       }`,
     };
   }
@@ -299,7 +300,7 @@ function copyCoverArtSafe(
     return undefined;
   } catch (error) {
     return `⚠️  Warning: Failed to copy ${pictures.length} cover art image(s): ${
-      error instanceof Error ? error.message : String(error)
+      formatError(error)
     }`;
   }
 }

@@ -123,6 +123,9 @@ taglib.wasm
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
 
+# VSCode settings
+.vscode
+
 # yarn v2
 .yarn/cache
 .yarn/unplugged
@@ -141,6 +144,7 @@ scripts/dev/
 # Claude Code guidance files  
 CLAUDE*.md
 BACKLOG.md
+TASKS.md
 .claude
 
 # Tool version management

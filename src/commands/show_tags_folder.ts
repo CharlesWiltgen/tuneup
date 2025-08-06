@@ -1,5 +1,6 @@
 import { readMetadataBatch } from "jsr:@charlesw/taglib-wasm@0.5.4/simple";
 import { formatChannels, formatDuration } from "../utils/format.ts";
+import { formatError } from "../utils/error_utils.ts";
 
 /**
  * Format container format for display, adding descriptive names where appropriate
@@ -297,9 +298,7 @@ export async function showTagsWithFolderAPI(
       // Show cursor on error
       Deno.stdout.writeSync(new TextEncoder().encode("\x1b[?25h"));
     }
-    console.error(
-      `Error: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    console.error(`Error: ${formatError(error)}`);
     throw error;
   }
 }

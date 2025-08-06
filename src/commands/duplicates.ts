@@ -2,6 +2,7 @@ import { Table } from "jsr:@cliffy/table@1.0.0-rc.7";
 import { findDuplicateTracks } from "../lib/folder_operations.ts";
 import { validateDirectory } from "../utils/console_output.ts";
 import { formatDuration } from "../utils/format.ts";
+import { formatError } from "../utils/error_utils.ts";
 
 export interface DuplicatesOptions {
   quiet?: boolean;
@@ -125,11 +126,7 @@ export async function duplicatesCommand(
     const spaceSavingsMB = Math.round(spaceSavings / 1024 / 1024);
     console.log(`  Potential space savings: ~${spaceSavingsMB} MB`);
   } catch (error) {
-    console.error(
-      `❌ Error finding duplicates: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
+    console.error(`❌ Error finding duplicates: ${formatError(error)}`);
     Deno.exit(1);
   }
 }
