@@ -327,16 +327,20 @@ export async function discoverMusicRefactored(
     const filePaths = scan.allFiles.map(asFilePath);
     const fileMaps = buildFileMaps({ files: filePaths, debug });
 
-    // Skip compilation detection if there are no MPEG-4 files
+    // Skip compilation detection if explicitly requested or no MPEG-4 files
     // This is a performance optimization since compilation detection reads metadata
     // which is slow (~10s per file). We only need compilation detection for organizing
     // encoded output, so if there are no M4A files to validate, we can skip it.
     // Exception: Always detect for single small albums (quick to check 3 files)
-    const shouldDetectCompilations = fileMaps.mpeg4Files.length > 0 ||
-      (albums.size === 1 &&
-        scan.allFiles.length <= MAX_FILES_FOR_SMALL_COLLECTION);
+    const shouldDetectCompilations = !options?.skipCompilationDetection &&
+      (fileMaps.mpeg4Files.length > 0 ||
+        (albums.size === 1 &&
+          scan.allFiles.length <= MAX_FILES_FOR_SMALL_COLLECTION));
 
     if (shouldDetectCompilations && albums.size > 0) {
+      // Report compilation detection phase
+      options?.onProgress?.("compilation-detection", 0, albums.size);
+
       const { albums: regularAlbums, compilations } =
         await detectCompilationsRefactored(
           albums,
@@ -348,9 +352,14 @@ export async function discoverMusicRefactored(
       if (debug && compilations.size > 0) {
         console.log(`[DEBUG] Detected ${compilations.size} compilations`);
       }
-    } else if (debug && !shouldDetectCompilations) {
+
+      options?.onProgress?.("compilation-detection", albums.size, albums.size);
+    } else if (debug) {
+      const reason = options?.skipCompilationDetection
+        ? "explicitly skipped"
+        : `no MPEG-4 files and ${albums.size} albums`;
       console.log(
-        `[DEBUG] Skipping compilation detection (no MPEG-4 files and ${albums.size} albums)`,
+        `[DEBUG] Skipping compilation detection (${reason})`,
       );
     }
 

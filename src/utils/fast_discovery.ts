@@ -38,7 +38,7 @@ export interface SkippedFile {
 export interface DiscoveryOptions {
   /** Progress callback */
   onProgress?: (
-    phase: "scan" | "classify" | "validate",
+    phase: "scan" | "classify" | "validate" | "compilation-detection",
     current: number,
     total?: number,
   ) => void;
@@ -52,6 +52,8 @@ export interface DiscoveryOptions {
   parallelism?: number;
   /** Enable debug output */
   debug?: boolean;
+  /** Skip compilation detection (for performance when not needed) */
+  skipCompilationDetection?: boolean;
 }
 
 /**

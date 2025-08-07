@@ -178,10 +178,14 @@ async function collectAllFiles(
     forEncoding: true, // This will validate MPEG-4 codecs
     forceEncode, // Pass through force encode option
     parallelism: 16, // Increase parallelism for faster metadata reading
-    onProgress: (phase, current) => {
+    skipCompilationDetection: true, // Skip slow metadata reading for compilations
+    onProgress: (phase, current, total) => {
+      const message = total !== undefined
+        ? `→ ${phase}: ${current}/${total}`
+        : `→ ${phase}: ${current} files`;
       Deno.stdout.writeSync(
         new TextEncoder().encode(
-          `\x1b[2K\r→ ${phase}: ${current} files`,
+          `\x1b[2K\r${message}`,
         ),
       );
     },
@@ -393,7 +397,10 @@ export async function encodeCommand(
   }
 
   // Collect all files
-  const { filesToProcess, fileBaseMap } = await collectAllFiles(files);
+  const { filesToProcess, fileBaseMap } = await collectAllFiles(
+    files,
+    options.forceLossyTranscodes,
+  );
 
   if (filesToProcess.length === 0) {
     exitWithError("No valid audio files found to encode.");

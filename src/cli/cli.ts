@@ -3,7 +3,7 @@ import { defaultCommand } from "../commands/default.ts";
 import { easyCommand } from "../commands/easy.ts";
 import { encodeCommand } from "../commands/encode.ts";
 import { processCommand } from "../commands/process.ts";
-import { discoverCommand } from "../commands/discover.ts";
+import { xRayCommand } from "../commands/x-ray.ts";
 import { VERSION } from "../version.ts";
 import { dirname, fromFileUrl, join } from "jsr:@std/path";
 import { loadSync } from "jsr:@std/dotenv";
@@ -22,31 +22,31 @@ export function setupCLI() {
     .name("amusic")
     .version(VERSION)
     .description(
-      "Calculate ReplayGain and embed AcousticID fingerprints and IDs.",
+      "Calculate ReplayGain and embed AcousticID fingerprints and IDs",
     )
     // Default command options
-    .option("-f, --force", "Force reprocessing even if tags exist.")
+    .option("-f, --force", "Force reprocessing even if tags exist")
     .option(
       "-q, --quiet",
-      "Suppress informational output. Errors are still shown.",
+      "Suppress informational output (errors still shown)",
       { default: false },
     )
     .option(
       "--show-tags",
-      "Display existing AcoustID tags and exit. No modifications made.",
+      "Display existing AcoustID tags and exit",
     )
     .option(
       "--dry-run",
-      "Simulate processing and API lookups but do not write any tags to files.",
+      "Simulate processing without writing tags",
     )
     .option(
       "--api-key <key:string>",
-      "AcoustID API key (required for lookups).",
+      "AcoustID API key (required for lookups)",
       { default: Deno.env.get("ACOUSTID_API_KEY") },
     )
     .option(
       "--debug",
-      "Enable debug output for troubleshooting.",
+      "Enable debug output for troubleshooting",
       { default: false },
     )
     .arguments("<...files:string>")
@@ -56,25 +56,25 @@ export function setupCLI() {
   program
     .command(
       "easy <library:string>",
-      "Calculate ReplayGain and AcousticID for each album in a library root directory (each album in its own folder).",
+      "Calculate ReplayGain and AcousticID for each album in a library root directory (each album in its own folder)",
     )
     .option(
       "-f, --force",
-      "Force reprocessing AcoustID fingerprints even if tags exist.",
+      "Force reprocessing AcoustID fingerprints even if tags exist",
     )
     .option(
       "-q, --quiet",
-      "Suppress informational output. Errors are still shown.",
+      "Suppress informational output (errors still shown)",
       { default: false },
     )
     .option(
       "--dry-run",
-      "Simulate processing and API lookups but do not write any tags to files.",
+      "Simulate processing without writing tags",
       { default: false },
     )
     .option(
       "--api-key <key:string>",
-      "AcoustID API key (required for lookups).",
+      "AcoustID API key (required for lookups)",
       { default: Deno.env.get("ACOUSTID_API_KEY") },
     )
     .action(easyCommand);
@@ -83,30 +83,30 @@ export function setupCLI() {
   program
     .command(
       "encode <files...:string>",
-      "Encode audio files to M4A/AAC format. By default only encodes from lossless sources (WAV, FLAC, M4A).",
+      "Encode audio files to M4A/AAC format. By default only encodes from lossless sources (WAV, FLAC, M4A)",
     )
     .option(
       "--force-lossy-transcodes",
-      "Allow transcoding from lossy formats (MP3, OGG). Not recommended due to quality loss.",
+      "Allow transcoding from lossy formats (MP3, OGG) - quality loss warning",
       { default: false },
     )
     .option(
       "-o, --output-dir <dir:string>",
-      "Output directory for encoded files. Defaults to same directory as source files.",
+      "Output directory for encoded files (defaults: source directory)",
     )
     .option(
       "--flatten-output",
-      "When using --output-dir, put all output files in a single directory (disables directory structure preservation).",
+      "Put all output files in a single directory when using --output-dir",
       { default: false },
     )
     .option(
       "-q, --quiet",
-      "Suppress informational output. Errors are still shown.",
+      "Suppress informational output (errors still shown)",
       { default: false },
     )
     .option(
       "--dry-run",
-      "Simulate encoding but do not write any files.",
+      "Simulate encoding without writing files",
       { default: false },
     )
     .action(encodeCommand);
@@ -115,86 +115,86 @@ export function setupCLI() {
   program
     .command(
       "process <files...:string>",
-      "Process audio files with multiple operations in a single pass (encoding, ReplayGain, AcoustID).",
+      "Process audio files with multiple operations in a single pass (encoding, ReplayGain, AcoustID)",
     )
     .option(
       "--encode",
-      "Encode files to M4A/AAC format.",
+      "Encode files to M4A/AAC format",
       { default: false },
     )
     .option(
       "--replay-gain",
-      "Calculate and apply ReplayGain metadata.",
+      "Calculate and apply ReplayGain metadata",
       { default: false },
     )
     .option(
       "--acoust-id",
-      "Generate and embed AcoustID fingerprints.",
+      "Generate and embed AcoustID fingerprints",
       { default: false },
     )
     .option(
       "--singles <patterns...:string>",
-      "Folder patterns to treat as singles instead of albums. Can be folder names or paths.",
+      "Folder patterns to treat as singles instead of albums",
       { collect: true },
     )
     .option(
       "--force-lossy-transcodes",
-      "Allow encoding from lossy formats (MP3, OGG). Not recommended due to quality loss.",
+      "Allow encoding from lossy formats (MP3, OGG) - quality loss warning.",
       { default: false },
     )
     .option(
       "-o, --output-dir <dir:string>",
-      "Output directory for encoded files. Defaults to same directory as source files.",
+      "Output directory for encoded files (defaults: source directory)",
     )
     .option(
       "--flatten-output",
-      "When using --output-dir, put all output files in a single directory.",
+      "Put all output files in one directory when using --output-dir",
       { default: false },
     )
     .option(
       "-f, --force",
-      "Force reprocessing even if tags exist.",
+      "Force reprocessing even if tags exist",
       { default: false },
     )
     .option(
       "-q, --quiet",
-      "Suppress informational output. Errors are still shown.",
+      "Suppress informational output (errors still shown)",
       { default: false },
     )
     .option(
       "--dry-run",
-      "Simulate processing but do not write any files or tags.",
+      "Simulate processing without writing files or tags",
       { default: false },
     )
     .option(
       "--api-key <key:string>",
-      "AcoustID API key (required for AcoustID lookups).",
+      "AcoustID API key (required for AcoustID lookups)",
       { default: Deno.env.get("ACOUSTID_API_KEY") },
     )
     .action(processCommand);
 
-  // Add discover subcommand for testing/debugging
+  // Add x-ray subcommand for testing/debugging
   program
     .command(
-      "discover <files...:string>",
-      "Test the music discovery system without processing files. Useful for debugging.",
+      "x-ray <files...:string>",
+      "X-ray the music library structure without processing files",
     )
     .option(
       "--for-encoding",
-      "Validate MPEG-4 codecs as if preparing for encoding.",
+      "Validate MPEG-4 codecs as if preparing for encoding",
       { default: false },
     )
     .option(
       "--singles <patterns...:string>",
-      "Folder patterns to treat as singles instead of albums.",
+      "Folder patterns to treat as singles instead of albums",
       { collect: true },
     )
     .option(
       "--debug",
-      "Enable debug output.",
+      "Enable debug output",
       { default: false },
     )
-    .action(discoverCommand);
+    .action(xRayCommand);
 
   return program;
 }

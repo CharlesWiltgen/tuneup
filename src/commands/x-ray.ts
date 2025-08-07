@@ -8,13 +8,13 @@ interface DiscoverOptions {
 }
 
 /**
- * Discover command for testing the music discovery system
+ * X-ray command for examining the music library structure
  */
-export async function discoverCommand(
+export async function xRayCommand(
   options: DiscoverOptions,
   ...paths: string[]
 ): Promise<void> {
-  console.log("🔍 Discovering music files...\n");
+  console.log("🩻 X-raying music library structure...\n");
 
   const startTime = performance.now();
 
@@ -37,7 +37,7 @@ export async function discoverCommand(
   // Clear progress line
   Deno.stdout.writeSync(new TextEncoder().encode("\x1b[2K\r"));
 
-  console.log(`✅ Discovery complete in ${duration}s\n`);
+  console.log(`✅ X-ray complete in ${duration}s\n`);
 
   // Summary statistics
   console.log("📊 Summary:");

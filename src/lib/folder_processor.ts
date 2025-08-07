@@ -17,7 +17,7 @@ export interface FolderProcessingOptions {
 export function analyzeFolderStructure(
   paths: string[],
   options: FolderProcessingOptions = {},
-): Promise<FolderProcessingResult> {
+): FolderProcessingResult {
   const result: FolderProcessingResult = {
     albums: new Map(),
     singles: [],

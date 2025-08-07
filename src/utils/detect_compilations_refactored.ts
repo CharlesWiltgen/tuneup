@@ -39,8 +39,10 @@ async function readFileMetadataForCompilation(
       if (tags) {
         metadata.push({
           artist: tags.artist || undefined,
-          albumArtist: tags.albumArtist || undefined,
-          compilationFlag: tags.compilation || undefined,
+          // Note: albumArtist and compilation are not available in the simple API
+          // These would require using the full TagLib API
+          albumArtist: undefined,
+          compilationFlag: undefined,
         });
       }
     }
