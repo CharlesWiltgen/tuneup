@@ -9,6 +9,7 @@ export const AUDIO_EXTENSIONS = new Set([
   ".aac",
   ".opus",
   ".wma",
+  ".alac",
 ]);
 
 /**

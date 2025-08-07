@@ -44,16 +44,26 @@ self.onmessage = async (e: MessageEvent<WorkerTask>) => {
   try {
     postLog(`💿 Encoding '${trackDisplayName}'`);
 
-    // Format output path display
+    // Format output path display in compact format
     const inputDir = inputPath.substring(0, inputPath.lastIndexOf("/"));
+    const inputFilename = inputPath.substring(inputPath.lastIndexOf("/") + 1);
     const outputDir = outputPath.substring(0, outputPath.lastIndexOf("/"));
     const outputFilename = outputPath.substring(
       outputPath.lastIndexOf("/") + 1,
     );
 
+    // Extract base name and extensions
+    const inputExtIndex = inputFilename.lastIndexOf(".");
+    const outputExtIndex = outputFilename.lastIndexOf(".");
+    const baseName = inputFilename.substring(0, inputExtIndex);
+    const inputExt = inputFilename.substring(inputExtIndex);
+    const outputExt = outputFilename.substring(outputExtIndex);
+
     if (inputDir === outputDir) {
-      postLog(`   🎧 ${inputPath} → ${outputFilename}`);
+      // Same directory: show in compact format
+      postLog(`   🎧 ${inputDir}/${baseName}: ${inputExt} → ${outputExt}`);
     } else {
+      // Different directories: show full paths
       postLog(`   🎧 ${inputPath} → ${outputPath}`);
     }
 

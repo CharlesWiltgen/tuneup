@@ -67,9 +67,14 @@ export async function processCommand(
         options.encode && discovery.skippedFiles &&
         discovery.skippedFiles.length > 0
       ) {
-        console.log(
-          `⏭️  Skipping ${discovery.skippedFiles.length} files already in AAC format\n`,
+        const alreadyEncoded = discovery.skippedFiles.filter((f) =>
+          f.reason === "already-encoded"
         );
+        if (alreadyEncoded.length > 0) {
+          console.log(
+            `🔄 Skipping ${alreadyEncoded.length} already-encoded files (use --force to re-encode/overwrite)\n`,
+          );
+        }
       }
     }
 

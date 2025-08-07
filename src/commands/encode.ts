@@ -1,6 +1,5 @@
 import { basename, extname } from "jsr:@std/path";
 import { generateOutputPath, isLosslessFormat } from "../lib/encoding.ts";
-import { getComprehensiveMetadata } from "../lib/tagging.ts";
 import { discoverMusic } from "../utils/fast_discovery.ts";
 import type { CommandOptions } from "../types/command.ts";
 import { EncodingStats } from "../utils/encoding_stats.ts";
@@ -130,18 +129,6 @@ async function createOutputDirectoryIfNeeded(
   }
 }
 
-async function getTrackDisplayName(file: string): Promise<string> {
-  try {
-    const metadata = await getComprehensiveMetadata(file);
-    if (metadata?.title) {
-      return metadata.title;
-    }
-  } catch {
-    // Fall back to filename if metadata read fails
-  }
-  return basename(file);
-}
-
 async function prepareEncodingTask(
   file: string,
   options: EncodeOptions,
@@ -174,8 +161,11 @@ async function prepareEncodingTask(
   // Create output directory if needed
   await createOutputDirectoryIfNeeded(outputPath, options);
 
-  // Get track display name
-  const trackDisplayName = await getTrackDisplayName(file);
+  // Performance trade-off: Use filename as display name instead of reading metadata
+  // Reading metadata here would take ~10s per file with taglib-wasm, blocking preparation
+  // The worker will show the filename initially, then can read actual metadata during encoding
+  // This allows parallel processing to start immediately rather than waiting for sequential reads
+  const trackDisplayName = basename(file);
 
   return { type: "task", task: { file, outputPath, trackDisplayName } };
 }
@@ -187,6 +177,7 @@ async function collectAllFiles(
   const discovery = await discoverMusic(files, {
     forEncoding: true, // This will validate MPEG-4 codecs
     forceEncode, // Pass through force encode option
+    parallelism: 16, // Increase parallelism for faster metadata reading
     onProgress: (phase, current) => {
       Deno.stdout.writeSync(
         new TextEncoder().encode(
@@ -215,19 +206,13 @@ async function collectAllFiles(
 
   // Report skipped files
   if (discovery.skippedFiles && discovery.skippedFiles.length > 0) {
-    const aacFiles = discovery.skippedFiles.filter((f) => f.reason === "aac");
     const alreadyEncoded = discovery.skippedFiles.filter((f) =>
       f.reason === "already-encoded"
     );
 
-    if (aacFiles.length > 0) {
-      console.log(
-        `\n⏭️  Skipping ${aacFiles.length} files already in AAC format`,
-      );
-    }
     if (alreadyEncoded.length > 0) {
       console.log(
-        `🔄 Skipping ${alreadyEncoded.length} files that already have encoded versions`,
+        `\n🔄 Skipping ${alreadyEncoded.length} already-encoded files (use --force to re-encode/overwrite)`,
       );
     }
   }

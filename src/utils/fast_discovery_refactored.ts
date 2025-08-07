@@ -1,5 +1,4 @@
 import { extname } from "jsr:@std/path";
-import { readMetadataBatch } from "jsr:@charlesw/taglib-wasm@0.5.4/simple";
 import {
   buildScanResult,
   classifyDirectories,
@@ -12,6 +11,11 @@ import { detectCompilationsRefactored } from "./detect_compilations_refactored.t
 
 // Re-export SkippedFile for external use
 export type { SkippedFile } from "./fast_discovery.ts";
+
+/**
+ * Performance optimization constants for compilation detection
+ */
+const MAX_FILES_FOR_SMALL_COLLECTION = 10;
 
 /**
  * Brand type for file paths to ensure type safety
@@ -78,9 +82,12 @@ export function buildFileMaps(config: FileMapConfig): FileMaps {
   const mpeg4Files: FilePath[] = [];
 
   for (const file of files) {
-    // Extract MPEG-4 files
+    // Extract MPEG-4 files (.m4a, .mp4, .alac)
     const lower = file.toLowerCase();
-    if (lower.endsWith(".m4a") || lower.endsWith(".mp4")) {
+    if (
+      lower.endsWith(".m4a") || lower.endsWith(".mp4") ||
+      lower.endsWith(".alac")
+    ) {
       mpeg4Files.push(file);
     }
 
@@ -178,10 +185,13 @@ export function detectAlreadyEncodedFiles(
         filesToEncode.push(file);
       }
     } else if (ext === "m4a" || ext === "mp4") {
-      // ALAC files should be in the filesToEncode list
+      // M4A/MP4 files assumed to be AAC (lossy) - skip unless forced
       if (!aacFiles.has(file)) {
         filesToEncode.push(file);
       }
+    } else if (ext === "alac") {
+      // ALAC files are lossless and should be encodable
+      filesToEncode.push(file);
     } else if (!lossyFormats.has(ext)) {
       // Other formats that might be encodable
       filesToEncode.push(file);
@@ -193,14 +203,16 @@ export function detectAlreadyEncodedFiles(
 }
 
 /**
- * Validate MPEG-4 files and detect AAC/ALAC codecs
- * Extracts the MPEG-4 validation logic from discoverMusic
+ * Validate MPEG-4 files using file extensions
+ * .alac files are considered lossless (ALAC)
+ * .m4a/.mp4 files are considered lossy (AAC)
+ * This is a performance optimization to avoid slow metadata reading
  */
-export async function validateMpeg4Files(
+export function validateMpeg4Files(
   mpeg4Files: FilePath[],
-  parallelism: number = 8,
+  _parallelism: number = 8,
   debug?: boolean,
-): Promise<{ aacSkipped: SkippedFile[]; aacFiles: Set<FilePath> }> {
+): { aacSkipped: SkippedFile[]; aacFiles: Set<FilePath> } {
   const aacSkipped: SkippedFile[] = [];
   const aacFiles = new Set<FilePath>();
 
@@ -209,45 +221,30 @@ export async function validateMpeg4Files(
   }
 
   if (debug) {
-    console.log(`[DEBUG] Validating ${mpeg4Files.length} MPEG-4 files`);
+    console.log(
+      `[DEBUG] Validating ${mpeg4Files.length} MPEG-4 files by extension`,
+    );
   }
 
-  try {
-    const results = await readMetadataBatch(mpeg4Files, {
-      concurrency: parallelism,
-      continueOnError: true,
-    });
+  // Use file extension to determine codec
+  // .alac = ALAC (lossless, not skipped)
+  // .m4a/.mp4 = AAC (lossy, skipped)
+  for (const file of mpeg4Files) {
+    const ext = extname(file).toLowerCase();
 
-    for (let i = 0; i < results.results.length; i++) {
-      const result = results.results[i];
-      const file = mpeg4Files[i];
-
-      if ("error" in result && result.error) {
-        aacSkipped.push({ path: file, reason: "error" });
-        if (debug) {
-          console.log(`[DEBUG] Error reading ${file}: ${result.error}`);
-        }
-        continue;
-      }
-
-      const properties = result.data?.properties;
-      const codec = (properties?.codec || "").toLowerCase();
-
+    if (ext === ".alac") {
+      // ALAC files are lossless, don't skip
       if (debug) {
-        console.log(`[DEBUG] ${file} codec: ${codec || "unknown"}`);
+        console.log(`[DEBUG] ${file} extension: .alac (ALAC/lossless)`);
       }
-
-      if (codec.includes("aac")) {
-        aacSkipped.push({ path: file, reason: "aac", codec });
-        aacFiles.add(file);
+    } else if (ext === ".m4a" || ext === ".mp4") {
+      // M4A/MP4 files are assumed to be AAC (lossy)
+      aacSkipped.push({ path: file, reason: "aac", codec: "aac (assumed)" });
+      aacFiles.add(file);
+      if (debug) {
+        console.log(`[DEBUG] ${file} extension: ${ext} (AAC/lossy assumed)`);
       }
-      // ALAC and other codecs are not added to skipped
     }
-  } catch (error) {
-    if (debug) {
-      console.error(`[DEBUG] Batch metadata read failed: ${error}`);
-    }
-    // On failure, treat all as encodable to be safe
   }
 
   return { aacSkipped, aacFiles };
@@ -326,8 +323,20 @@ export async function discoverMusicRefactored(
   if (options?.forEncoding) {
     options?.onProgress?.("validate", 0);
 
-    // Detect compilations
-    if (albums.size > 0) {
+    // Build file maps once (performance optimization)
+    const filePaths = scan.allFiles.map(asFilePath);
+    const fileMaps = buildFileMaps({ files: filePaths, debug });
+
+    // Skip compilation detection if there are no MPEG-4 files
+    // This is a performance optimization since compilation detection reads metadata
+    // which is slow (~10s per file). We only need compilation detection for organizing
+    // encoded output, so if there are no M4A files to validate, we can skip it.
+    // Exception: Always detect for single small albums (quick to check 3 files)
+    const shouldDetectCompilations = fileMaps.mpeg4Files.length > 0 ||
+      (albums.size === 1 &&
+        scan.allFiles.length <= MAX_FILES_FOR_SMALL_COLLECTION);
+
+    if (shouldDetectCompilations && albums.size > 0) {
       const { albums: regularAlbums, compilations } =
         await detectCompilationsRefactored(
           albums,
@@ -339,14 +348,14 @@ export async function discoverMusicRefactored(
       if (debug && compilations.size > 0) {
         console.log(`[DEBUG] Detected ${compilations.size} compilations`);
       }
+    } else if (debug && !shouldDetectCompilations) {
+      console.log(
+        `[DEBUG] Skipping compilation detection (no MPEG-4 files and ${albums.size} albums)`,
+      );
     }
 
-    // Build file maps once (performance optimization)
-    const filePaths = scan.allFiles.map(asFilePath);
-    const fileMaps = buildFileMaps({ files: filePaths, debug });
-
     // Validate MPEG-4 files
-    const { aacSkipped, aacFiles } = await validateMpeg4Files(
+    const { aacSkipped, aacFiles } = validateMpeg4Files(
       fileMaps.mpeg4Files,
       options?.parallelism,
       debug,

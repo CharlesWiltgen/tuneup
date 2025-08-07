@@ -1,4 +1,4 @@
-import { ensureTagLib } from "../lib/taglib_init.ts";
+import { readMetadataBatch } from "jsr:@charlesw/taglib-wasm@0.5.4/simple";
 import {
   aggregateAlbumMetadata,
   type FileMetadata,
@@ -6,38 +6,47 @@ import {
 } from "./compilation_detection.ts";
 
 /**
- * Read metadata from audio files for compilation detection
+ * Read metadata from audio files for compilation detection using batch API
  */
 async function readFileMetadataForCompilation(
   files: string[],
   debug?: boolean,
 ): Promise<FileMetadata[]> {
-  const taglib = await ensureTagLib();
   const metadata: FileMetadata[] = [];
 
-  for (const file of files) {
-    try {
-      const fileData = await Deno.readFile(file);
-      const tags = await taglib.open(fileData);
+  if (files.length === 0) {
+    return metadata;
+  }
 
-      try {
-        const artist = tags.getProperty("ARTIST");
-        const albumArtist = tags.getProperty("ALBUMARTIST");
-        const compilationFlag = tags.getProperty("COMPILATION");
+  try {
+    const results = await readMetadataBatch(files, {
+      concurrency: 16,
+      continueOnError: true,
+    });
 
+    for (let i = 0; i < results.results.length; i++) {
+      const result = results.results[i];
+      const file = files[i];
+
+      if ("error" in result && result.error) {
+        if (debug) {
+          console.log(`[DEBUG] Error reading ${file}: ${result.error}`);
+        }
+        continue;
+      }
+
+      const tags = result.data?.tags;
+      if (tags) {
         metadata.push({
-          artist,
-          albumArtist,
-          compilationFlag,
+          artist: tags.artist || undefined,
+          albumArtist: tags.albumArtist || undefined,
+          compilationFlag: tags.compilation || undefined,
         });
-      } finally {
-        tags.dispose();
       }
-    } catch (error) {
-      if (debug) {
-        console.log(`[DEBUG] Error reading ${file}: ${error}`);
-      }
-      // Continue with other files
+    }
+  } catch (error) {
+    if (debug) {
+      console.error(`[DEBUG] Batch metadata read failed: ${error}`);
     }
   }
 
