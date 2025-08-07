@@ -1,7 +1,10 @@
 import { basename, dirname, extname } from "jsr:@std/path";
 import { normalizeForMatching } from "./normalize.ts";
 import { readMetadataBatch } from "jsr:@charlesw/taglib-wasm@0.5.4/simple";
-import { listAudioFilesRecursive } from "../lib/fastest_audio_scan_recursive.ts";
+import {
+  AUDIO_EXTENSIONS,
+  listAudioFilesRecursive,
+} from "../lib/fastest_audio_scan_recursive.ts";
 
 // Using AUDIO_EXTENSIONS from fastest_audio_scan_recursive.ts
 // Extensions include: .mp3, .flac, .ogg, .m4a, .wav, .aac, .opus, .wma
@@ -62,37 +65,9 @@ type FileClassificationResult =
 // Import the actual types from taglib-wasm or use type inference
 type BatchResult = Awaited<ReturnType<typeof readMetadataBatch>>;
 
-/**
- * Recursively collects audio files from the given paths
- *
- * @param paths - Array of file or directory paths to scan
- * @param onProgress - Optional callback for progress updates
- * @returns Array of discovered audio file paths (sorted)
- *
- * @example
- * ```typescript
- * const files = await collectAudioFiles(["/music/albums", "/music/singles.mp3"]);
- * console.log(`Found ${files.length} audio files`);
- * ```
- */
-export function collectAudioFiles(
-  paths: string[],
-  onProgress?: (count: number) => void,
-): Promise<string[]> {
-  // Use the synchronous scanner
-  const allFiles = listAudioFilesRecursive(paths);
-
-  // Report progress at intervals
-  if (onProgress) {
-    for (let i = 0; i < allFiles.length; i++) {
-      if (i % 50 === 0 || i === allFiles.length - 1) {
-        onProgress(i + 1);
-      }
-    }
-  }
-
-  return allFiles; // Already sorted by the scanner
-}
+// DEPRECATED: Use listAudioFilesRecursive directly from fastest_audio_scan_recursive.ts
+// This export is maintained for backward compatibility only
+export { listAudioFilesRecursive as collectAudioFiles } from "../lib/fastest_audio_scan_recursive.ts";
 
 /**
  * Discovers audio files and classifies them into albums and singles based on metadata
@@ -125,7 +100,7 @@ export async function discoverAudioFiles(
   options?: DiscoveryOptions,
 ): Promise<DiscoveryResult> {
   // Phase 1: Discovery
-  const allFiles = await discoverFilesWithProgress(paths, options);
+  const allFiles = discoverFilesWithProgress(paths, options);
 
   // Phase 2: Organize files
   const { fileBaseMap, filesByDirectory } = organizeFiles(allFiles);
@@ -158,21 +133,45 @@ export async function discoverAudioFiles(
  * @param options - Discovery options
  * @returns Set of unique file paths
  */
-async function discoverFilesWithProgress(
+function discoverFilesWithProgress(
   paths: string[],
   options?: DiscoveryOptions,
-): Promise<Set<string>> {
+): Set<string> {
   if (options?.onProgress) {
     options.onProgress("discovery", 0, 0);
   }
 
-  const allFiles = await collectAudioFiles(paths, (count) => {
-    if (options?.onProgress) {
-      options.onProgress("discovery", count, count);
-    }
-  });
+  const files: string[] = [];
+  const directories: string[] = [];
 
-  return new Set(allFiles); // Deduplication
+  // Separate files from directories
+  for (const path of paths) {
+    try {
+      const stat = Deno.statSync(path);
+      if (stat.isFile) {
+        const ext = extname(path).toLowerCase();
+        if (AUDIO_EXTENSIONS.has(ext)) {
+          files.push(path);
+        }
+      } else if (stat.isDirectory) {
+        directories.push(path);
+      }
+    } catch {
+      // Ignore inaccessible paths
+    }
+  }
+
+  // Scan directories for audio files
+  if (directories.length > 0) {
+    files.push(...listAudioFilesRecursive(directories));
+  }
+
+  // Report progress
+  if (options?.onProgress) {
+    options.onProgress("discovery", files.length, files.length);
+  }
+
+  return new Set(files); // Deduplication
 }
 
 /**

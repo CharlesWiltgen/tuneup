@@ -1,12 +1,13 @@
 import { extname } from "jsr:@std/path";
 import { readMetadataBatch } from "jsr:@charlesw/taglib-wasm@0.5.4/simple";
 import {
+  buildScanResult,
   classifyDirectories,
   type DiscoveryOptions,
   type MusicDiscovery,
-  parallelFileScan,
   type SkippedFile,
 } from "./fast_discovery.ts";
+import { listAudioFilesRecursive } from "../lib/fastest_audio_scan_recursive.ts";
 import { detectCompilationsRefactored } from "./detect_compilations_refactored.ts";
 
 // Re-export SkippedFile for external use
@@ -268,8 +269,29 @@ export async function discoverMusicRefactored(
     );
   }
 
-  // Phase 1: Fast parallel FS scan
-  const scan = await parallelFileScan(paths, options);
+  // Phase 1: Fast FS scan
+  // Note: listAudioFilesRecursive only handles directories, so we must separate files first
+  const directories = paths.filter((path) => {
+    try {
+      return Deno.statSync(path).isDirectory;
+    } catch {
+      return false;
+    }
+  });
+
+  if (directories.length === 0) {
+    // No directories to scan
+    return {
+      albums: new Map(),
+      compilations: new Map(),
+      singles: [],
+      totalFiles: 0,
+      scan: { filesByDir: new Map(), dirInfo: new Map(), allFiles: [] },
+    };
+  }
+
+  const allFiles = listAudioFilesRecursive(directories);
+  const scan = buildScanResult(allFiles, options);
 
   if (debug) {
     console.log(

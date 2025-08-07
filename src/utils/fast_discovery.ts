@@ -78,17 +78,15 @@ interface DirInfo {
 }
 
 /**
- * Parallel directory scanner for maximum performance
+ * Build scan result from audio files
+ * @deprecated Use listAudioFilesRecursive directly and build grouping as needed
  */
-function parallelFileScan(
-  roots: string[],
+function buildScanResult(
+  allFiles: string[],
   options?: DiscoveryOptions,
-): Promise<ScanResult> {
+): ScanResult {
   const filesByDir = new Map<string, string[]>();
   const dirInfo = new Map<string, DirInfo>();
-
-  // Use the synchronous scanner
-  const allFiles = listAudioFilesRecursive(roots);
 
   // Group files by directory and build directory info
   for (let i = 0; i < allFiles.length; i++) {
@@ -135,6 +133,18 @@ function parallelFileScan(
   options?.onProgress?.("scan", allFiles.length, allFiles.length);
 
   return { filesByDir, dirInfo, allFiles };
+}
+
+/**
+ * Parallel directory scanner for maximum performance
+ * @deprecated Use listAudioFilesRecursive directly from fastest_audio_scan_recursive.ts
+ */
+function parallelFileScan(
+  roots: string[],
+  options?: DiscoveryOptions,
+): ScanResult {
+  const allFiles = listAudioFilesRecursive(roots);
+  return buildScanResult(allFiles, options);
 }
 
 /**
@@ -281,6 +291,6 @@ export async function parallelCheckMpeg4Codecs(
 export { discoverMusicRefactored as discoverMusic } from "./fast_discovery_refactored.ts";
 
 // Export internal functions and types for refactored version
-export { classifyDirectories, parallelFileScan };
+export { buildScanResult, classifyDirectories, parallelFileScan };
 export { detectCompilationsRefactored as detectCompilations } from "./detect_compilations_refactored.ts";
 export type { ScanResult };

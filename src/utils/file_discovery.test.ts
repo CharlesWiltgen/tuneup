@@ -2,7 +2,8 @@ import { assertEquals } from "jsr:@std/assert";
 import { afterEach, beforeEach, describe, it } from "jsr:@std/testing/bdd";
 import { ensureDir } from "jsr:@std/fs";
 import { dirname, join } from "jsr:@std/path";
-import { collectAudioFiles, discoverAudioFiles } from "./file_discovery.ts";
+import { discoverAudioFiles } from "./file_discovery.ts";
+import { listAudioFilesRecursive as collectAudioFiles } from "../lib/fastest_audio_scan_recursive.ts";
 
 // Test helpers
 async function createTempDir(): Promise<string> {
@@ -194,19 +195,14 @@ describe("collectAudioFiles (existing)", () => {
     assertEquals(files[0].endsWith("audio.mp3"), true);
   });
 
-  it("should handle progress callbacks", async () => {
+  it("should collect files without progress callback", async () => {
     await createTestFile(join(tempDir, "1.mp3"));
     await createTestFile(join(tempDir, "2.mp3"));
     await createTestFile(join(tempDir, "3.mp3"));
 
-    const progressCalls: number[] = [];
-    await collectAudioFiles([tempDir], (count) => {
-      progressCalls.push(count);
-    });
+    const files = collectAudioFiles([tempDir]);
 
-    // Should have progress calls
-    assertEquals(progressCalls.length > 0, true);
-    // Final progress should be 3
-    assertEquals(progressCalls[progressCalls.length - 1], 3);
+    // Should find all 3 files
+    assertEquals(files.length, 3);
   });
 });
