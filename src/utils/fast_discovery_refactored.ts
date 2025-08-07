@@ -2,11 +2,12 @@ import { extname } from "jsr:@std/path";
 import { readMetadataBatch } from "jsr:@charlesw/taglib-wasm@0.5.4/simple";
 import {
   classifyDirectories,
-  detectCompilations,
   type DiscoveryOptions,
   type MusicDiscovery,
   parallelFileScan,
+  type SkippedFile,
 } from "./fast_discovery.ts";
+import { detectCompilationsRefactored } from "./detect_compilations_refactored.ts";
 
 // Re-export SkippedFile for external use
 export type { SkippedFile } from "./fast_discovery.ts";
@@ -305,10 +306,11 @@ export async function discoverMusicRefactored(
 
     // Detect compilations
     if (albums.size > 0) {
-      const { albums: regularAlbums, compilations } = await detectCompilations(
-        albums,
-        debug,
-      );
+      const { albums: regularAlbums, compilations } =
+        await detectCompilationsRefactored(
+          albums,
+          debug,
+        );
       result.albums = regularAlbums;
       result.compilations = compilations;
 

@@ -9,7 +9,7 @@ import {
   type FolderScanResult,
   scanFolder as taglibScanFolder,
 } from "jsr:@charlesw/taglib-wasm@0.5.4";
-import { SUPPORTED_EXTENSIONS } from "../utils/file_discovery.ts";
+import { AUDIO_EXTENSIONS } from "./fastest_audio_scan_recursive.ts";
 import { ensureTagLib } from "./taglib_init.ts";
 
 // Import remaining folder API functions
@@ -37,7 +37,7 @@ export async function scanMusicDirectory(
 ): Promise<FolderScanResult> {
   const scanOptions: FolderScanOptions = {
     recursive: options?.recursive ?? true,
-    extensions: SUPPORTED_EXTENSIONS.map((ext) => `.${ext}`),
+    extensions: Array.from(AUDIO_EXTENSIONS),
     onProgress: options?.onProgress,
     useWorkerPool: options?.useWorkerPool ?? true, // Enable worker pool by default for better performance
     includeProperties: true,

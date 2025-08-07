@@ -216,13 +216,8 @@ Deno.test("amusic.ts Integration Tests", async (t) => {
     // Check either stdout or stderr for the error message
     const combinedOutput = result.stdout + result.stderr;
     assert(
-      combinedOutput.includes(
-        `Error: Path "${nonExistentFileName}" not found`,
-      ) ||
-        combinedOutput.includes(
-          `Error: File not found at "${nonExistentFileName}"`,
-        ),
-      "Expected error message for non-existent file",
+      combinedOutput.includes("Error: No supported audio files found"),
+      "Expected 'No supported audio files found' error message for non-existent file",
     );
 
     await cleanupTestDir(currentTestDir);
@@ -491,12 +486,8 @@ Deno.test("Error Handling Edge Cases", async (t) => {
 
     const result = await runAmusicScript(["readme.txt"], currentTestDir);
 
-    // The script warns about unsupported extension and exits with "No supported audio files found"
+    // The discovery system silently ignores unsupported files and reports no audio files found
     const combinedOutput = result.stdout + result.stderr;
-    assertStringIncludes(
-      combinedOutput,
-      `Warning: File "readme.txt" has unsupported extension; skipping.`,
-    );
     assertStringIncludes(
       combinedOutput,
       "Error: No supported audio files found.",

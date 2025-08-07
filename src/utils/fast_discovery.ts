@@ -1,22 +1,9 @@
-import { extname, join } from "jsr:@std/path";
+// Removed unused imports (extname, join)
 import { readMetadataBatch } from "jsr:@charlesw/taglib-wasm@0.5.4/simple";
-import { normalizeForMatching } from "./normalize.ts";
-import { ensureTagLib } from "../lib/taglib_init.ts";
+import { listAudioFilesRecursive } from "../lib/fastest_audio_scan_recursive.ts";
 
-/**
- * Supported audio file extensions (without dots)
- */
-export const MUSIC_EXTENSIONS = new Set([
-  "mp3",
-  "flac",
-  "ogg",
-  "m4a",
-  "mp4",
-  "wav",
-  "aac",
-  "opus",
-  "wma",
-]);
+// Using AUDIO_EXTENSIONS from fastest_audio_scan_recursive.ts
+// Extensions include: .mp3, .flac, .ogg, .m4a, .wav, .aac, .opus, .wma
 
 /**
  * Result of music discovery
@@ -91,122 +78,61 @@ interface DirInfo {
 }
 
 /**
- * Fast recursive directory scanner using native APIs
- */
-async function* walkMusicFiles(
-  dir: string,
-  extensions: Set<string>,
-): AsyncGenerator<{ file: string; dir: string }> {
-  const dirEntries = [];
-
-  try {
-    // Batch collect entries first
-    for await (const entry of Deno.readDir(dir)) {
-      dirEntries.push(entry);
-    }
-  } catch {
-    // Skip inaccessible directories
-    return;
-  }
-
-  // Process files immediately
-  for (const entry of dirEntries) {
-    if (entry.isFile) {
-      const ext = extname(entry.name).slice(1).toLowerCase();
-      if (extensions.has(ext)) {
-        yield { file: join(dir, entry.name), dir };
-      }
-    }
-  }
-
-  // Then recurse into directories
-  for (const entry of dirEntries) {
-    if (entry.isDirectory && !entry.name.startsWith(".")) {
-      yield* walkMusicFiles(join(dir, entry.name), extensions);
-    }
-  }
-}
-
-/**
  * Parallel directory scanner for maximum performance
  */
-async function parallelFileScan(
+function parallelFileScan(
   roots: string[],
   options?: DiscoveryOptions,
 ): Promise<ScanResult> {
   const filesByDir = new Map<string, string[]>();
   const dirInfo = new Map<string, DirInfo>();
-  const allFiles: string[] = [];
 
-  let scannedCount = 0;
+  // Use the synchronous scanner
+  const allFiles = listAudioFilesRecursive(roots);
 
-  // Process each root path
-  for (const root of roots) {
-    const rootStat = await Deno.stat(root).catch(() => null);
-    if (!rootStat) continue;
+  // Group files by directory and build directory info
+  for (let i = 0; i < allFiles.length; i++) {
+    const file = allFiles[i];
+    const dir = file.substring(0, file.lastIndexOf("/")) || ".";
 
-    if (rootStat.isFile) {
-      // Single file
-      const ext = extname(root).slice(1).toLowerCase();
-      if (MUSIC_EXTENSIONS.has(ext)) {
-        const dir = root.substring(0, root.lastIndexOf("/")) || ".";
-        if (!filesByDir.has(dir)) {
-          filesByDir.set(dir, []);
-        }
-        filesByDir.get(dir)!.push(root);
-        allFiles.push(root);
-        scannedCount++;
-        options?.onProgress?.("scan", scannedCount);
-      }
-    } else if (rootStat.isDirectory) {
-      // Directory - scan recursively
-      const dirsToProcess = new Map<string, number>();
+    if (!filesByDir.has(dir)) {
+      filesByDir.set(dir, []);
 
-      for await (
-        const { file, dir } of walkMusicFiles(root, MUSIC_EXTENSIONS)
-      ) {
-        if (!filesByDir.has(dir)) {
-          filesByDir.set(dir, []);
+      // Calculate directory info
+      const parent = dir.substring(0, dir.lastIndexOf("/")) || null;
+      const depth = dir.split("/").filter(Boolean).length;
 
-          // Calculate directory info
-          const parent = dir.substring(0, dir.lastIndexOf("/")) || null;
-          const depth = dir.split("/").filter(Boolean).length;
-          dirsToProcess.set(dir, depth);
+      dirInfo.set(dir, {
+        path: dir,
+        parent,
+        hasSubdirs: false, // Will update later
+        fileCount: 0,
+        depth,
+      });
+    }
 
-          dirInfo.set(dir, {
-            path: dir,
-            parent,
-            hasSubdirs: false, // Will update later
-            fileCount: 0,
-            depth,
-          });
-        }
+    filesByDir.get(dir)!.push(file);
 
-        filesByDir.get(dir)!.push(file);
-        allFiles.push(file);
-        scannedCount++;
+    // Progress reporting
+    if (i % 50 === 0) {
+      options?.onProgress?.("scan", i);
+    }
+  }
 
-        if (scannedCount % 50 === 0) {
-          options?.onProgress?.("scan", scannedCount);
-        }
-      }
+  // Update directory info
+  for (const [dir, info] of dirInfo) {
+    info.fileCount = filesByDir.get(dir)?.length || 0;
 
-      // Update directory info
-      for (const [dir, info] of dirInfo) {
-        info.fileCount = filesByDir.get(dir)?.length || 0;
-
-        // Check if this dir has subdirs with files
-        for (const [otherDir] of filesByDir) {
-          if (otherDir.startsWith(dir + "/") && otherDir !== dir) {
-            info.hasSubdirs = true;
-            break;
-          }
-        }
+    // Check if this dir has subdirs with files
+    for (const [otherDir] of filesByDir) {
+      if (otherDir.startsWith(dir + "/") && otherDir !== dir) {
+        info.hasSubdirs = true;
+        break;
       }
     }
   }
 
-  options?.onProgress?.("scan", scannedCount, scannedCount);
+  options?.onProgress?.("scan", allFiles.length, allFiles.length);
 
   return { filesByDir, dirInfo, allFiles };
 }
@@ -288,99 +214,6 @@ function matchesSinglePattern(dir: string, patterns: string[]): boolean {
 }
 
 /**
- * Detect compilation albums based on metadata
- */
-async function detectCompilations(
-  albums: Map<string, string[]>,
-  debug?: boolean,
-): Promise<
-  { albums: Map<string, string[]>; compilations: Map<string, string[]> }
-> {
-  const regularAlbums = new Map<string, string[]>();
-  const compilations = new Map<string, string[]>();
-
-  // Get TagLib instance for full metadata access
-  const taglib = await ensureTagLib();
-
-  // Read metadata for first few files of each album to check if it's a compilation
-  for (const [dir, files] of albums) {
-    // Read metadata for up to 3 files to determine if it's a compilation
-    const samplesToCheck = Math.min(3, files.length);
-    const sampleFiles = files.slice(0, samplesToCheck);
-
-    let isCompilation = false;
-    const artistsFound = new Set<string>();
-
-    for (const file of sampleFiles) {
-      try {
-        const fileData = await Deno.readFile(file);
-        const tags = await taglib.open(fileData, file);
-
-        try {
-          // Get artist for diversity check
-          const artist = tags.getProperty("ARTIST");
-          if (artist) {
-            artistsFound.add(normalizeForMatching(artist));
-          }
-
-          // Check for "Various Artists" album artist
-          const albumArtist = tags.getProperty("ALBUMARTIST") || "";
-          const normalizedAlbumArtist = normalizeForMatching(albumArtist);
-          if (normalizedAlbumArtist === "various artists") {
-            isCompilation = true;
-            if (debug) {
-              console.log(
-                `[DEBUG] ${dir} is a compilation (album artist: "${albumArtist}")`,
-              );
-            }
-            break;
-          }
-
-          // Check for compilation flag
-          const compilationFlag = tags.getProperty("COMPILATION");
-          if (
-            compilationFlag === "1" || compilationFlag === 1 ||
-            compilationFlag === true
-          ) {
-            isCompilation = true;
-            if (debug) {
-              console.log(
-                `[DEBUG] ${dir} is a compilation (compilation flag: ${compilationFlag})`,
-              );
-            }
-            break;
-          }
-        } finally {
-          tags.dispose();
-        }
-      } catch (error) {
-        if (debug) {
-          console.log(`[DEBUG] Error reading ${file}: ${error}`);
-        }
-      }
-    }
-
-    // Fallback: If we found multiple different artists in the album, it's likely a compilation
-    if (!isCompilation && artistsFound.size >= 3) {
-      isCompilation = true;
-      if (debug) {
-        console.log(
-          `[DEBUG] ${dir} is a compilation (${artistsFound.size} different artists found)`,
-        );
-      }
-    }
-
-    if (isCompilation) {
-      compilations.set(dir, files);
-    } else {
-      regularAlbums.set(dir, files);
-    }
-  }
-
-  return { albums: regularAlbums, compilations };
-}
-
-/**
  * Check MPEG-4 files for codec information in parallel
  */
 export async function parallelCheckMpeg4Codecs(
@@ -448,5 +281,6 @@ export async function parallelCheckMpeg4Codecs(
 export { discoverMusicRefactored as discoverMusic } from "./fast_discovery_refactored.ts";
 
 // Export internal functions and types for refactored version
-export { classifyDirectories, detectCompilations, parallelFileScan };
+export { classifyDirectories, parallelFileScan };
+export { detectCompilationsRefactored as detectCompilations } from "./detect_compilations_refactored.ts";
 export type { ScanResult };

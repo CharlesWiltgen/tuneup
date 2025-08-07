@@ -1,8 +1,4 @@
-import { extname, join } from "jsr:@std/path";
-import {
-  collectAudioFiles,
-  SUPPORTED_EXTENSIONS,
-} from "../utils/file_discovery.ts";
+import { listAudioFilesRecursive } from "./fastest_audio_scan_recursive.ts";
 
 export interface FolderProcessingResult {
   albums: Map<string, string[]>; // album path -> audio files
@@ -18,7 +14,7 @@ export interface FolderProcessingOptions {
  * Analyzes a folder structure and determines which folders are albums
  * and which files should be processed as singles
  */
-export async function analyzeFolderStructure(
+export function analyzeFolderStructure(
   paths: string[],
   options: FolderProcessingOptions = {},
 ): Promise<FolderProcessingResult> {
@@ -29,104 +25,72 @@ export async function analyzeFolderStructure(
 
   const { singlesPatterns = [], quiet } = options;
 
-  for (const path of paths) {
-    try {
-      const stat = await Deno.stat(path);
+  // Get all audio files at once using the fast scanner
+  const allFiles = listAudioFilesRecursive(paths);
 
-      if (stat.isFile) {
-        // Single file: always treat as single
-        if (isAudioFile(path)) {
-          result.singles.push(path);
-        }
-      } else if (stat.isDirectory) {
-        // Check if this folder should be treated as singles
-        const treatAsSingles = shouldTreatAsSingles(path, singlesPatterns);
+  // Group files by directory
+  const filesByDir = new Map<string, string[]>();
+  for (const file of allFiles) {
+    const dir = file.substring(0, file.lastIndexOf("/")) || ".";
+    if (!filesByDir.has(dir)) {
+      filesByDir.set(dir, []);
+    }
+    filesByDir.get(dir)!.push(file);
+  }
 
-        if (treatAsSingles) {
-          // Collect all audio files in this directory as singles
-          const audioFiles = await collectAudioFiles([path]);
-          result.singles.push(...audioFiles);
-          if (!quiet) {
-            console.log(
-              `📂 Processing "${path}" as singles (${audioFiles.length} files)`,
-            );
-          }
-        } else {
-          // Process as album(s)
-          await processFolderAsAlbums(path, result, quiet, singlesPatterns);
+  // Build directory hierarchy info
+  const dirHierarchy = new Map<string, Set<string>>();
+  for (const dir of filesByDir.keys()) {
+    const parent = dir.substring(0, dir.lastIndexOf("/")) || null;
+    if (parent && parent !== dir) {
+      if (!dirHierarchy.has(parent)) {
+        dirHierarchy.set(parent, new Set());
+      }
+      dirHierarchy.get(parent)!.add(dir);
+    }
+  }
+
+  // Process each directory
+  for (const [dir, files] of filesByDir) {
+    // Check if this directory should be treated as singles
+    if (shouldTreatAsSingles(dir, singlesPatterns)) {
+      result.singles.push(...files);
+      if (!quiet) {
+        console.log(
+          `📂 Processing "${dir}" as singles (${files.length} files)`,
+        );
+      }
+      continue;
+    }
+
+    // Check if this directory has subdirectories with files
+    const hasSubdirsWithFiles = dirHierarchy.has(dir) &&
+      Array.from(dirHierarchy.get(dir)!).some((subdir) =>
+        filesByDir.has(subdir)
+      );
+
+    if (hasSubdirsWithFiles) {
+      // This directory has subdirs with files - warn about files here
+      if (files.length > 0 && !quiet) {
+        console.warn(
+          `⚠️  Found ${files.length} audio files in "${dir}" which also contains subfolders. ` +
+            `These files will be ignored. Move them to a subfolder or use --singles to process them.`,
+        );
+      }
+    } else {
+      // This is a leaf directory with audio files - treat as album
+      if (files.length > 0) {
+        result.albums.set(dir, files);
+        if (!quiet) {
+          console.log(
+            `💿 Found album: "${dir}" (${files.length} tracks)`,
+          );
         }
       }
-    } catch (error) {
-      console.error(`Error processing path "${path}": ${error}`);
     }
   }
 
   return result;
-}
-
-/**
- * Process a folder, determining if it's an album or contains albums
- */
-async function processFolderAsAlbums(
-  folderPath: string,
-  result: FolderProcessingResult,
-  quiet?: boolean,
-  singlesPatterns: string[] = [],
-): Promise<void> {
-  const entries: Deno.DirEntry[] = [];
-  const audioFiles: string[] = [];
-  let hasSubfolders = false;
-
-  // Scan the folder
-  for await (const entry of Deno.readDir(folderPath)) {
-    if (entry.isDirectory) {
-      hasSubfolders = true;
-      entries.push(entry);
-    } else if (entry.isFile && isAudioFile(entry.name)) {
-      audioFiles.push(join(folderPath, entry.name));
-    }
-  }
-
-  if (hasSubfolders) {
-    // This folder contains subfolders - process each as a potential album
-    for (const entry of entries) {
-      const subfolderPath = join(folderPath, entry.name);
-
-      // Check if this subfolder should be treated as singles
-      if (shouldTreatAsSingles(subfolderPath, singlesPatterns)) {
-        const audioFiles = await collectAudioFiles([subfolderPath]);
-        result.singles.push(...audioFiles);
-        if (!quiet) {
-          console.log(
-            `📂 Processing "${subfolderPath}" as singles (${audioFiles.length} files)`,
-          );
-        }
-      } else {
-        await processFolderAsAlbums(
-          subfolderPath,
-          result,
-          quiet,
-          singlesPatterns,
-        );
-      }
-    }
-
-    // If there are also audio files in this parent folder, warn the user
-    if (audioFiles.length > 0 && !quiet) {
-      console.warn(
-        `⚠️  Found ${audioFiles.length} audio files in "${folderPath}" which also contains subfolders. ` +
-          `These files will be ignored. Move them to a subfolder or use --singles to process them.`,
-      );
-    }
-  } else if (audioFiles.length > 0) {
-    // This is a leaf folder with audio files - treat as album
-    result.albums.set(folderPath, audioFiles);
-    if (!quiet) {
-      console.log(
-        `💿 Found album: "${folderPath}" (${audioFiles.length} tracks)`,
-      );
-    }
-  }
 }
 
 /**
@@ -166,14 +130,6 @@ function shouldTreatAsSingles(
   }
 
   return false;
-}
-
-/**
- * Check if a file is an audio file based on extension
- */
-function isAudioFile(filename: string): boolean {
-  const ext = extname(filename).toLowerCase().slice(1);
-  return SUPPORTED_EXTENSIONS.includes(ext);
 }
 
 /**

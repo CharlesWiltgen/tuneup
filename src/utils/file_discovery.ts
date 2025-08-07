@@ -1,15 +1,10 @@
-import { basename, dirname, extname, join } from "jsr:@std/path";
+import { basename, dirname, extname } from "jsr:@std/path";
 import { normalizeForMatching } from "./normalize.ts";
 import { readMetadataBatch } from "jsr:@charlesw/taglib-wasm@0.5.4/simple";
+import { listAudioFilesRecursive } from "../lib/fastest_audio_scan_recursive.ts";
 
-/** Supported audio file extensions */
-export const SUPPORTED_EXTENSIONS = [
-  "mp3",
-  "flac",
-  "ogg",
-  "m4a",
-  "wav",
-];
+// Using AUDIO_EXTENSIONS from fastest_audio_scan_recursive.ts
+// Extensions include: .mp3, .flac, .ogg, .m4a, .wav, .aac, .opus, .wma
 
 /**
  * Result of the audio file discovery process
@@ -80,81 +75,23 @@ type BatchResult = Awaited<ReturnType<typeof readMetadataBatch>>;
  * console.log(`Found ${files.length} audio files`);
  * ```
  */
-export async function collectAudioFiles(
+export function collectAudioFiles(
   paths: string[],
   onProgress?: (count: number) => void,
 ): Promise<string[]> {
-  const filesToProcess: string[] = [];
+  // Use the synchronous scanner
+  const allFiles = listAudioFilesRecursive(paths);
 
-  for (const fileOrDir of paths) {
-    try {
-      const info = await Deno.stat(fileOrDir);
-      if (info.isDirectory) {
-        const files = await collectAudioFilesFromDirectory(
-          fileOrDir,
-          (count) => {
-            if (onProgress) onProgress(filesToProcess.length + count);
-          },
-        );
-        filesToProcess.push(...files);
-      } else if (info.isFile) {
-        const ext = extname(fileOrDir).toLowerCase().slice(1);
-        if (SUPPORTED_EXTENSIONS.includes(ext)) {
-          filesToProcess.push(fileOrDir);
-          if (onProgress) onProgress(filesToProcess.length);
-        } else {
-          console.error(
-            `Warning: File "${fileOrDir}" has unsupported extension; skipping.`,
-          );
-        }
-      }
-    } catch (e) {
-      if (e instanceof Deno.errors.NotFound) {
-        console.error(`Error: Path "${fileOrDir}" not found; skipping.`);
-      } else {
-        console.error(
-          `Warning: Path "${fileOrDir}" not found or inaccessible; skipping.`,
-        );
+  // Report progress at intervals
+  if (onProgress) {
+    for (let i = 0; i < allFiles.length; i++) {
+      if (i % 50 === 0 || i === allFiles.length - 1) {
+        onProgress(i + 1);
       }
     }
   }
 
-  return filesToProcess.sort();
-}
-
-/**
- * Recursively collects audio files from a directory
- *
- * @param dir - Directory path to scan
- * @param onProgress - Optional callback for progress updates
- * @returns Array of audio file paths found in the directory
- */
-async function collectAudioFilesFromDirectory(
-  dir: string,
-  onProgress?: (count: number) => void,
-): Promise<string[]> {
-  const files: string[] = [];
-
-  for await (const entry of Deno.readDir(dir)) {
-    const fullPath = join(dir, entry.name);
-    if (entry.isDirectory) {
-      const subFiles = await collectAudioFilesFromDirectory(
-        fullPath,
-        (count) => {
-          if (onProgress) onProgress(files.length + count);
-        },
-      );
-      files.push(...subFiles);
-    } else if (entry.isFile) {
-      const ext = extname(entry.name).toLowerCase().slice(1);
-      if (SUPPORTED_EXTENSIONS.includes(ext)) {
-        files.push(fullPath);
-        if (onProgress) onProgress(files.length);
-      }
-    }
-  }
-
-  return files;
+  return allFiles; // Already sorted by the scanner
 }
 
 /**

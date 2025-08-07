@@ -1,12 +1,7 @@
 import { ProcessingStats } from "../utils/processing_stats.ts";
-import {
-  batchProcessTracks,
-  processAlbum,
-  TrackProcessorPool,
-} from "../lib/track_processor.ts";
 import { discoverMusic } from "../utils/fast_discovery.ts";
-import { getAlbumDisplayName } from "../lib/folder_processor.ts";
 import type { CommandOptions } from "../types/command.ts";
+import { processCollection } from "./process_collection.ts";
 
 export interface ProcessCommandOptions extends CommandOptions {
   // Encoding options
@@ -97,12 +92,14 @@ export async function processCommand(
 
     // If encoding, we need to filter files
     let albumsToProcess = discovery.albums;
+    let compilationsToProcess = discovery.compilations;
     let singlesToProcess = discovery.singles;
 
     if (options.encode && discovery.filesToEncode) {
-      // Rebuild albums and singles with only encodable files
+      // Rebuild albums, compilations and singles with only encodable files
       const encodableSet = new Set(discovery.filesToEncode);
       albumsToProcess = new Map();
+      compilationsToProcess = new Map();
 
       for (const [dir, files] of discovery.albums) {
         const encodableFiles = files.filter((f) => encodableSet.has(f));
@@ -111,110 +108,42 @@ export async function processCommand(
         }
       }
 
+      for (const [dir, files] of discovery.compilations) {
+        const encodableFiles = files.filter((f) => encodableSet.has(f));
+        if (encodableFiles.length > 0) {
+          compilationsToProcess.set(dir, encodableFiles);
+        }
+      }
+
       singlesToProcess = discovery.singles.filter((f) => encodableSet.has(f));
     }
 
     // Process albums
-    if (albumsToProcess.size > 0) {
-      if (!options.quiet) {
-        console.log("🎼 Processing albums...\n");
-      }
+    await processCollection({
+      collection: albumsToProcess,
+      type: "album",
+      options,
+      stats,
+      paths,
+    });
 
-      for (const [albumDir, albumFiles] of albumsToProcess) {
-        if (!options.quiet) {
-          const albumName = getAlbumDisplayName(albumDir);
-          console.log(`\n💿 Processing album: ${albumName}`);
-          console.log(`   Path: ${albumDir}`);
-          console.log(`   Tracks: ${albumFiles.length}`);
-        }
-
-        const results = await processAlbum(albumDir, albumFiles, {
-          encode: options.encode,
-          forceLossyTranscodes: options.forceLossyTranscodes,
-          outputDirectory: options.outputDir,
-          preserveStructure: !options.flattenOutput,
-          basePath: paths[0], // Use first path as base for structure preservation
-          calculateGain: options.replayGain,
-          processAcoustID: options.acoustID,
-          acoustIDApiKey: options.apiKey,
-          forceAcoustID: options.force,
-          quiet: options.quiet,
-          dryRun: options.dryRun,
-          concurrency: 4,
-          onProgress: (processed, total) => {
-            if (!options.quiet) {
-              Deno.stdout.writeSync(
-                new TextEncoder().encode(
-                  `\x1b[2K\r   Progress: ${processed}/${total} tracks`,
-                ),
-              );
-            }
-          },
-        });
-
-        if (!options.quiet) {
-          console.log(""); // New line after progress
-        }
-
-        // Update stats
-        for (const result of results) {
-          if (result.encodingError) stats.incrementFailed();
-          else if (result.acoustIDStatus) {
-            stats.increment(result.acoustIDStatus);
-          } else stats.increment("processed");
-        }
-      }
-    }
+    // Process compilations
+    await processCollection({
+      collection: compilationsToProcess,
+      type: "compilation",
+      options,
+      stats,
+      paths,
+    });
 
     // Process singles
-    if (singlesToProcess.length > 0) {
-      if (!options.quiet) {
-        console.log("\n🎵 Processing singles...\n");
-      }
-
-      const pool = new TrackProcessorPool(4);
-
-      const results = await batchProcessTracks(singlesToProcess, {
-        encode: options.encode,
-        forceLossyTranscodes: options.forceLossyTranscodes,
-        outputDirectory: options.outputDir,
-        preserveStructure: !options.flattenOutput,
-        basePath: paths[0], // Use first path as base for structure preservation
-        calculateGain: false, // No album-level ReplayGain for singles
-        processAcoustID: options.acoustID,
-        acoustIDApiKey: options.apiKey,
-        forceAcoustID: options.force,
-        quiet: options.quiet,
-        dryRun: options.dryRun,
-        concurrency: 4,
-        onProgress: (processed, total, currentFile) => {
-          if (!options.quiet) {
-            const fileName = currentFile.substring(
-              currentFile.lastIndexOf("/") + 1,
-            );
-            Deno.stdout.writeSync(
-              new TextEncoder().encode(
-                `\x1b[2K\r→ Processing single: ${processed}/${total} - ${fileName}`,
-              ),
-            );
-          }
-        },
-      });
-
-      if (!options.quiet) {
-        console.log(""); // New line after progress
-      }
-
-      // Update stats
-      for (const result of results) {
-        if (result.encodingError) stats.incrementFailed();
-        else if (result.acoustIDStatus) {
-          stats.increment(result.acoustIDStatus);
-        } else stats.increment("processed");
-      }
-
-      await pool.shutdown();
-    }
+    await processCollection({
+      collection: singlesToProcess,
+      type: "singles",
+      options,
+      stats,
+      paths,
+    });
 
     stats.printSummary("Processing Complete", options.dryRun);
   } finally {
