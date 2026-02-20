@@ -1,5 +1,9 @@
-import { assertEquals } from "@std/assert";
-import { displayWidth, wrapEncodingLine } from "./encode.ts";
+import { assertEquals, assertThrows } from "@std/assert";
+import {
+  displayWidth,
+  extractFolderNameFromPath,
+  wrapEncodingLine,
+} from "./encode.ts";
 
 Deno.test("displayWidth", async (t) => {
   await t.step("should count ASCII characters as 1 column each", () => {
@@ -27,6 +31,54 @@ Deno.test("displayWidth", async (t) => {
 
   await t.step("should handle ANSI escape sequences as zero width", () => {
     assertEquals(displayWidth("\x1b[1m\x1b[94mtext\x1b[0m"), 4);
+  });
+});
+
+Deno.test("extractFolderNameFromPath", async (t) => {
+  await t.step(
+    "should return directory name when path has trailing slash",
+    () => {
+      assertEquals(
+        extractFolderNameFromPath("Music/Beach House/"),
+        "Beach House",
+      );
+    },
+  );
+
+  await t.step(
+    "should return directory name for bare directory with dots",
+    async () => {
+      const dirName = "B.B. King - Greatest Hits";
+      await Deno.mkdir(dirName);
+      try {
+        assertEquals(extractFolderNameFromPath(dirName), dirName);
+      } finally {
+        await Deno.remove(dirName);
+      }
+    },
+  );
+
+  await t.step("should return '.' for bare filename with extension", () => {
+    assertEquals(extractFolderNameFromPath("song.flac"), ".");
+  });
+
+  await t.step(
+    "should return parent folder name from file path with slashes",
+    () => {
+      assertEquals(
+        extractFolderNameFromPath("Music/Beach House/song.flac"),
+        "Beach House",
+      );
+    },
+  );
+
+  await t.step("should return '.' for file with ./ prefix", () => {
+    assertEquals(extractFolderNameFromPath("./song.flac"), ".");
+  });
+
+  await t.step("should propagate non-NotFound errors", () => {
+    // A path with a null byte is invalid and throws a different error
+    assertThrows(() => extractFolderNameFromPath("invalid\0path"));
   });
 });
 

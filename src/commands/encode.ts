@@ -120,7 +120,7 @@ interface EncodingTask {
   trackDisplayName: string;
 }
 
-function extractFolderNameFromPath(fileOrDir: string): string {
+export function extractFolderNameFromPath(fileOrDir: string): string {
   if (fileOrDir.endsWith("/")) {
     // It's a directory path
     const trimmed = fileOrDir.slice(0, -1);
@@ -129,15 +129,18 @@ function extractFolderNameFromPath(fileOrDir: string): string {
 
   const lastSlash = fileOrDir.lastIndexOf("/");
   if (lastSlash === -1) {
-    // No slashes - could be a folder name in current directory or a file
-    return fileOrDir.includes(".") ? "." : fileOrDir;
+    try {
+      if (Deno.statSync(fileOrDir).isDirectory) return fileOrDir;
+    } catch (e) {
+      if (!(e instanceof Deno.errors.NotFound)) throw e;
+    }
+    return ".";
   }
 
   // Has slashes - extract the directory part
   const dirPath = fileOrDir.substring(0, lastSlash);
   if (dirPath === ".") {
-    // The folder is actually after the ./
-    return fileOrDir.substring(lastSlash + 1);
+    return ".";
   }
 
   return dirPath.substring(dirPath.lastIndexOf("/") + 1) || dirPath;
