@@ -1,18 +1,21 @@
-import { assertEquals, assertExists } from "jsr:@std/assert";
+import { assertEquals, assertExists } from "@std/assert";
 import {
   batchProcessTracks,
   processAlbum,
   processTrack,
   TrackProcessorPool,
 } from "./track_processor.ts";
-import { join } from "jsr:@std/path";
+import { join } from "@std/path";
+import { getVendorBinaryPath } from "./vendor_tools.ts";
 
 // Mock the external dependencies
 const originalCommand = Deno.Command;
+const originalFetch = globalThis.fetch;
 const mockCommands: Map<
   string,
   () => { success: boolean; stdout: Uint8Array; stderr: Uint8Array }
 > = new Map();
+let mockFetchResponse: (() => Promise<Response>) | null = null;
 
 function setupMocks() {
   // @ts-ignore: Mocking Deno.Command
@@ -31,11 +34,29 @@ function setupMocks() {
       });
     }
   };
+
+  if (mockFetchResponse) {
+    const _originalFetch = globalThis.fetch;
+    // @ts-ignore: Mocking fetch
+    globalThis.fetch = (input: string | URL | Request, init?: RequestInit) => {
+      const url = typeof input === "string"
+        ? input
+        : input instanceof URL
+        ? input.href
+        : input.url;
+      if (url.includes("api.acoustid.org")) {
+        return mockFetchResponse!();
+      }
+      return _originalFetch(input, init);
+    };
+  }
 }
 
 function restoreMocks() {
   Deno.Command = originalCommand;
+  globalThis.fetch = originalFetch;
   mockCommands.clear();
+  mockFetchResponse = null;
 }
 
 Deno.test("processTrack - handles encoding only", async () => {
@@ -82,23 +103,28 @@ Deno.test("processTrack - handles lossy format rejection", async () => {
   }
 });
 
-Deno.test.ignore("processTrack - handles AcoustID processing", async () => {
+Deno.test("processTrack - handles AcoustID processing", async () => {
+  mockFetchResponse = () =>
+    Promise.resolve(
+      new Response(
+        JSON.stringify({
+          status: "ok",
+          results: [{ id: "test-acoustid-123", score: 0.95 }],
+        }),
+        { status: 200 },
+      ),
+    );
   setupMocks();
 
   const tempDir = await Deno.makeTempDir();
   try {
     const inputFile = join(tempDir, "test.mp3");
-    await Deno.writeTextFile(inputFile, "fake audio data");
+    await Deno.copyFile("sample_audio_files/mp3_sample_512kb.mp3", inputFile);
 
-    // Mock fpcalc - need to use the full path that getVendorBinaryPath returns
-    const fpcalcPath = Deno.build.os === "darwin"
-      ? join(Deno.cwd(), "src/vendor/macos-" + Deno.build.arch + "/fpcalc")
-      : join(
-        Deno.cwd(),
-        "src/vendor/" + Deno.build.os + "-" + Deno.build.arch + "/fpcalc",
-      );
+    const fpcalcPath = getVendorBinaryPath("fpcalc");
 
     mockCommands.set(fpcalcPath, () => ({
+      code: 0,
       success: true,
       stdout: new TextEncoder().encode(JSON.stringify({
         fingerprint: "test_fingerprint_123",
@@ -109,8 +135,9 @@ Deno.test.ignore("processTrack - handles AcoustID processing", async () => {
 
     const result = await processTrack(inputFile, {
       processAcoustID: true,
+      forceAcoustID: true,
       acoustIDApiKey: "test_key",
-      dryRun: true, // Use dry run to avoid actual tag writing
+      dryRun: true,
       quiet: true,
     });
 
@@ -195,15 +222,10 @@ Deno.test("processAlbum - calculates ReplayGain for album", async () => {
       files.push(file);
     }
 
-    // Mock rsgain - need to use the full path
-    const rsgainPath = Deno.build.os === "darwin"
-      ? join(Deno.cwd(), "src/vendor/macos-" + Deno.build.arch + "/rsgain")
-      : join(
-        Deno.cwd(),
-        "src/vendor/" + Deno.build.os + "-" + Deno.build.arch + "/rsgain",
-      );
+    const rsgainPath = getVendorBinaryPath("rsgain");
 
     mockCommands.set(rsgainPath, () => ({
+      code: 0,
       success: true,
       stdout: new Uint8Array(),
       stderr: new Uint8Array(),

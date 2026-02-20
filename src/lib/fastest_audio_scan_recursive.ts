@@ -1,4 +1,4 @@
-import { extname, join } from "jsr:@std/path";
+import { extname, join } from "@std/path";
 
 export const AUDIO_EXTENSIONS = new Set([
   ".mp3",

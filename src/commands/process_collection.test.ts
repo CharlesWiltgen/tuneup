@@ -1,8 +1,8 @@
-import { assertEquals, assertStringIncludes } from "jsr:@std/assert";
+import { assertEquals, assertStringIncludes } from "@std/assert";
 import { processCollection } from "./process_collection.ts";
 import { OperationStats } from "../utils/operation_stats.ts";
-import { join } from "jsr:@std/path";
-import { ensureDir } from "jsr:@std/fs";
+import { join } from "@std/path";
+import { ensureDir } from "@std/fs";
 
 Deno.test("processCollection", async (t) => {
   const testDir = await Deno.makeTempDir();

@@ -1,7 +1,7 @@
-import { assertEquals } from "jsr:@std/assert";
-import { afterEach, beforeEach, describe, it } from "jsr:@std/testing/bdd";
-import { ensureDir } from "jsr:@std/fs";
-import { dirname, join } from "jsr:@std/path";
+import { assertEquals } from "@std/assert";
+import { afterEach, beforeEach, describe, it } from "@std/testing/bdd";
+import { ensureDir } from "@std/fs";
+import { dirname, join } from "@std/path";
 import { discoverAudioFiles } from "./file_discovery.ts";
 import { listAudioFilesRecursive as collectAudioFiles } from "../lib/fastest_audio_scan_recursive.ts";
 

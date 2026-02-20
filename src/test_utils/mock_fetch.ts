@@ -1,5 +1,5 @@
 // Mock implementations for the global fetch function
-import { returnsNext, stub } from "jsr:@std/testing/mock";
+import { returnsNext, stub } from "@std/testing/mock";
 
 export interface MockFetchOptions {
   status?: number;

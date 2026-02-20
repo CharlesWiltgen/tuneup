@@ -1,4 +1,4 @@
-import { extname } from "jsr:@std/path";
+import { extname } from "@std/path";
 import {
   buildScanResult,
   classifyDirectories,
@@ -6,7 +6,10 @@ import {
   type MusicDiscovery,
   type SkippedFile,
 } from "./fast_discovery.ts";
-import { listAudioFilesRecursive } from "../lib/fastest_audio_scan_recursive.ts";
+import {
+  AUDIO_EXTENSIONS,
+  listAudioFilesRecursive,
+} from "../lib/fastest_audio_scan_recursive.ts";
 import { detectCompilationsRefactored } from "./detect_compilations_refactored.ts";
 
 // Re-export SkippedFile for external use
@@ -267,27 +270,27 @@ export async function discoverMusicRefactored(
   }
 
   // Phase 1: Fast FS scan
-  // Note: listAudioFilesRecursive only handles directories, so we must separate files first
-  const directories = paths.filter((path) => {
+  // Separate individual files from directories since listAudioFilesRecursive only handles directories
+  const directories: string[] = [];
+  const individualFiles: string[] = [];
+  for (const path of paths) {
     try {
-      return Deno.statSync(path).isDirectory;
+      if (Deno.statSync(path).isFile) {
+        if (AUDIO_EXTENSIONS.has(extname(path).toLowerCase())) {
+          individualFiles.push(path);
+        }
+      } else {
+        directories.push(path);
+      }
     } catch {
-      return false;
+      // Skip paths that don't exist
     }
-  });
-
-  if (directories.length === 0) {
-    // No directories to scan
-    return {
-      albums: new Map(),
-      compilations: new Map(),
-      singles: [],
-      totalFiles: 0,
-      scan: { filesByDir: new Map(), dirInfo: new Map(), allFiles: [] },
-    };
   }
 
-  const allFiles = listAudioFilesRecursive(directories);
+  const scannedFiles = directories.length > 0
+    ? listAudioFilesRecursive(directories)
+    : [];
+  const allFiles = [...scannedFiles, ...individualFiles];
   const scan = buildScanResult(allFiles, options);
 
   if (debug) {

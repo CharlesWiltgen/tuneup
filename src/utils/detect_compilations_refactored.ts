@@ -1,13 +1,10 @@
-import { readMetadataBatch } from "jsr:@charlesw/taglib-wasm@0.5.4/simple";
+import { ensureTagLib } from "../lib/taglib_init.ts";
 import {
   aggregateAlbumMetadata,
   type FileMetadata,
   isCompilationAlbum,
 } from "./compilation_detection.ts";
 
-/**
- * Read metadata from audio files for compilation detection using batch API
- */
 async function readFileMetadataForCompilation(
   files: string[],
   debug?: boolean,
@@ -18,37 +15,23 @@ async function readFileMetadataForCompilation(
     return metadata;
   }
 
-  try {
-    const results = await readMetadataBatch(files, {
-      concurrency: 16,
-      continueOnError: true,
-    });
+  const taglib = await ensureTagLib();
 
-    for (let i = 0; i < results.results.length; i++) {
-      const result = results.results[i];
-      const file = files[i];
+  for (const file of files) {
+    try {
+      using audioFile = await taglib.open(file);
+      const tag = audioFile.tag();
+      const props = audioFile.properties();
 
-      if ("error" in result && result.error) {
-        if (debug) {
-          console.log(`[DEBUG] Error reading ${file}: ${result.error}`);
-        }
-        continue;
+      metadata.push({
+        artist: tag.artist || undefined,
+        albumArtist: props["ALBUMARTIST"]?.[0] || undefined,
+        compilationFlag: props["COMPILATION"]?.[0] || undefined,
+      });
+    } catch (error) {
+      if (debug) {
+        console.log(`[DEBUG] Error reading ${file}: ${error}`);
       }
-
-      const tags = result.data?.tags;
-      if (tags) {
-        metadata.push({
-          artist: tags.artist || undefined,
-          // Note: albumArtist and compilation are not available in the simple API
-          // These would require using the full TagLib API
-          albumArtist: undefined,
-          compilationFlag: undefined,
-        });
-      }
-    }
-  } catch (error) {
-    if (debug) {
-      console.error(`[DEBUG] Batch metadata read failed: ${error}`);
     }
   }
 

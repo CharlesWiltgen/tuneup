@@ -6,7 +6,7 @@ import {
 } from "./encoding.ts";
 import { calculateReplayGain } from "./replaygain.ts";
 import { processAcoustIDTagging } from "./acoustid.ts";
-import { dirname } from "jsr:@std/path";
+import { dirname } from "@std/path";
 import { DEFAULT_CONCURRENCY } from "../constants.ts";
 import { formatError } from "../utils/error_utils.ts";
 

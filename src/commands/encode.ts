@@ -1,4 +1,4 @@
-import { basename, extname } from "jsr:@std/path";
+import { basename, extname } from "@std/path";
 import { generateOutputPath, isLosslessFormat } from "../lib/encoding.ts";
 import { discoverMusic } from "../utils/fast_discovery.ts";
 import type { CommandOptions } from "../types/command.ts";

@@ -1,5 +1,5 @@
 // encoding.test.ts
-import { assertEquals, assertRejects } from "jsr:@std/assert";
+import { assertEquals, assertRejects } from "@std/assert";
 import {
   encodeToM4A,
   generateOutputPath,

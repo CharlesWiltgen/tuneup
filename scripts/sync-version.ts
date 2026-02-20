@@ -1,7 +1,7 @@
 #!/usr/bin/env -S deno run --allow-read --allow-write
 
 import { Command } from "@cliffy/command";
-import { increment, parse } from "jsr:@std/semver";
+import { increment, parse } from "@std/semver";
 
 const DENO_JSON_PATH = "./deno.json";
 

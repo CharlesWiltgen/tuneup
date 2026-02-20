@@ -1,25 +1,18 @@
-import type { TagLib } from "jsr:@charlesw/taglib-wasm@0.5.4";
+import type { TagLib } from "@charlesw/taglib-wasm";
 import {
   readMetadataBatch,
   readProperties,
   readTags,
-} from "jsr:@charlesw/taglib-wasm@0.5.4/simple";
+} from "@charlesw/taglib-wasm/simple";
 import { ensureTagLib } from "./taglib_init.ts";
-import { readFileAsync } from "../utils/async-file-reader.ts";
 import { formatError } from "../utils/error_utils.ts";
 
-/**
- * Helper to open a file for reading or writing
- * @param taglib The TagLib instance
- * @param filePath Path to the file
- * @returns The opened audio file
- */
-async function openFile(
-  taglib: TagLib,
-  filePath: string,
-) {
-  const fileData = await readFileAsync(filePath);
-  return await taglib.open(fileData);
+async function openFileForRead(taglib: TagLib, filePath: string) {
+  return await taglib.open(filePath, { partial: true });
+}
+
+async function openFileForWrite(taglib: TagLib, filePath: string) {
+  return await taglib.open(filePath);
 }
 
 /**
@@ -33,8 +26,7 @@ export async function getAcoustIDTags(
 
   let audioFile = null;
   try {
-    // Use smart partial loading for read operations
-    audioFile = await openFile(taglib, filePath);
+    audioFile = await openFileForRead(taglib, filePath);
 
     const tags: { ACOUSTID_FINGERPRINT?: string; ACOUSTID_ID?: string } = {};
 
@@ -110,26 +102,14 @@ export async function writeAcoustIDTags(
 
   let audioFile = null;
   try {
-    // Open file for writing
-    audioFile = await openFile(taglib, filePath);
+    audioFile = await openFileForWrite(taglib, filePath);
 
-    // Use direct methods to set AcoustID tags
     audioFile.setAcoustIdFingerprint(fingerprint);
     if (acoustID) {
       audioFile.setAcoustIdId(acoustID);
     }
 
-    // Save the file with the new tags
-    const saveResult = audioFile.save();
-    if (!saveResult) {
-      console.error(`Failed to save tags to memory for ${filePath}`);
-      return false;
-    }
-
-    // Get the modified file buffer and write to disk
-    const modifiedBuffer = audioFile.getFileBuffer();
-    await Deno.writeFile(filePath, new Uint8Array(modifiedBuffer));
-
+    await audioFile.saveToFile();
     return true;
   } catch (error) {
     console.error(
@@ -161,8 +141,7 @@ export async function getReplayGainTags(
 
   let audioFile = null;
   try {
-    // Use smart partial loading for read operations
-    audioFile = await openFile(taglib, filePath);
+    audioFile = await openFileForRead(taglib, filePath);
 
     const tags: {
       trackGain?: string;
@@ -224,10 +203,8 @@ export async function writeReplayGainTags(
 
   let audioFile = null;
   try {
-    // Open file for writing
-    audioFile = await openFile(taglib, filePath);
+    audioFile = await openFileForWrite(taglib, filePath);
 
-    // Use direct methods to set ReplayGain tags
     if (tags.trackGain !== undefined) {
       audioFile.setReplayGainTrackGain(tags.trackGain);
     }
@@ -241,17 +218,7 @@ export async function writeReplayGainTags(
       audioFile.setReplayGainAlbumPeak(tags.albumPeak);
     }
 
-    // Save the file
-    const saveResult = audioFile.save();
-    if (!saveResult) {
-      console.error(`Failed to save ReplayGain tags to memory for ${filePath}`);
-      return false;
-    }
-
-    // Write to disk
-    const modifiedBuffer = audioFile.getFileBuffer();
-    await Deno.writeFile(filePath, new Uint8Array(modifiedBuffer));
-
+    await audioFile.saveToFile();
     return true;
   } catch (error) {
     console.error(
@@ -276,7 +243,7 @@ export async function getComprehensiveMetadataWithPropertyMap(
 
   let audioFile = null;
   try {
-    audioFile = await openFile(taglib, filePath);
+    audioFile = await openFileForRead(taglib, filePath);
     // @ts-ignore: propertyMap exists at runtime
     const properties = audioFile.propertyMap();
 
@@ -340,8 +307,7 @@ export async function getComprehensiveMetadata(
 
   let audioFile = null;
   try {
-    // Use smart partial loading for read operations
-    audioFile = await openFile(taglib, filePath);
+    audioFile = await openFileForRead(taglib, filePath);
 
     const metadata: Record<string, unknown> = {};
 

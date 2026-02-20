@@ -4,9 +4,9 @@ import {
   assertEquals,
   assertExists,
   assertStringIncludes,
-} from "jsr:@std/assert";
-import { basename, join, resolve } from "jsr:@std/path";
-import { ensureDir, exists } from "jsr:@std/fs";
+} from "@std/assert";
+import { basename, join, resolve } from "@std/path";
+import { ensureDir, exists } from "@std/fs";
 import {
   cleanupTestDir,
   createSilentAudioFile,

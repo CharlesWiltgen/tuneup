@@ -30,13 +30,7 @@
     "exclude": [
       "dist/",
       "amusic"
-    ],
-    "rules": {
-      "exclude": [
-        "no-import-prefix",
-        "no-unversioned-import"
-      ]
-    }
+    ]
   },
   "importMap": "import_map.json"
 }

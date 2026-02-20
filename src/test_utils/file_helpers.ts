@@ -1,6 +1,6 @@
 // File system helpers for tests
-import { join, resolve } from "jsr:@std/path";
-import { copy, ensureDir, exists } from "jsr:@std/fs";
+import { join, resolve } from "@std/path";
+import { copy, ensureDir, exists } from "@std/fs";
 
 const TEST_RUN_BASE_DIR = resolve("./tests/test_run_files");
 

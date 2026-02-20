@@ -1,5 +1,5 @@
 // Helpers specific to testing the amusic CLI
-import { resolve } from "jsr:@std/path";
+import { resolve } from "@std/path";
 import { getAcoustIDTags, writeAcoustIDTags } from "../lib/tagging.ts";
 
 export interface AmusicRunResult {
@@ -73,7 +73,7 @@ export async function setAcousticIDTags(
   id: string,
   fingerprint: string,
 ): Promise<void> {
-  const { exists } = await import("jsr:@std/fs");
+  const { exists } = await import("@std/fs");
 
   if (!await exists(filePath, { isFile: true })) {
     throw new Error(`File not found at ${filePath}, cannot set tags.`);

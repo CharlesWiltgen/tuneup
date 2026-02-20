@@ -1,6 +1,6 @@
-import { basename, dirname, extname } from "jsr:@std/path";
+import { basename, dirname, extname } from "@std/path";
 import { normalizeForMatching } from "./normalize.ts";
-import { readMetadataBatch } from "jsr:@charlesw/taglib-wasm@0.5.4/simple";
+import { readMetadataBatch } from "@charlesw/taglib-wasm/simple";
 import {
   AUDIO_EXTENSIONS,
   listAudioFilesRecursive,

@@ -1,4 +1,4 @@
-import { dirname, fromFileUrl, join } from "jsr:@std/path";
+import { dirname, fromFileUrl, join } from "@std/path";
 
 /**
  * Detects if the code is running in a compiled Deno binary.

@@ -1,9 +1,9 @@
 import { discoverMusic } from "../utils/fast_discovery.ts";
-import { Table } from "jsr:@cliffy/table@1.0.0-rc.7";
+import { Table } from "@cliffy/table";
 
 interface DiscoverOptions {
   forEncoding?: boolean;
-  singles?: string[];
+  singles?: string[][];
   debug?: boolean;
 }
 
@@ -20,7 +20,7 @@ export async function xRayCommand(
 
   const discovery = await discoverMusic(paths, {
     forEncoding: options.forEncoding,
-    singlePatterns: options.singles,
+    singlePatterns: options.singles?.flat(),
     debug: options.debug,
     onProgress: (phase, current, total) => {
       Deno.stdout.writeSync(

@@ -1,6 +1,6 @@
-import { assertEquals } from "jsr:@std/assert";
-import { join } from "jsr:@std/path";
-import { copy } from "jsr:@std/fs";
+import { assertEquals } from "@std/assert";
+import { join } from "@std/path";
+import { copy } from "@std/fs";
 import { detectCompilationsRefactored } from "./detect_compilations_refactored.ts";
 import { ensureTagLib } from "../lib/taglib_init.ts";
 

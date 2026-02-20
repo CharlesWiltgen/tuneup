@@ -1,4 +1,4 @@
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "@std/assert";
 import { displayWidth, wrapEncodingLine } from "./encode.ts";
 
 Deno.test("displayWidth", async (t) => {

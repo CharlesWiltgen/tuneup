@@ -1,4 +1,4 @@
-import { Table } from "jsr:@cliffy/table@1.0.0-rc.7";
+import { Table } from "@cliffy/table";
 import { findDuplicateTracks } from "../lib/folder_operations.ts";
 import { validateDirectory } from "../utils/console_output.ts";
 import { formatDuration } from "../utils/format.ts";

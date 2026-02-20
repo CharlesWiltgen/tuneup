@@ -1,7 +1,15 @@
 {
   "imports": {
-    "@cliffy/command": "jsr:@cliffy/command@1.0.0-rc.8",
-    "@cliffy/command/": "jsr:@cliffy/command@1.0.0-rc.8/",
-    "@cliffy/table": "jsr:@cliffy/table@1.0.0-rc.8"
+    "@charlesw/taglib-wasm": "jsr:@charlesw/taglib-wasm@1.0.0-beta.11",
+    "@charlesw/taglib-wasm/simple": "jsr:@charlesw/taglib-wasm@1.0.0-beta.11/simple",
+    "@cliffy/command": "jsr:@cliffy/command@1.0.0",
+    "@cliffy/table": "jsr:@cliffy/table@1.0.0",
+    "@std/assert": "jsr:@std/assert@1.0.18",
+    "@std/dotenv": "jsr:@std/dotenv@0.225.6",
+    "@std/fs": "jsr:@std/fs@1.0.22",
+    "@std/path": "jsr:@std/path@1.1.4",
+    "@std/semver": "jsr:@std/semver@1.0.8",
+    "@std/testing/bdd": "jsr:@std/testing@1.0.17/bdd",
+    "@std/testing/mock": "jsr:@std/testing@1.0.17/mock"
   }
 }

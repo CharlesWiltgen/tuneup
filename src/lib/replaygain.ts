@@ -1,5 +1,5 @@
 import { getVendorBinaryPath } from "./vendor_tools.ts";
-import { join } from "jsr:@std/path";
+import { join } from "@std/path";
 
 export interface ReplayGainResult {
   success: boolean;

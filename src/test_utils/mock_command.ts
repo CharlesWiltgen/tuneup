@@ -1,5 +1,5 @@
 // Mock implementation for Deno.Command used across tests
-import { parse as parsePath } from "jsr:@std/path";
+import { parse as parsePath } from "@std/path";
 
 export interface MockCommandOutput {
   code: number;

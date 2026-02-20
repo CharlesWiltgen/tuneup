@@ -1,5 +1,5 @@
 // Removed unused imports (extname, join)
-import { readMetadataBatch } from "jsr:@charlesw/taglib-wasm@0.5.4/simple";
+import { readMetadataBatch } from "@charlesw/taglib-wasm/simple";
 import { listAudioFilesRecursive } from "../lib/fastest_audio_scan_recursive.ts";
 
 // Using AUDIO_EXTENSIONS from fastest_audio_scan_recursive.ts

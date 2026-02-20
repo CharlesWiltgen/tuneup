@@ -1,5 +1,5 @@
 // encoding.ts
-import { extname } from "jsr:@std/path";
+import { extname } from "@std/path";
 import { VERSION } from "../version.ts";
 import { ensureTagLib } from "./taglib_init.ts";
 import { formatError } from "../utils/error_utils.ts";
@@ -122,28 +122,20 @@ export async function isLosslessFormat(filePath: string): Promise<boolean> {
     const taglib = await ensureTagLib();
     let audioFile = null;
     try {
-      // Read the file
-      const fileData = await Deno.readFile(filePath);
-      audioFile = await taglib.open(fileData);
+      audioFile = await taglib.open(filePath, { partial: true });
 
       if (!audioFile) {
-        // If we can't read it, assume it's lossy to be safe
         return false;
       }
 
-      // Get audio properties to check if it's lossless
       const audioProps = audioFile.audioProperties();
 
       if (!audioProps) {
-        // If we can't get audio properties, assume it's lossy to be safe
         return false;
       }
 
-      // Use the isLossless property from TagLib-Wasm
       return audioProps.isLossless ?? false;
     } catch {
-      // For non-existent files or read errors, just return false without logging
-      // This is expected in tests and when checking non-existent paths
       return false;
     } finally {
       if (audioFile) {
@@ -318,60 +310,43 @@ async function copyMetadata(
   let destFile = null;
 
   try {
-    // Read both files in parallel for better performance
-    const [sourceData, destData] = await Promise.all([
-      Deno.readFile(sourcePath),
-      Deno.readFile(destPath),
-    ]);
-
-    // Open both files
-    sourceFile = await taglib.open(sourceData);
+    sourceFile = await taglib.open(sourcePath, { partial: true });
     if (!sourceFile) {
       throw new Error("Failed to open source file");
     }
 
-    destFile = await taglib.open(destData);
+    destFile = await taglib.open(destPath);
     if (!destFile) {
       throw new Error("Failed to open destination file");
     }
 
-    // Get all metadata from source
     const sourceTag = sourceFile.tag();
     const basicMetadata = extractBasicMetadata(sourceTag);
     const allProperties = sourceFile.properties() ?? {};
     const pictures = sourceFile.getPictures();
 
-    // Format what we're copying
     const propertyCount = Object.keys(allProperties).length;
     const pictureCount = pictures?.length ?? 0;
     const metadataInfo = formatMetadataInfo(propertyCount, pictureCount);
 
-    // Apply everything to destination
     const destTag = destFile.tag();
 
-    // 1. Copy basic metadata
     applyBasicMetadata(destTag, basicMetadata);
 
-    // 2. Copy all extended properties
     const propertiesToCopy = filterPropertiesToCopy(allProperties, destPath);
     if (Object.keys(propertiesToCopy).length > 0) {
       destFile.setProperties(propertiesToCopy);
     }
 
-    // 3. Copy cover art
     const coverArtWarning = copyCoverArtSafe(pictures, destFile);
 
-    // 4. Add encoder information
     const encoderInfo = `Encoded with amusic v${VERSION} (taglib-wasm)`;
     const existingComment = destTag.comment;
     destTag.setComment(
       existingComment ? `${existingComment}\n${encoderInfo}` : encoderInfo,
     );
 
-    // Save everything in one write operation
-    destFile.save();
-    const updatedData = destFile.getFileBuffer();
-    await Deno.writeFile(destPath, new Uint8Array(updatedData));
+    await destFile.saveToFile();
 
     return {
       metadataInfo: coverArtWarning

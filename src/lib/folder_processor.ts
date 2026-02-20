@@ -1,4 +1,8 @@
-import { listAudioFilesRecursive } from "./fastest_audio_scan_recursive.ts";
+import { extname } from "@std/path";
+import {
+  AUDIO_EXTENSIONS,
+  listAudioFilesRecursive,
+} from "./fastest_audio_scan_recursive.ts";
 
 export interface FolderProcessingResult {
   albums: Map<string, string[]>; // album path -> audio files
@@ -25,8 +29,30 @@ export function analyzeFolderStructure(
 
   const { singlesPatterns = [], quiet } = options;
 
-  // Get all audio files at once using the fast scanner
-  const allFiles = listAudioFilesRecursive(paths);
+  // Separate individual files from directories
+  const directories: string[] = [];
+  const individualFiles: string[] = [];
+  for (const p of paths) {
+    try {
+      if (Deno.statSync(p).isFile) {
+        if (AUDIO_EXTENSIONS.has(extname(p).toLowerCase())) {
+          individualFiles.push(p);
+        }
+      } else {
+        directories.push(p);
+      }
+    } catch {
+      // Skip paths that don't exist
+    }
+  }
+
+  // Individual files are always singles
+  result.singles.push(...individualFiles);
+
+  // Get all audio files from directories using the fast scanner
+  const allFiles = directories.length > 0
+    ? listAudioFilesRecursive(directories)
+    : [];
 
   // Group files by directory
   const filesByDir = new Map<string, string[]>();

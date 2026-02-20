@@ -1,12 +1,12 @@
-import { Command } from "jsr:@cliffy/command@1.0.0-rc.7";
+import { Command } from "@cliffy/command";
 import { defaultCommand } from "../commands/default.ts";
 import { easyCommand } from "../commands/easy.ts";
 import { encodeCommand } from "../commands/encode.ts";
 import { processCommand } from "../commands/process.ts";
 import { xRayCommand } from "../commands/x-ray.ts";
 import { VERSION } from "../version.ts";
-import { dirname, fromFileUrl, join } from "jsr:@std/path";
-import { loadSync } from "jsr:@std/dotenv";
+import { dirname, fromFileUrl, join } from "@std/path";
+import { loadSync } from "@std/dotenv";
 
 const __dirname = dirname(fromFileUrl(import.meta.url));
 
@@ -108,6 +108,10 @@ export function setupCLI() {
       "--dry-run",
       "Simulate encoding without writing files",
       { default: false },
+    )
+    .option(
+      "--columns <number:integer>",
+      "Override terminal width for line wrapping",
     )
     .action(encodeCommand);
 

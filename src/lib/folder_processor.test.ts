@@ -1,9 +1,9 @@
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "@std/assert";
 import {
   analyzeFolderStructure,
   getAlbumDisplayName,
 } from "./folder_processor.ts";
-import { join } from "jsr:@std/path";
+import { join } from "@std/path";
 
 // Helper to create test directory structure
 async function createTestStructure(baseDir: string) {

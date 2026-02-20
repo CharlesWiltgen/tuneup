@@ -1,4 +1,4 @@
-import { readMetadataBatch } from "jsr:@charlesw/taglib-wasm@0.5.4/simple";
+import { readMetadataBatch } from "@charlesw/taglib-wasm/simple";
 import { formatChannels, formatDuration } from "../utils/format.ts";
 import { formatError } from "../utils/error_utils.ts";
 

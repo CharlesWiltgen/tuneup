@@ -1,5 +1,5 @@
 // Console mocking helpers for tests
-import { stub } from "jsr:@std/testing/mock";
+import { stub } from "@std/testing/mock";
 
 export interface ConsoleCapture {
   logs: string[];

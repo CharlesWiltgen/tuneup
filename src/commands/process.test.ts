@@ -1,6 +1,6 @@
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "@std/assert";
 import { processCommand } from "./process.ts";
-import { join } from "jsr:@std/path";
+import { join } from "@std/path";
 
 // Create a test directory structure
 async function createTestLibrary(baseDir: string) {
@@ -98,7 +98,7 @@ Deno.test("processCommand - respects singles flag", async () => {
 
     await processCommand({
       encode: true,
-      singles: ["Singles"],
+      singles: [["Singles"]],
       dryRun: true,
       quiet: false,
     }, tempDir);
@@ -139,7 +139,7 @@ Deno.test("processCommand - processes multiple paths", async () => {
     await processCommand(
       {
         encode: true,
-        singles: ["Singles"],
+        singles: [["Singles"]],
         dryRun: true,
         quiet: false,
       },

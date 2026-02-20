@@ -1,10 +1,6 @@
 // @ts-nocheck: Complex mocking setup
-import {
-  assertEquals,
-  assertExists,
-  assertStringIncludes,
-} from "jsr:@std/assert";
-import { returnsNext, stub } from "jsr:@std/testing/mock";
+import { assertEquals, assertExists, assertStringIncludes } from "@std/assert";
+import { returnsNext, stub } from "@std/testing/mock";
 import {
   createFetchStub,
   MOCK_API_RESPONSES,
