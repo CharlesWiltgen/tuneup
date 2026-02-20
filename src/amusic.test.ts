@@ -254,14 +254,9 @@ Deno.test("amusic.ts Integration Tests", async (t) => {
       );
 
       // 4. Assertions for MP3 (should be processed with --force)
-      // The new batch processing shows different output
       assertStringIncludes(
         mainResult.stdout,
-        "Batch processing 2 files",
-      );
-      assertStringIncludes(
-        mainResult.stdout,
-        "Processing: 2/2 files (100%)",
+        "Processing 2 file(s)...",
       );
       const mp3FinalTag = await getAcousticIDFingerprintTag(mp3File);
       assertExists(
