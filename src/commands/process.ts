@@ -1,4 +1,7 @@
-import { ProcessingStats } from "../utils/processing_stats.ts";
+import {
+  OperationStats,
+  PROCESSING_SUMMARY,
+} from "../utils/operation_stats.ts";
 import { discoverMusic } from "../utils/fast_discovery.ts";
 import type { CommandOptions } from "../types/command.ts";
 import { processCollection } from "./process_collection.ts";
@@ -15,7 +18,7 @@ export interface ProcessCommandOptions extends CommandOptions {
   acoustID?: boolean;
 
   // Folder processing
-  singles?: string[]; // Folders to treat as singles
+  singles?: string[][]; // Folders to treat as singles (collect mode)
 }
 
 /**
@@ -32,7 +35,7 @@ export async function processCommand(
   }
 
   try {
-    const stats = new ProcessingStats();
+    const stats = new OperationStats();
 
     // Discover music files
     if (!options.quiet) {
@@ -40,7 +43,7 @@ export async function processCommand(
     }
 
     const discovery = await discoverMusic(paths, {
-      singlePatterns: options.singles || [],
+      singlePatterns: options.singles?.flat() || [],
       forEncoding: options.encode, // Validate MPEG-4 codecs if encoding
       onProgress: (phase, current) => {
         if (!options.quiet) {
@@ -150,7 +153,11 @@ export async function processCommand(
       paths,
     });
 
-    stats.printSummary("Processing Complete", options.dryRun);
+    stats.printSummary(
+      "Processing Complete",
+      PROCESSING_SUMMARY,
+      options.dryRun,
+    );
   } finally {
     // Show cursor
     if (!options.quiet) {

@@ -1,6 +1,6 @@
 {
   "name": "amusic",
-  "version": "0.5.0",
+  "version": "0.7.0",
   "exports": {},
   "tasks": {
     "start": "deno run --allow-read --allow-run --allow-write --allow-env --allow-net src/amusic.ts",
@@ -30,7 +30,13 @@
     "exclude": [
       "dist/",
       "amusic"
-    ]
+    ],
+    "rules": {
+      "exclude": [
+        "no-import-prefix",
+        "no-unversioned-import"
+      ]
+    }
   },
   "importMap": "import_map.json"
 }

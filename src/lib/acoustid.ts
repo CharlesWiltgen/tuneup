@@ -7,6 +7,7 @@ import {
   writeAcoustIDTags,
 } from "./tagging.ts";
 import { ACOUSTID_API_URL, DEFAULT_CONCURRENCY } from "../constants.ts";
+import { formatError } from "../utils/error_utils.ts";
 export { getAcoustIDTags, hasAcoustIDTags, writeAcoustIDTags };
 
 export interface FpcalcResult {
@@ -84,7 +85,9 @@ export async function generateFingerprint(
     console.error("  No fingerprint found in fpcalc JSON output.");
     return null;
   } catch (error) {
-    console.error(`  Could not parse fpcalc JSON output: ${error}`);
+    console.error(
+      `  Could not parse fpcalc JSON output: ${formatError(error)}`,
+    );
     return null;
   }
 }
@@ -129,9 +132,7 @@ export async function lookupFingerprint(
     }
     return data as LookupResult;
   } catch (e) {
-    // Check if the error is an instance of Error before accessing message
-    const errorMessage = e instanceof Error ? e.message : String(e);
-    console.error(`Error during AcoustID API request: ${errorMessage}`);
+    console.error(`Error during AcoustID API request: ${formatError(e)}`);
     return null;
   }
 }
@@ -173,9 +174,7 @@ export async function processAcoustIDTagging(
     if (e instanceof Deno.errors.NotFound) {
       console.error(`Error: File not found at "${filePath}".`);
     } else {
-      // Check if the error is an instance of Error before accessing message
-      const errorMessage = e instanceof Error ? e.message : String(e);
-      console.error(`Error accessing file "${filePath}": ${errorMessage}`);
+      console.error(`Error accessing file "${filePath}": ${formatError(e)}`);
     }
     // Always return 'failed' in case of file access errors
     return "failed";
@@ -411,11 +410,8 @@ export async function batchProcessAcoustIDTagging(
 
         results.set(filePath, resultStatus);
       } catch (error) {
-        const errorMessage = error instanceof Error
-          ? error.message
-          : String(error);
         if (!quiet) {
-          console.error(`Error processing ${filePath}: ${errorMessage}`);
+          console.error(`Error processing ${filePath}: ${formatError(error)}`);
         }
         results.set(filePath, "failed");
       }

@@ -1,6 +1,6 @@
 import { assertEquals, assertStringIncludes } from "jsr:@std/assert";
 import { processCollection } from "./process_collection.ts";
-import { ProcessingStats } from "../utils/processing_stats.ts";
+import { OperationStats } from "../utils/operation_stats.ts";
 import { join } from "jsr:@std/path";
 import { ensureDir } from "jsr:@std/fs";
 
@@ -8,7 +8,7 @@ Deno.test("processCollection", async (t) => {
   const testDir = await Deno.makeTempDir();
 
   await t.step("should handle empty collections gracefully", async () => {
-    const stats = new ProcessingStats();
+    const stats = new OperationStats();
     let output = "";
     const originalLog = console.log;
     console.log = (msg: string) => {
@@ -40,7 +40,7 @@ Deno.test("processCollection", async (t) => {
   });
 
   await t.step("should display correct headers for each type", async () => {
-    const stats = new ProcessingStats();
+    const stats = new OperationStats();
     let output = "";
     const originalLog = console.log;
     console.log = (msg: string) => {
@@ -113,7 +113,7 @@ Deno.test("processCollection", async (t) => {
   });
 
   await t.step("should respect quiet option", async () => {
-    const stats = new ProcessingStats();
+    const stats = new OperationStats();
     let output = "";
     const originalLog = console.log;
     console.log = (msg: string) => {

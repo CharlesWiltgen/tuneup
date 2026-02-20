@@ -8,6 +8,7 @@ import { calculateReplayGain } from "./replaygain.ts";
 import { processAcoustIDTagging } from "./acoustid.ts";
 import { dirname } from "jsr:@std/path";
 import { DEFAULT_CONCURRENCY } from "../constants.ts";
+import { formatError } from "../utils/error_utils.ts";
 
 export interface TrackProcessingOptions {
   // Encoding options
@@ -99,9 +100,7 @@ export async function processTrack(
         console.log(`✅ Encoded: ${outputPath}`);
       }
     } catch (error) {
-      result.encodingError = error instanceof Error
-        ? error.message
-        : String(error);
+      result.encodingError = formatError(error);
       if (!options.quiet) {
         console.error(`❌ Encoding failed: ${result.encodingError}`);
       }
@@ -121,9 +120,7 @@ export async function processTrack(
         }
       }
     } catch (error) {
-      result.replayGainError = error instanceof Error
-        ? error.message
-        : String(error);
+      result.replayGainError = formatError(error);
       if (!options.quiet) {
         console.error(`❌ ReplayGain error: ${result.replayGainError}`);
       }
@@ -146,9 +143,7 @@ export async function processTrack(
         console.log(`✅ AcoustID processed for: ${workingPath}`);
       }
     } catch (error) {
-      result.acoustIDError = error instanceof Error
-        ? error.message
-        : String(error);
+      result.acoustIDError = formatError(error);
       result.acoustIDStatus = "failed";
       if (!options.quiet) {
         console.error(`❌ AcoustID error: ${result.acoustIDError}`);
@@ -303,7 +298,9 @@ export class TrackProcessorPool {
       const result = await processTrack(task.filePath, task.options);
       task.resolve(result);
     } catch (error) {
-      task.reject(error instanceof Error ? error : new Error(String(error)));
+      task.reject(
+        error instanceof Error ? error : new Error(formatError(error)),
+      );
     } finally {
       this.activeWorkers--;
       this.processNext();

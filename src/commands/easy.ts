@@ -1,7 +1,7 @@
 import { getVendorBinaryPath } from "../lib/vendor_tools.ts";
 import type { CommandOptions } from "../types/command.ts";
 import { ensureCommandExists } from "../utils/command.ts";
-import { ProcessingStats } from "../utils/processing_stats.ts";
+import { EASY_MODE_SUMMARY, OperationStats } from "../utils/operation_stats.ts";
 import { exitWithError } from "../utils/console_output.ts";
 import { discoverMusic } from "../utils/fast_discovery.ts";
 import { processAlbum } from "../lib/track_processor.ts";
@@ -25,7 +25,7 @@ export async function easyCommand(
   await ensureCommandExists(fpcalcPath);
   await ensureCommandExists(rsgainPath);
 
-  const stats = new ProcessingStats();
+  const stats = new OperationStats();
 
   if (!options.quiet) {
     console.log("🎵 Analyzing music library structure...\n");
@@ -104,7 +104,7 @@ export async function easyCommand(
     }
   }
 
-  stats.printSummary("Easy Mode Complete", options.dryRun);
+  stats.printSummary("Easy Mode Complete", EASY_MODE_SUMMARY, options.dryRun);
 
   // Optional: Show library statistics
   if (!options.quiet) {

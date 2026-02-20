@@ -1,4 +1,4 @@
-import type { ProcessingStats } from "../utils/processing_stats.ts";
+import type { OperationStats } from "../utils/operation_stats.ts";
 import {
   batchProcessTracks,
   processAlbum,
@@ -13,7 +13,7 @@ interface ProcessCollectionOptions {
   collection: Map<string, string[]> | string[];
   type: CollectionType;
   options: ProcessCommandOptions;
-  stats: ProcessingStats;
+  stats: OperationStats;
   paths: string[];
 }
 

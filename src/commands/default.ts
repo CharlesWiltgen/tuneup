@@ -4,11 +4,15 @@ import {
 } from "../lib/acoustid.ts";
 import { discoverMusic } from "../utils/fast_discovery.ts";
 import type { CommandOptions } from "../types/command.ts";
-import { ProcessingStats } from "../utils/processing_stats.ts";
+import {
+  OperationStats,
+  PROCESSING_SUMMARY,
+} from "../utils/operation_stats.ts";
 import {
   logProcessingInfo,
   validateAudioFiles,
 } from "../utils/console_output.ts";
+import { formatError } from "../utils/error_utils.ts";
 import { showTagsWithFolderAPI } from "./show_tags_folder.ts";
 import { HIGH_CONCURRENCY } from "../constants.ts";
 
@@ -65,7 +69,7 @@ export async function defaultCommand(
   validateAudioFiles(filesToProcess);
   logProcessingInfo(options, filesToProcess.length);
 
-  const stats = new ProcessingStats();
+  const stats = new OperationStats();
 
   // Use batch processing for multiple files
   if (filesToProcess.length > 1 && options.apiKey) {
@@ -116,14 +120,13 @@ export async function defaultCommand(
         );
         stats.increment(status);
       } catch (error) {
-        const errorMessage = error instanceof Error
-          ? error.message
-          : String(error);
-        console.error(`Unexpected error processing ${file}: ${errorMessage}`);
+        console.error(
+          `Unexpected error processing ${file}: ${formatError(error)}`,
+        );
         stats.incrementFailed();
       }
     }
   }
 
-  stats.printSummary("Processing Complete", options.dryRun);
+  stats.printSummary("Processing Complete", PROCESSING_SUMMARY, options.dryRun);
 }

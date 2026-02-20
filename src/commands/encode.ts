@@ -2,8 +2,9 @@ import { basename, extname } from "jsr:@std/path";
 import { generateOutputPath, isLosslessFormat } from "../lib/encoding.ts";
 import { discoverMusic } from "../utils/fast_discovery.ts";
 import type { CommandOptions } from "../types/command.ts";
-import { EncodingStats } from "../utils/encoding_stats.ts";
+import { ENCODING_SUMMARY, OperationStats } from "../utils/operation_stats.ts";
 import { exitWithError, validateFiles } from "../utils/console_output.ts";
+import { exitWithFormattedError, formatError } from "../utils/error_utils.ts";
 import { EncodingSpinner } from "../utils/spinner.ts";
 
 interface EncodeOptions extends CommandOptions {
@@ -11,6 +12,106 @@ interface EncodeOptions extends CommandOptions {
   outputDir?: string;
   flattenOutput?: boolean;
   concurrency?: number;
+  columns?: number;
+}
+
+// deno-lint-ignore no-control-regex
+const ANSI_ESCAPE_RE = /\x1b\[[0-9;]*m/g;
+const WRAP_PREFIX = "   🎧 ";
+const CONTINUATION_INDENT = "      "; // 6 spaces to align under text after "   🎧 "
+
+export function displayWidth(str: string): number {
+  const stripped = str.replace(ANSI_ESCAPE_RE, "");
+  let width = 0;
+  for (const char of stripped) {
+    const code = char.codePointAt(0)!;
+    width += code > 0xFFFF ? 2 : 1;
+  }
+  return width;
+}
+
+export function wrapEncodingLine(line: string, maxWidth: number): string {
+  if (maxWidth === Infinity) return line;
+  if (!line.includes(WRAP_PREFIX)) return line;
+  if (displayWidth(line) <= maxWidth) return line;
+
+  const textStart = line.indexOf(WRAP_PREFIX) + WRAP_PREFIX.length;
+  const prefix = line.slice(0, textStart);
+  const text = line.slice(textStart);
+
+  const wrappedLines: string[] = [];
+  let currentPrefix = prefix;
+  let remaining = text;
+
+  while (remaining.length > 0) {
+    const availableWidth = maxWidth - displayWidth(currentPrefix);
+    if (displayWidth(remaining) <= availableWidth) {
+      wrappedLines.push(currentPrefix + remaining);
+      remaining = "";
+      break;
+    }
+
+    // Find best break point within available width
+    let breakIndex = -1;
+    let widthSoFar = 0;
+    let lastSlash = -1;
+    let lastSpace = -1;
+
+    for (let i = 0; i < remaining.length; i++) {
+      const code = remaining.codePointAt(i)!;
+      const charWidth = code > 0xFFFF ? 2 : 1;
+      if (widthSoFar + charWidth > availableWidth) break;
+      widthSoFar += charWidth;
+
+      if (remaining[i] === "/") lastSlash = i;
+      else if (remaining[i] === " ") lastSpace = i;
+
+      // Skip surrogate pair trailing code unit
+      if (code > 0xFFFF) i++;
+    }
+
+    // Prefer / over space as break point
+    if (lastSlash > 0) {
+      breakIndex = lastSlash + 1; // break after /
+    } else if (lastSpace > 0) {
+      breakIndex = lastSpace; // break at space (space goes to next line? no — drop it)
+    }
+
+    if (breakIndex > 0) {
+      const chunk = remaining.slice(0, breakIndex);
+      wrappedLines.push(currentPrefix + chunk);
+      remaining = remaining[breakIndex] === " "
+        ? remaining.slice(breakIndex + 1)
+        : remaining.slice(breakIndex);
+    } else {
+      // Hard break: no good break point, break at available width
+      let hardBreak = 0;
+      widthSoFar = 0;
+      for (let i = 0; i < remaining.length; i++) {
+        const code = remaining.codePointAt(i)!;
+        const charWidth = code > 0xFFFF ? 2 : 1;
+        if (widthSoFar + charWidth > availableWidth) break;
+        widthSoFar += charWidth;
+        hardBreak = i + 1;
+        if (code > 0xFFFF) i++;
+      }
+      wrappedLines.push(currentPrefix + remaining.slice(0, hardBreak));
+      remaining = remaining.slice(hardBreak);
+    }
+
+    currentPrefix = CONTINUATION_INDENT;
+  }
+
+  return wrappedLines.join("\n");
+}
+
+function getTerminalColumns(options: EncodeOptions): number {
+  if (options.columns !== undefined) return options.columns;
+  try {
+    return Deno.consoleSize().columns;
+  } catch {
+    return Infinity;
+  }
 }
 
 interface EncodingTask {
@@ -232,11 +333,7 @@ async function createOutputDirectory(
     try {
       await Deno.mkdir(outputDir, { recursive: true });
     } catch (e) {
-      exitWithError(
-        `Error creating output directory: ${
-          e instanceof Error ? e.message : String(e)
-        }`,
-      );
+      exitWithFormattedError(e, "Error creating output directory");
     }
   }
 }
@@ -248,7 +345,7 @@ interface WorkerContext {
   activeJobs: Map<number, EncodingTask>;
   workerLogs: Map<number, string[]>;
   spinner: EncodingSpinner | null;
-  stats: EncodingStats;
+  stats: OperationStats;
   options: EncodeOptions;
 }
 
@@ -321,7 +418,8 @@ function handleWorkerDone(
 
   const logs = ctx.workerLogs.get(id) ?? [];
   if (!ctx.options.quiet && logs.length > 0) {
-    logs.forEach((log) => console.log(log));
+    const columns = getTerminalColumns(ctx.options);
+    logs.forEach((log) => console.log(wrapEncodingLine(log, columns)));
   }
 
   // Clean up
@@ -410,7 +508,7 @@ export async function encodeCommand(
   await createOutputDirectory(options.outputDir, options.dryRun);
 
   // Prepare encoding tasks
-  const stats = new EncodingStats();
+  const stats = new OperationStats();
   const encodingTasks = await prepareAllEncodingTasks(
     filesToProcess,
     options,
@@ -429,14 +527,14 @@ export async function encodeCommand(
   // Process with workers
   await processWithWorkers(encodingTasks, concurrency, options, stats);
 
-  stats.printSummary("Encoding Complete", options.dryRun);
+  stats.printSummary("Encoding Complete", ENCODING_SUMMARY, options.dryRun);
 }
 
 async function prepareAllEncodingTasks(
   filesToProcess: string[],
   options: EncodeOptions,
   fileBaseMap: Map<string, string>,
-  stats: EncodingStats,
+  stats: OperationStats,
 ): Promise<EncodingTask[]> {
   const encodingTasks: EncodingTask[] = [];
 
@@ -449,10 +547,7 @@ async function prepareAllEncodingTasks(
         stats.incrementSkipped(result.reason);
       }
     } catch (error) {
-      const errorMessage = error instanceof Error
-        ? error.message
-        : String(error);
-      console.error(`Error preparing ${file}: ${errorMessage}`);
+      console.error(`Error preparing ${file}: ${formatError(error)}`);
       stats.incrementFailed();
     }
   }
@@ -464,7 +559,7 @@ async function processWithWorkers(
   encodingTasks: EncodingTask[],
   concurrency: number,
   options: EncodeOptions,
-  stats: EncodingStats,
+  stats: OperationStats,
 ): Promise<void> {
   if (encodingTasks.length === 0) {
     return;
