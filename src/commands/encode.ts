@@ -17,8 +17,11 @@ interface EncodeOptions extends CommandOptions {
 
 // deno-lint-ignore no-control-regex
 const ANSI_ESCAPE_RE = /\x1b\[[0-9;]*m/g;
-const WRAP_PREFIX = "   🎧 ";
-const CONTINUATION_INDENT = "      "; // 6 spaces to align under text after "   🎧 "
+const WRAPPABLE_PREFIXES: Array<{ prefix: string; indent: string }> = [
+  { prefix: "   🎧 ", indent: "      " }, // 6-space continuation
+  { prefix: "💿 ", indent: "   " }, // 3-space continuation
+  { prefix: "  📁 ", indent: "     " }, // 5-space continuation
+];
 
 export function displayWidth(str: string): number {
   const stripped = str.replace(ANSI_ESCAPE_RE, "");
@@ -32,12 +35,14 @@ export function displayWidth(str: string): number {
 
 export function wrapEncodingLine(line: string, maxWidth: number): string {
   if (maxWidth === Infinity) return line;
-  if (!line.includes(WRAP_PREFIX)) return line;
-  if (displayWidth(line) <= maxWidth) return line;
 
-  const textStart = line.indexOf(WRAP_PREFIX) + WRAP_PREFIX.length;
-  const prefix = line.slice(0, textStart);
-  const text = line.slice(textStart);
+  const match = WRAPPABLE_PREFIXES.find((p) => line.startsWith(p.prefix));
+  if (!match) return line;
+  if (displayWidth(line) < maxWidth) return line;
+
+  const prefix = match.prefix;
+  const continuationIndent = match.indent;
+  const text = line.slice(prefix.length);
 
   const wrappedLines: string[] = [];
   let currentPrefix = prefix;
@@ -45,7 +50,7 @@ export function wrapEncodingLine(line: string, maxWidth: number): string {
 
   while (remaining.length > 0) {
     const availableWidth = maxWidth - displayWidth(currentPrefix);
-    if (displayWidth(remaining) <= availableWidth) {
+    if (displayWidth(remaining) < availableWidth) {
       wrappedLines.push(currentPrefix + remaining);
       remaining = "";
       break;
@@ -99,7 +104,7 @@ export function wrapEncodingLine(line: string, maxWidth: number): string {
       remaining = remaining.slice(hardBreak);
     }
 
-    currentPrefix = CONTINUATION_INDENT;
+    currentPrefix = continuationIndent;
   }
 
   return wrappedLines.join("\n");
@@ -156,7 +161,10 @@ function extractFolderNames(files: string[]): string[] {
   return Array.from(folders).sort();
 }
 
-function showEncodingFeedback(folderArray: string[]): void {
+function showEncodingFeedback(
+  folderArray: string[],
+  maxWidth: number,
+): void {
   if (folderArray.length === 1) {
     console.log(
       `\n🗜️ amusic has started to encode 📁 \x1b[1m\x1b[94m${
@@ -166,7 +174,8 @@ function showEncodingFeedback(folderArray: string[]): void {
   } else {
     console.log(`\n🗜️ amusic has started to encode:`);
     for (const folder of folderArray) {
-      console.log(`  📁 \x1b[1m\x1b[94m${folder}\x1b[0m`);
+      const line = `  📁 \x1b[1m\x1b[94m${folder}\x1b[0m`;
+      console.log(wrapEncodingLine(line, maxWidth));
     }
   }
 }
@@ -494,7 +503,7 @@ export async function encodeCommand(
   // Show immediate feedback FIRST - before any file processing
   if (!options.quiet && files.length > 0) {
     const folderArray = extractFolderNames(files);
-    showEncodingFeedback(folderArray);
+    showEncodingFeedback(folderArray, getTerminalColumns(options));
   }
 
   // Collect all files

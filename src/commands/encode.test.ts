@@ -96,6 +96,17 @@ Deno.test("wrapEncodingLine", async (t) => {
     assertEquals(wrapEncodingLine(line, 80), line);
   });
 
+  await t.step("should wrap line that exactly equals maxWidth", () => {
+    // Build a line whose display width === maxWidth (40)
+    // prefix(6) + 34 chars = 40 display cols
+    const line = `${prefix}${"A".repeat(30)} end`;
+    assertEquals(displayWidth(line), 40);
+    const result = wrapEncodingLine(line, 40);
+    // Should wrap — line at exact terminal width should not touch the edge
+    const lines = result.split("\n");
+    assertEquals(lines.length > 1, true);
+  });
+
   await t.step("should break at / boundary with proper indent", () => {
     // Build a line that exceeds 40 columns
     // "   🎧 FolderName/track.flac → .m4a" where FolderName is long enough
@@ -158,5 +169,81 @@ Deno.test("wrapEncodingLine", async (t) => {
   await t.step("should return Infinity-width line unchanged", () => {
     const longLine = `${prefix}${"A".repeat(500)}`;
     assertEquals(wrapEncodingLine(longLine, Infinity), longLine);
+  });
+
+  const discPrefix = "💿 ";
+  const discIndent = "   "; // 3 spaces to match disc prefix display width
+
+  await t.step("should return short 💿 line unchanged", () => {
+    const line = `${discPrefix}Encoding 'short.flac'`;
+    assertEquals(wrapEncodingLine(line, 80), line);
+  });
+
+  await t.step("should wrap long 💿 line at space with 3-space indent", () => {
+    const longName = "A".repeat(30);
+    const line = `${discPrefix}Encoding '${longName} something.flac'`;
+    const result = wrapEncodingLine(line, 40);
+    const lines = result.split("\n");
+    assertEquals(lines.length > 1, true);
+    // Continuation lines should start with 3-space indent
+    for (let i = 1; i < lines.length; i++) {
+      assertEquals(lines[i].startsWith(discIndent), true);
+    }
+    // All lines should fit within maxWidth
+    for (const l of lines) {
+      const w = displayWidth(l);
+      if (w > 40) {
+        throw new Error(`Line "${l}" has width ${w}, exceeds 40`);
+      }
+    }
+  });
+
+  await t.step("should wrap long 💿 line at / boundary", () => {
+    const line = `${discPrefix}${"A".repeat(30)}/filename.flac`;
+    // displayWidth = 3 + 30 + 1 + 13 = 47, exceeds 40
+    const result = wrapEncodingLine(line, 40);
+    assertEquals(
+      result,
+      `${discPrefix}${"A".repeat(30)}/\n${discIndent}filename.flac`,
+    );
+  });
+
+  const folderPrefix = "  📁 ";
+  const folderIndent = "     "; // 5 spaces to match folder prefix display width
+
+  await t.step("should return short 📁 line unchanged", () => {
+    const line = `${folderPrefix}Short Folder`;
+    assertEquals(wrapEncodingLine(line, 80), line);
+  });
+
+  await t.step("should wrap long 📁 line at space with 5-space indent", () => {
+    const line =
+      `${folderPrefix}Run The Jewels – caminando en la nieve (feat. Akapellah, Apache & Pawmps)`;
+    const result = wrapEncodingLine(line, 60);
+    const lines = result.split("\n");
+    assertEquals(lines.length > 1, true);
+    for (let i = 1; i < lines.length; i++) {
+      assertEquals(lines[i].startsWith(folderIndent), true);
+    }
+    for (const l of lines) {
+      const w = displayWidth(l);
+      if (w > 60) {
+        throw new Error(`Line "${l}" has width ${w}, exceeds 60`);
+      }
+    }
+  });
+
+  await t.step("should wrap 📁 line with ANSI codes correctly", () => {
+    const folder = "A".repeat(50);
+    const line = `${folderPrefix}\x1b[1m\x1b[94m${folder}\x1b[0m`;
+    const result = wrapEncodingLine(line, 40);
+    const lines = result.split("\n");
+    assertEquals(lines.length > 1, true);
+    for (const l of lines) {
+      const w = displayWidth(l);
+      if (w > 40) {
+        throw new Error(`Line "${l}" has width ${w}, exceeds 40`);
+      }
+    }
   });
 });
