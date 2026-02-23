@@ -6,6 +6,7 @@ import {
 } from "./encoding.ts";
 import { calculateReplayGain } from "./replaygain.ts";
 import { processAcoustIDTagging } from "./acoustid.ts";
+import { getReplayGainTags, writeReplayGainTags } from "./tagging.ts";
 import { dirname } from "@std/path";
 import { DEFAULT_CONCURRENCY } from "../constants.ts";
 import { formatError } from "../utils/error_utils.ts";
@@ -98,6 +99,38 @@ export async function processTrack(
 
       if (!options.quiet) {
         console.log(`✅ Encoded: ${outputPath}`);
+      }
+
+      // Detect (or copy) ReplayGain tags on the encoded output.
+      // copyMetadata in encodeToM4A usually transfers RG via setProperties(),
+      // so check the output first. If missing (e.g. copyMetadata failed or
+      // format-specific gap), fall back to explicit copy from source.
+      if (!options.dryRun) {
+        try {
+          const outputRgTags = await getReplayGainTags(workingPath);
+          if (outputRgTags) {
+            result.replayGainApplied = true;
+          } else {
+            const sourceRgTags = await getReplayGainTags(filePath);
+            if (sourceRgTags) {
+              const written = await writeReplayGainTags(
+                workingPath,
+                sourceRgTags,
+              );
+              if (written) {
+                result.replayGainApplied = true;
+              }
+            }
+          }
+        } catch (error) {
+          if (!options.quiet) {
+            console.error(
+              `⚠️  Warning: Failed to copy ReplayGain tags: ${
+                formatError(error)
+              }`,
+            );
+          }
+        }
       }
     } catch (error) {
       result.encodingError = formatError(error);
