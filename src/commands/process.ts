@@ -16,6 +16,7 @@ export interface ProcessCommandOptions extends CommandOptions {
   // Processing options
   replayGain?: boolean;
   acoustID?: boolean;
+  soundCheck?: boolean;
 
   // Folder processing
   singles?: string[][]; // Folders to treat as singles (collect mode)
@@ -86,10 +87,11 @@ export async function processCommand(
     if (options.encode) operations.push("encoding");
     if (options.replayGain) operations.push("ReplayGain");
     if (options.acoustID) operations.push("AcoustID");
+    if (options.soundCheck) operations.push("SoundCheck");
 
     if (operations.length === 0) {
       console.error(
-        "Error: No operations specified. Use --encode, --replay-gain, or --acoust-id",
+        "Error: No operations specified. Use --encode, --replay-gain, --acoust-id, or --soundcheck",
       );
       return;
     }

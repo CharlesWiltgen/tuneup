@@ -2,7 +2,6 @@ import type { OperationStats } from "../utils/operation_stats.ts";
 import {
   batchProcessTracks,
   processAlbum,
-  TrackProcessorPool,
 } from "../lib/track_processor.ts";
 import { getAlbumDisplayName } from "../lib/folder_processor.ts";
 import type { ProcessCommandOptions } from "./process.ts";
@@ -72,6 +71,8 @@ export async function processCollection({
         processAcoustID: options.acoustID,
         acoustIDApiKey: options.apiKey,
         forceAcoustID: options.force,
+        processSoundCheck: options.soundCheck,
+        forceSoundCheck: options.force,
         quiet: options.quiet,
         dryRun: options.dryRun,
         concurrency: 4,
@@ -103,8 +104,6 @@ export async function processCollection({
     }
   } else {
     // Process singles
-    const pool = new TrackProcessorPool(4);
-
     const results = await batchProcessTracks(collection, {
       encode: options.encode,
       forceLossyTranscodes: options.forceLossyTranscodes,
@@ -115,6 +114,8 @@ export async function processCollection({
       processAcoustID: options.acoustID,
       acoustIDApiKey: options.apiKey,
       forceAcoustID: options.force,
+      processSoundCheck: options.soundCheck,
+      forceSoundCheck: options.force,
       quiet: options.quiet,
       dryRun: options.dryRun,
       concurrency: 4,
@@ -143,7 +144,5 @@ export async function processCollection({
         stats.increment(result.acoustIDStatus);
       } else stats.increment("processed");
     }
-
-    await pool.shutdown();
   }
 }

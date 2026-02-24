@@ -1,10 +1,11 @@
 // encoding.test.ts
-import { assertEquals, assertRejects } from "@std/assert";
+import { assertEquals, assertNotEquals, assertRejects } from "@std/assert";
 import {
   encodeToM4A,
   generateOutputPath,
   isLosslessFormat,
 } from "./encoding.ts";
+import { ensureTagLib } from "./taglib_init.ts";
 
 Deno.test("isLosslessFormat - correctly identifies lossless formats", async () => {
   assertEquals(await isLosslessFormat("/path/to/file.wav"), true);
@@ -107,4 +108,33 @@ Deno.test("encodeToM4A - dry run returns success message", async () => {
     result.success,
     "[DRY RUN] Would encode: /path/to/file.wav -> /output/file.m4a",
   );
+});
+
+Deno.test("encodeToM4A - generates SoundCheck (ITUNNORM) data in encoded output", async () => {
+  const sampleFlac = "sample_audio_files/flac_sample_3mb.flac";
+  const tempDir = await Deno.makeTempDir({ prefix: "soundcheck-test-" });
+  const outputPath = `${tempDir}/output.m4a`;
+
+  try {
+    await encodeToM4A(sampleFlac, outputPath);
+
+    const taglib = await ensureTagLib();
+    const file = await taglib.open(outputPath, { partial: true });
+    assertNotEquals(file, null, "Should be able to open encoded M4A file");
+
+    try {
+      const properties = file!.properties() ?? {};
+      const itunnorm = properties["ITUNNORM"]?.[0]?.trim() ?? "";
+
+      assertNotEquals(
+        itunnorm,
+        "",
+        "Encoded M4A should contain non-empty ITUNNORM (SoundCheck) data",
+      );
+    } finally {
+      file!.dispose();
+    }
+  } finally {
+    await Deno.remove(tempDir, { recursive: true });
+  }
 });

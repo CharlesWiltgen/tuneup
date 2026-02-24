@@ -3,6 +3,7 @@ import { defaultCommand } from "../commands/default.ts";
 import { easyCommand } from "../commands/easy.ts";
 import { encodeCommand } from "../commands/encode.ts";
 import { processCommand } from "../commands/process.ts";
+import { soundcheckCommand } from "../commands/soundcheck.ts";
 import { xRayCommand } from "../commands/x-ray.ts";
 import { VERSION } from "../version.ts";
 import { dirname, fromFileUrl, join } from "@std/path";
@@ -119,7 +120,7 @@ export function setupCLI() {
   program
     .command(
       "process <files...:string>",
-      "Process audio files with multiple operations in a single pass (encoding, ReplayGain, AcoustID)",
+      "Process audio files with multiple operations in a single pass (encoding, ReplayGain, AcoustID, SoundCheck)",
     )
     .option(
       "--encode",
@@ -134,6 +135,11 @@ export function setupCLI() {
     .option(
       "--acoust-id",
       "Generate and embed AcoustID fingerprints",
+      { default: false },
+    )
+    .option(
+      "--soundcheck",
+      "Generate and embed Apple SoundCheck (ITUNNORM) data",
       { default: false },
     )
     .option(
@@ -176,6 +182,29 @@ export function setupCLI() {
       { default: Deno.env.get("ACOUSTID_API_KEY") },
     )
     .action(processCommand);
+
+  // Add soundcheck subcommand
+  program
+    .command(
+      "soundcheck <files...:string>",
+      "Generate and embed Apple SoundCheck (ITUNNORM) data for audio files",
+    )
+    .option(
+      "-f, --force",
+      "Force reprocessing even if ITUNNORM already exists",
+      { default: false },
+    )
+    .option(
+      "-q, --quiet",
+      "Suppress informational output (errors still shown)",
+      { default: false },
+    )
+    .option(
+      "--dry-run",
+      "Simulate processing without writing tags",
+      { default: false },
+    )
+    .action(soundcheckCommand);
 
   // Add x-ray subcommand for testing/debugging
   program

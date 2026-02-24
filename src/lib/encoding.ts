@@ -60,6 +60,7 @@ export async function encodeToM4A(
       "127", // VBR quality 127 (highest quality)
       "-b",
       "320000", // Bitrate up to 320 kbps
+      "--soundcheck-generate", // Apple SoundCheck (ITUNNORM) loudness data
       inputPath,
       outputPath,
     ],
@@ -88,7 +89,7 @@ export async function encodeToM4A(
   }
 }
 
-async function getAfconvertPath(): Promise<string> {
+export async function getAfconvertPath(): Promise<string> {
   // First check if afconvert is available in the system
   try {
     const cmd = new Deno.Command("afconvert", {

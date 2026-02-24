@@ -74,6 +74,8 @@ export async function easyCommand(
       processAcoustID: true, // Always process AcoustID in easy mode
       acoustIDApiKey: options.apiKey,
       forceAcoustID: options.force,
+      processSoundCheck: true, // Always generate SoundCheck in easy mode
+      forceSoundCheck: options.force,
       quiet: options.quiet,
       dryRun: options.dryRun,
       concurrency: 4,

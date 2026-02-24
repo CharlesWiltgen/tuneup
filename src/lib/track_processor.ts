@@ -6,6 +6,7 @@ import {
 } from "./encoding.ts";
 import { calculateReplayGain } from "./replaygain.ts";
 import { processAcoustIDTagging } from "./acoustid.ts";
+import { processSoundCheck } from "./soundcheck.ts";
 import { getReplayGainTags, writeReplayGainTags } from "./tagging.ts";
 import { dirname } from "@std/path";
 import { DEFAULT_CONCURRENCY } from "../constants.ts";
@@ -28,6 +29,10 @@ export interface TrackProcessingOptions {
   acoustIDApiKey?: string;
   forceAcoustID?: boolean;
 
+  // SoundCheck options
+  processSoundCheck?: boolean;
+  forceSoundCheck?: boolean;
+
   // General options
   quiet?: boolean;
   dryRun?: boolean;
@@ -42,6 +47,8 @@ export interface TrackProcessingResult {
   replayGainError?: string;
   acoustIDStatus?: ProcessResultStatus;
   acoustIDError?: string;
+  soundCheckApplied?: boolean;
+  soundCheckError?: string;
   duration: number;
 }
 
@@ -95,6 +102,7 @@ export async function processTrack(
       }
 
       result.encoded = true;
+      if (options.processSoundCheck) result.soundCheckApplied = true;
       workingPath = outputPath; // Continue processing with the encoded file
 
       if (!options.quiet) {
@@ -180,6 +188,28 @@ export async function processTrack(
       result.acoustIDStatus = "failed";
       if (!options.quiet) {
         console.error(`❌ AcoustID error: ${result.acoustIDError}`);
+      }
+    }
+  }
+
+  // Step 4: SoundCheck (if requested)
+  // Skip if encoding was done — encodeToM4A already uses --soundcheck-generate
+  if (options.processSoundCheck && !result.encoded) {
+    try {
+      const status = await processSoundCheck(workingPath, {
+        force: options.forceSoundCheck || false,
+        quiet: options.quiet || false,
+        dryRun: options.dryRun || false,
+      });
+      result.soundCheckApplied = status === "processed";
+
+      if (!options.quiet && status === "processed") {
+        console.log(`✅ SoundCheck applied for: ${workingPath}`);
+      }
+    } catch (error) {
+      result.soundCheckError = formatError(error);
+      if (!options.quiet) {
+        console.error(`❌ SoundCheck error: ${result.soundCheckError}`);
       }
     }
   }
