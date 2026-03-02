@@ -31,7 +31,8 @@ export function isCompilationAlbum(metadata: AlbumMetadata): boolean {
   if (
     compilationFlag === "1" ||
     compilationFlag === 1 ||
-    compilationFlag === true
+    compilationFlag === true ||
+    compilationFlag === "true"
   ) {
     return true;
   }

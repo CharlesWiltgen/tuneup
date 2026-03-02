@@ -124,7 +124,7 @@ Deno.test("encodeToM4A - generates SoundCheck (ITUNNORM) data in encoded output"
 
     try {
       const properties = file!.properties() ?? {};
-      const itunnorm = properties["ITUNNORM"]?.[0]?.trim() ?? "";
+      const itunnorm = properties["appleSoundCheck"]?.[0]?.trim() ?? "";
 
       assertNotEquals(
         itunnorm,

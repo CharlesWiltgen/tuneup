@@ -246,7 +246,7 @@ function classifyFilesByMetadata(
   const singles: string[] = [];
   const skippedAacFiles: string[] = [];
 
-  for (const result of batchResult.results) {
+  for (const result of batchResult.items) {
     const classification = classifySingleFile(result, skipAacFiles);
 
     switch (classification.type) {
@@ -283,18 +283,18 @@ function classifyFilesByMetadata(
  * @returns Classification result indicating file type
  */
 function classifySingleFile(
-  result: BatchResult["results"][0],
+  result: BatchResult["items"][0],
   skipAacFiles?: boolean,
 ): FileClassificationResult {
   // Handle errors
-  if ("error" in result && result.error) {
+  if (result.status === "error") {
     return {
       type: "error",
-      message: `Error reading metadata for ${result.file}: ${result.error}`,
+      message: `Error reading metadata for ${result.path}: ${result.error}`,
     };
   }
 
-  const { file: filePath, data } = result;
+  const { path: filePath, data } = result;
 
   // Check AAC skip
   if (skipAacFiles && data && shouldSkipAacFile(filePath, data.properties)) {
@@ -303,7 +303,7 @@ function classifySingleFile(
 
   // Classify by album
   // deno-lint-ignore no-explicit-any -- taglib-wasm returns untyped tags object
-  const albumName = (data?.tags as any)?.album || "";
+  const albumName = (data?.tags as any)?.album?.[0] || "";
   if (albumName) {
     const albumKey = normalizeForMatching(albumName, {
       stripLeadingArticles: true,

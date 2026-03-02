@@ -21,12 +21,11 @@ async function readFileMetadataForCompilation(
     try {
       using audioFile = await taglib.open(file);
       const tag = audioFile.tag();
-      const props = audioFile.properties();
 
       metadata.push({
         artist: tag.artist || undefined,
-        albumArtist: props["ALBUMARTIST"]?.[0] || undefined,
-        compilationFlag: props["COMPILATION"]?.[0] || undefined,
+        albumArtist: audioFile.getProperty("albumArtist") || undefined,
+        compilationFlag: audioFile.getProperty("compilation") || undefined,
       });
     } catch (error) {
       if (debug) {

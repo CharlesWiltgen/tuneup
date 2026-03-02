@@ -47,6 +47,14 @@ Deno.test("isCompilationAlbum", async (t) => {
     assertEquals(isCompilationAlbum(metadata), true);
   });
 
+  await t.step("should detect compilation by flag string 'true'", () => {
+    const metadata: AlbumMetadata = {
+      compilationFlag: "true",
+      uniqueArtists: new Set(["Artist 1"]),
+    };
+    assertEquals(isCompilationAlbum(metadata), true);
+  });
+
   await t.step("should detect compilation by artist count", () => {
     const metadata: AlbumMetadata = {
       uniqueArtists: new Set(["Artist 1", "Artist 2", "Artist 3"]),

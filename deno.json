@@ -23,7 +23,9 @@
   "fmt": {
     "exclude": [
       "dist/",
-      "amusic"
+      "amusic",
+      ".beads/",
+      "AGENTS.md"
     ]
   },
   "lint": {

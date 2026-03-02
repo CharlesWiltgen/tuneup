@@ -229,7 +229,7 @@ function applyBasicMetadata(destTag: any, metadata: any) {
  * Filter properties that should be copied based on target format
  */
 function filterPropertiesToCopy(
-  allProperties: Record<string, string[]>,
+  allProperties: Record<string, string[] | undefined>,
   _targetPath: string,
 ): Record<string, string[]> {
   // Properties that are handled separately or shouldn't be copied

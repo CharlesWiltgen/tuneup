@@ -10,7 +10,7 @@ export async function hasSoundCheckTag(filePath: string): Promise<boolean> {
     audioFile = await taglib.open(filePath, { partial: true });
     if (!audioFile) return false;
     const properties = audioFile.properties() ?? {};
-    const itunnorm = properties["ITUNNORM"]?.[0]?.trim() ?? "";
+    const itunnorm = properties["appleSoundCheck"]?.[0]?.trim() ?? "";
     return itunnorm.length > 0;
   } catch {
     return false;
@@ -63,7 +63,7 @@ export async function generateSoundCheck(
         return null;
       }
       const properties = audioFile.properties() ?? {};
-      const itunnorm = properties["ITUNNORM"]?.[0]?.trim() ?? "";
+      const itunnorm = properties["appleSoundCheck"]?.[0]?.trim() ?? "";
       if (itunnorm.length === 0) {
         console.error(
           `  afconvert ran but wrote no ITUNNORM tag to probe file`,
@@ -88,7 +88,7 @@ export async function writeSoundCheckTag(
   try {
     audioFile = await taglib.open(filePath);
     if (!audioFile) return false;
-    audioFile.setProperties({ ITUNNORM: [itunnorm] });
+    audioFile.setProperties({ appleSoundCheck: [itunnorm] });
     await audioFile.saveToFile();
     return true;
   } catch (error) {

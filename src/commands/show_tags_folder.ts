@@ -79,16 +79,17 @@ interface FileMetadata {
 }
 
 // Extend the taglib-wasm tags type to include AcoustID fields
+// In beta.12, string tag fields are string[] in batch/folder results
 interface ExtendedTags {
-  title?: string;
-  artist?: string;
-  album?: string;
+  title?: string[];
+  artist?: string[];
+  album?: string[];
   year?: number;
   track?: number;
-  genre?: string;
-  comment?: string;
-  acoustIdFingerprint?: string;
-  acoustIdId?: string;
+  genre?: string[];
+  comment?: string[];
+  acoustidFingerprint?: string[];
+  acoustidId?: string[];
 }
 
 /**
@@ -130,7 +131,7 @@ export async function showTagsWithFolderAPI(
       // Update with final count and checkmark
       Deno.stdout.writeSync(
         new TextEncoder().encode(
-          `\x1b[2K\r✅ Reading metadata: ${batchResult.results.length} files processed\n\n`,
+          `\x1b[2K\r✅ Reading metadata: ${batchResult.items.length} files processed\n\n`,
         ),
       );
       // Show cursor
@@ -141,39 +142,39 @@ export async function showTagsWithFolderAPI(
     let lastAlbum = "";
     let albumTrackCount = 0;
 
-    for (let i = 0; i < batchResult.results.length; i++) {
-      const result = batchResult.results[i];
+    for (let i = 0; i < batchResult.items.length; i++) {
+      const result = batchResult.items[i];
 
-      if ("error" in result && result.error) {
-        console.error(`Error reading ${result.file}: ${result.error}`);
+      if (result.status === "error") {
+        console.error(`Error reading ${result.path}: ${result.error}`);
         continue;
       }
 
       const { data } = result;
-      const tags = data.tags as ExtendedTags | undefined;
+      const tags = data.tags as unknown as ExtendedTags | undefined;
       const metadata: FileMetadata = {
-        path: result.file,
-        title: tags?.title,
-        artist: tags?.artist,
-        album: tags?.album,
+        path: result.path,
+        title: tags?.title?.[0],
+        artist: tags?.artist?.[0],
+        album: tags?.album?.[0],
         year: tags?.year,
         track: tags?.track,
-        genre: tags?.genre,
-        comment: tags?.comment,
-        duration: data.properties?.length,
+        genre: tags?.genre?.[0],
+        comment: tags?.comment?.[0],
+        duration: data.properties?.duration,
         bitrate: data.properties?.bitrate,
         sampleRate: data.properties?.sampleRate,
         channels: data.properties?.channels,
-        format: result.file.substring(result.file.lastIndexOf(".") + 1)
+        format: result.path.substring(result.path.lastIndexOf(".") + 1)
           .toUpperCase(),
         // Extended tags from dynamics
         replayGainTrackGain: data.dynamics?.replayGainTrackGain,
         replayGainTrackPeak: data.dynamics?.replayGainTrackPeak,
         replayGainAlbumGain: data.dynamics?.replayGainAlbumGain,
         replayGainAlbumPeak: data.dynamics?.replayGainAlbumPeak,
-        // AcoustID fields now properly typed
-        acoustIdFingerprint: tags?.acoustIdFingerprint,
-        acoustIdId: tags?.acoustIdId,
+        // AcoustID fields
+        acoustIdFingerprint: tags?.acoustidFingerprint?.[0],
+        acoustIdId: tags?.acoustidId?.[0],
         // Cover art is now available in batch API!
         hasCoverArt: data.hasCoverArt || false,
         coverArtCount: data.hasCoverArt ? 1 : 0, // API doesn't provide count
@@ -189,11 +190,12 @@ export async function showTagsWithFolderAPI(
 
         // Count tracks in this album
         albumTrackCount = 1;
-        for (let j = i + 1; j < batchResult.results.length; j++) {
-          const nextResult = batchResult.results[j];
+        for (let j = i + 1; j < batchResult.items.length; j++) {
+          const nextResult = batchResult.items[j];
           if (
-            !("error" in nextResult) &&
-            nextResult.data.tags?.album === currentAlbum
+            nextResult.status === "ok" &&
+            (nextResult.data.tags as unknown as ExtendedTags | undefined)
+                ?.album?.[0] === currentAlbum
           ) {
             albumTrackCount++;
           } else {

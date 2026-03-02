@@ -2,7 +2,7 @@
   "version": "5",
   "specifiers": {
     "jsr:@charlesw/taglib-wasm@1.0.0-beta.10": "1.0.0-beta.10",
-    "jsr:@charlesw/taglib-wasm@1.0.0-beta.11": "1.0.0-beta.11",
+    "jsr:@charlesw/taglib-wasm@1.0.0-beta.12": "1.0.0-beta.12",
     "jsr:@charlesw/taglib-wasm@1.0.0-beta.7": "1.0.0-beta.7",
     "jsr:@charlesw/taglib-wasm@1.0.0-beta.8": "1.0.0-beta.8",
     "jsr:@charlesw/taglib-wasm@1.0.0-beta.9": "1.0.0-beta.9",
@@ -31,35 +31,19 @@
   },
   "jsr": {
     "@charlesw/taglib-wasm@1.0.0-beta.7": {
-      "integrity": "e75a4992f0c7c8cbc902507000ce0eaa5cb37046a553b99bbaaa6336a1a494d0",
-      "dependencies": [
-        "npm:@msgpack/msgpack",
-        "npm:@wasmer/sdk"
-      ]
+      "integrity": "e75a4992f0c7c8cbc902507000ce0eaa5cb37046a553b99bbaaa6336a1a494d0"
     },
     "@charlesw/taglib-wasm@1.0.0-beta.8": {
-      "integrity": "18a106dbb00ca4394b9e9338ed6e73894aa2b15b2ecadc3da7e6cc38852c1c05",
-      "dependencies": [
-        "npm:@msgpack/msgpack",
-        "npm:@wasmer/sdk"
-      ]
+      "integrity": "18a106dbb00ca4394b9e9338ed6e73894aa2b15b2ecadc3da7e6cc38852c1c05"
     },
     "@charlesw/taglib-wasm@1.0.0-beta.9": {
-      "integrity": "3b624c2a14295395cc821f29dd5fe2e137742628877ebeced8f65ad900b03f17",
-      "dependencies": [
-        "npm:@msgpack/msgpack",
-        "npm:@wasmer/sdk"
-      ]
+      "integrity": "3b624c2a14295395cc821f29dd5fe2e137742628877ebeced8f65ad900b03f17"
     },
     "@charlesw/taglib-wasm@1.0.0-beta.10": {
-      "integrity": "ba8147a29493cb84d3ffc591753e65335bed9fb577553e7d738930a5dcc85281",
-      "dependencies": [
-        "npm:@msgpack/msgpack",
-        "npm:@wasmer/sdk"
-      ]
+      "integrity": "ba8147a29493cb84d3ffc591753e65335bed9fb577553e7d738930a5dcc85281"
     },
-    "@charlesw/taglib-wasm@1.0.0-beta.11": {
-      "integrity": "119ebdcb93ee0c49937eba1e3251307494e53f09686b24b82e0b3634f49de052",
+    "@charlesw/taglib-wasm@1.0.0-beta.12": {
+      "integrity": "96718ab840077a72c0b4807e726ca0ab9b20d60fb2b48a7a810c932fb02a46ed",
       "dependencies": [
         "npm:@msgpack/msgpack",
         "npm:@wasmer/sdk"
@@ -149,7 +133,7 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@charlesw/taglib-wasm@1.0.0-beta.11",
+      "jsr:@charlesw/taglib-wasm@1.0.0-beta.12",
       "jsr:@cliffy/command@1.0.0",
       "jsr:@cliffy/table@1.0.0",
       "jsr:@std/assert@1.0.18",

@@ -1,8 +1,5 @@
 import type { OperationStats } from "../utils/operation_stats.ts";
-import {
-  batchProcessTracks,
-  processAlbum,
-} from "../lib/track_processor.ts";
+import { batchProcessTracks, processAlbum } from "../lib/track_processor.ts";
 import { getAlbumDisplayName } from "../lib/folder_processor.ts";
 import type { ProcessCommandOptions } from "./process.ts";
 

@@ -30,13 +30,12 @@ export async function getAcoustIDTags(
 
     const tags: { ACOUSTID_FINGERPRINT?: string; ACOUSTID_ID?: string } = {};
 
-    // Use direct methods to access AcoustID tags
-    const fingerprint = audioFile.getAcoustIdFingerprint();
+    const fingerprint = audioFile.getProperty("ACOUSTID_FINGERPRINT");
     if (fingerprint) {
       tags.ACOUSTID_FINGERPRINT = fingerprint;
     }
 
-    const acoustId = audioFile.getAcoustIdId();
+    const acoustId = audioFile.getProperty("ACOUSTID_ID");
     if (acoustId) {
       tags.ACOUSTID_ID = acoustId;
     }
@@ -76,7 +75,7 @@ export async function getAudioDuration(filePath: string): Promise<number> {
   try {
     // Use Simple API for efficient read operation
     const properties = await readProperties(filePath);
-    return properties?.length || 0;
+    return properties?.duration || 0;
   } catch (error) {
     console.error(
       `Error getting audio duration from ${filePath}: ${formatError(error)}`,
@@ -104,9 +103,9 @@ export async function writeAcoustIDTags(
   try {
     audioFile = await openFileForWrite(taglib, filePath);
 
-    audioFile.setAcoustIdFingerprint(fingerprint);
+    audioFile.setProperty("ACOUSTID_FINGERPRINT", fingerprint);
     if (acoustID) {
-      audioFile.setAcoustIdId(acoustID);
+      audioFile.setProperty("ACOUSTID_ID", acoustID);
     }
 
     await audioFile.saveToFile();
@@ -150,23 +149,22 @@ export async function getReplayGainTags(
       albumPeak?: string;
     } = {};
 
-    // Use direct methods to access ReplayGain tags
-    const trackGain = audioFile.getReplayGainTrackGain();
+    const trackGain = audioFile.getProperty("REPLAYGAIN_TRACK_GAIN");
     if (trackGain !== null && trackGain !== undefined) {
       tags.trackGain = trackGain;
     }
 
-    const trackPeak = audioFile.getReplayGainTrackPeak();
+    const trackPeak = audioFile.getProperty("REPLAYGAIN_TRACK_PEAK");
     if (trackPeak !== null && trackPeak !== undefined) {
       tags.trackPeak = trackPeak;
     }
 
-    const albumGain = audioFile.getReplayGainAlbumGain();
+    const albumGain = audioFile.getProperty("REPLAYGAIN_ALBUM_GAIN");
     if (albumGain !== null && albumGain !== undefined) {
       tags.albumGain = albumGain;
     }
 
-    const albumPeak = audioFile.getReplayGainAlbumPeak();
+    const albumPeak = audioFile.getProperty("REPLAYGAIN_ALBUM_PEAK");
     if (albumPeak !== null && albumPeak !== undefined) {
       tags.albumPeak = albumPeak;
     }
@@ -206,16 +204,16 @@ export async function writeReplayGainTags(
     audioFile = await openFileForWrite(taglib, filePath);
 
     if (tags.trackGain !== undefined) {
-      audioFile.setReplayGainTrackGain(tags.trackGain);
+      audioFile.setProperty("REPLAYGAIN_TRACK_GAIN", tags.trackGain);
     }
     if (tags.trackPeak !== undefined) {
-      audioFile.setReplayGainTrackPeak(tags.trackPeak);
+      audioFile.setProperty("REPLAYGAIN_TRACK_PEAK", tags.trackPeak);
     }
     if (tags.albumGain !== undefined) {
-      audioFile.setReplayGainAlbumGain(tags.albumGain);
+      audioFile.setProperty("REPLAYGAIN_ALBUM_GAIN", tags.albumGain);
     }
     if (tags.albumPeak !== undefined) {
-      audioFile.setReplayGainAlbumPeak(tags.albumPeak);
+      audioFile.setProperty("REPLAYGAIN_ALBUM_PEAK", tags.albumPeak);
     }
 
     await audioFile.saveToFile();
@@ -238,14 +236,13 @@ export async function writeReplayGainTags(
  */
 export async function getComprehensiveMetadataWithPropertyMap(
   filePath: string,
-): Promise<Record<string, string[]> | null> {
+): Promise<Record<string, string[] | undefined> | null> {
   const taglib = await ensureTagLib();
 
   let audioFile = null;
   try {
     audioFile = await openFileForRead(taglib, filePath);
-    // @ts-ignore: propertyMap exists at runtime
-    const properties = audioFile.propertyMap();
+    const properties = audioFile.properties();
 
     // Return all properties as-is for maximum flexibility
     return properties;
@@ -323,7 +320,7 @@ export async function getComprehensiveMetadata(
 
     // Audio properties
     const props = audioFile.audioProperties();
-    if (props?.length !== undefined) metadata.duration = props.length;
+    if (props?.duration !== undefined) metadata.duration = props.duration;
     if (props?.bitrate !== undefined) metadata.bitrate = props.bitrate;
     if (props?.sampleRate !== undefined) metadata.sampleRate = props.sampleRate;
     if (props?.channels !== undefined) metadata.channels = props.channels;
@@ -333,45 +330,45 @@ export async function getComprehensiveMetadata(
       .toUpperCase();
     if (format) metadata.format = format;
 
-    // Extended tags - use direct methods
+    // Extended tags - use getProperty
     // AcoustID
-    const fingerprint = audioFile.getAcoustIdFingerprint();
+    const fingerprint = audioFile.getProperty("ACOUSTID_FINGERPRINT");
     if (fingerprint) {
       metadata.acoustIdFingerprint = fingerprint;
     }
-    const acoustId = audioFile.getAcoustIdId();
+    const acoustId = audioFile.getProperty("ACOUSTID_ID");
     if (acoustId) {
       metadata.acoustIdId = acoustId;
     }
 
     // MusicBrainz
-    const mbTrackId = audioFile.getMusicBrainzTrackId();
+    const mbTrackId = audioFile.getProperty("MUSICBRAINZ_TRACKID");
     if (mbTrackId) {
       metadata.musicBrainzTrackId = mbTrackId;
     }
-    const mbReleaseId = audioFile.getMusicBrainzReleaseId();
+    const mbReleaseId = audioFile.getProperty("MUSICBRAINZ_RELEASEID");
     if (mbReleaseId) {
       metadata.musicBrainzReleaseId = mbReleaseId;
     }
-    const mbArtistId = audioFile.getMusicBrainzArtistId();
+    const mbArtistId = audioFile.getProperty("MUSICBRAINZ_ARTISTID");
     if (mbArtistId) {
       metadata.musicBrainzArtistId = mbArtistId;
     }
 
     // ReplayGain
-    const trackGain = audioFile.getReplayGainTrackGain();
+    const trackGain = audioFile.getProperty("REPLAYGAIN_TRACK_GAIN");
     if (trackGain !== null && trackGain !== undefined) {
       metadata.replayGainTrackGain = trackGain;
     }
-    const trackPeak = audioFile.getReplayGainTrackPeak();
+    const trackPeak = audioFile.getProperty("REPLAYGAIN_TRACK_PEAK");
     if (trackPeak !== null && trackPeak !== undefined) {
       metadata.replayGainTrackPeak = trackPeak;
     }
-    const albumGain = audioFile.getReplayGainAlbumGain();
+    const albumGain = audioFile.getProperty("REPLAYGAIN_ALBUM_GAIN");
     if (albumGain !== null && albumGain !== undefined) {
       metadata.replayGainAlbumGain = albumGain;
     }
-    const albumPeak = audioFile.getReplayGainAlbumPeak();
+    const albumPeak = audioFile.getProperty("REPLAYGAIN_ALBUM_PEAK");
     if (albumPeak !== null && albumPeak !== undefined) {
       metadata.replayGainAlbumPeak = albumPeak;
     }
@@ -429,16 +426,14 @@ export async function batchCheckAcoustIDTags(
     });
 
     // Check each result for AcoustID tags
-    for (const result of batchResult.results) {
-      if ("error" in result && result.error) {
-        results.set(result.file, false);
+    for (const result of batchResult.items) {
+      if (result.status === "error") {
+        results.set(result.path, false);
         continue;
       }
 
-      // Check if we have AcoustID data
-      // Note: May need to use Full API if Simple API doesn't expose these
-      const hasAcoustId = await hasAcoustIDTags(result.file);
-      results.set(result.file, hasAcoustId);
+      const hasAcoustId = await hasAcoustIDTags(result.path);
+      results.set(result.path, hasAcoustId);
     }
   }
 
@@ -460,10 +455,10 @@ export async function batchGetAudioProperties(
     continueOnError: true,
   });
 
-  for (const result of batchResult.results) {
-    if (!("error" in result) && result.data.properties) {
-      results.set(result.file, {
-        duration: result.data.properties.length || 0,
+  for (const result of batchResult.items) {
+    if (result.status === "ok" && result.data.properties) {
+      results.set(result.path, {
+        duration: result.data.properties.duration || 0,
         bitrate: result.data.properties.bitrate || 0,
       });
     }

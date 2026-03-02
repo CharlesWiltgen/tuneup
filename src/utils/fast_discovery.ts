@@ -250,11 +250,11 @@ export async function parallelCheckMpeg4Codecs(
       continueOnError: true,
     });
 
-    for (let i = 0; i < results.results.length; i++) {
-      const result = results.results[i];
+    for (let i = 0; i < results.items.length; i++) {
+      const result = results.items[i];
       const file = files[i];
 
-      if ("error" in result && result.error) {
+      if (result.status === "error") {
         aac.push({ path: file, reason: "error" });
         if (debug) {
           console.log(`[DEBUG] Error reading ${file}: ${result.error}`);
@@ -262,7 +262,7 @@ export async function parallelCheckMpeg4Codecs(
         continue;
       }
 
-      const properties = result.data?.properties;
+      const properties = result.data.properties;
       const codec = (properties?.codec || "").toLowerCase();
 
       if (debug) {
