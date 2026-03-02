@@ -20,9 +20,11 @@ Deno.test("isLosslessFormat - correctly identifies lossy formats", async () => {
   assertEquals(await isLosslessFormat("/path/to/file.ogg"), false);
   assertEquals(await isLosslessFormat("/path/to/file.MP3"), false);
   assertEquals(await isLosslessFormat("/path/to/file.OGG"), false);
-  // M4A files will return false if they can't be read (non-existent test paths)
-  assertEquals(await isLosslessFormat("/path/to/file.m4a"), false);
-  assertEquals(await isLosslessFormat("/path/to/file.mp4"), false);
+});
+
+Deno.test("isLosslessFormat - ambiguous formats default to false when file cannot be inspected", async () => {
+  assertEquals(await isLosslessFormat("/path/to/nonexistent.m4a"), false);
+  assertEquals(await isLosslessFormat("/path/to/nonexistent.mp4"), false);
 });
 
 Deno.test("generateOutputPath - generates correct output paths", () => {

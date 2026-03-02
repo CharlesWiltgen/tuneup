@@ -1,3 +1,4 @@
+import { PROPERTIES } from "@charlesw/taglib-wasm";
 import { ensureTagLib } from "../lib/taglib_init.ts";
 import {
   aggregateAlbumMetadata,
@@ -24,8 +25,10 @@ async function readFileMetadataForCompilation(
 
       metadata.push({
         artist: tag.artist || undefined,
-        albumArtist: audioFile.getProperty("albumArtist") || undefined,
-        compilationFlag: audioFile.getProperty("compilation") || undefined,
+        albumArtist: audioFile.getProperty(PROPERTIES.albumArtist.key) ||
+          undefined,
+        compilationFlag: audioFile.getProperty(PROPERTIES.compilation.key) ||
+          undefined,
       });
     } catch (error) {
       if (debug) {

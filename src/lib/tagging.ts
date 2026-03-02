@@ -1,4 +1,4 @@
-import type { TagLib } from "@charlesw/taglib-wasm";
+import { PROPERTIES, type TagLib } from "@charlesw/taglib-wasm";
 import {
   readMetadataBatch,
   readProperties,
@@ -30,12 +30,14 @@ export async function getAcoustIDTags(
 
     const tags: { ACOUSTID_FINGERPRINT?: string; ACOUSTID_ID?: string } = {};
 
-    const fingerprint = audioFile.getProperty("ACOUSTID_FINGERPRINT");
+    const fingerprint = audioFile.getProperty(
+      PROPERTIES.acoustidFingerprint.key,
+    );
     if (fingerprint) {
       tags.ACOUSTID_FINGERPRINT = fingerprint;
     }
 
-    const acoustId = audioFile.getProperty("ACOUSTID_ID");
+    const acoustId = audioFile.getProperty(PROPERTIES.acoustidId.key);
     if (acoustId) {
       tags.ACOUSTID_ID = acoustId;
     }
@@ -103,9 +105,9 @@ export async function writeAcoustIDTags(
   try {
     audioFile = await openFileForWrite(taglib, filePath);
 
-    audioFile.setProperty("ACOUSTID_FINGERPRINT", fingerprint);
+    audioFile.setProperty(PROPERTIES.acoustidFingerprint.key, fingerprint);
     if (acoustID) {
-      audioFile.setProperty("ACOUSTID_ID", acoustID);
+      audioFile.setProperty(PROPERTIES.acoustidId.key, acoustID);
     }
 
     await audioFile.saveToFile();
@@ -149,22 +151,22 @@ export async function getReplayGainTags(
       albumPeak?: string;
     } = {};
 
-    const trackGain = audioFile.getProperty("REPLAYGAIN_TRACK_GAIN");
+    const trackGain = audioFile.getProperty(PROPERTIES.replayGainTrackGain.key);
     if (trackGain !== null && trackGain !== undefined) {
       tags.trackGain = trackGain;
     }
 
-    const trackPeak = audioFile.getProperty("REPLAYGAIN_TRACK_PEAK");
+    const trackPeak = audioFile.getProperty(PROPERTIES.replayGainTrackPeak.key);
     if (trackPeak !== null && trackPeak !== undefined) {
       tags.trackPeak = trackPeak;
     }
 
-    const albumGain = audioFile.getProperty("REPLAYGAIN_ALBUM_GAIN");
+    const albumGain = audioFile.getProperty(PROPERTIES.replayGainAlbumGain.key);
     if (albumGain !== null && albumGain !== undefined) {
       tags.albumGain = albumGain;
     }
 
-    const albumPeak = audioFile.getProperty("REPLAYGAIN_ALBUM_PEAK");
+    const albumPeak = audioFile.getProperty(PROPERTIES.replayGainAlbumPeak.key);
     if (albumPeak !== null && albumPeak !== undefined) {
       tags.albumPeak = albumPeak;
     }
@@ -204,16 +206,16 @@ export async function writeReplayGainTags(
     audioFile = await openFileForWrite(taglib, filePath);
 
     if (tags.trackGain !== undefined) {
-      audioFile.setProperty("REPLAYGAIN_TRACK_GAIN", tags.trackGain);
+      audioFile.setProperty(PROPERTIES.replayGainTrackGain.key, tags.trackGain);
     }
     if (tags.trackPeak !== undefined) {
-      audioFile.setProperty("REPLAYGAIN_TRACK_PEAK", tags.trackPeak);
+      audioFile.setProperty(PROPERTIES.replayGainTrackPeak.key, tags.trackPeak);
     }
     if (tags.albumGain !== undefined) {
-      audioFile.setProperty("REPLAYGAIN_ALBUM_GAIN", tags.albumGain);
+      audioFile.setProperty(PROPERTIES.replayGainAlbumGain.key, tags.albumGain);
     }
     if (tags.albumPeak !== undefined) {
-      audioFile.setProperty("REPLAYGAIN_ALBUM_PEAK", tags.albumPeak);
+      audioFile.setProperty(PROPERTIES.replayGainAlbumPeak.key, tags.albumPeak);
     }
 
     await audioFile.saveToFile();
@@ -332,43 +334,49 @@ export async function getComprehensiveMetadata(
 
     // Extended tags - use getProperty
     // AcoustID
-    const fingerprint = audioFile.getProperty("ACOUSTID_FINGERPRINT");
+    const fingerprint = audioFile.getProperty(
+      PROPERTIES.acoustidFingerprint.key,
+    );
     if (fingerprint) {
       metadata.acoustIdFingerprint = fingerprint;
     }
-    const acoustId = audioFile.getProperty("ACOUSTID_ID");
+    const acoustId = audioFile.getProperty(PROPERTIES.acoustidId.key);
     if (acoustId) {
       metadata.acoustIdId = acoustId;
     }
 
     // MusicBrainz
-    const mbTrackId = audioFile.getProperty("MUSICBRAINZ_TRACKID");
+    const mbTrackId = audioFile.getProperty(PROPERTIES.musicbrainzTrackId.key);
     if (mbTrackId) {
       metadata.musicBrainzTrackId = mbTrackId;
     }
-    const mbReleaseId = audioFile.getProperty("MUSICBRAINZ_RELEASEID");
+    const mbReleaseId = audioFile.getProperty(
+      PROPERTIES.musicbrainzReleaseId.key,
+    );
     if (mbReleaseId) {
       metadata.musicBrainzReleaseId = mbReleaseId;
     }
-    const mbArtistId = audioFile.getProperty("MUSICBRAINZ_ARTISTID");
+    const mbArtistId = audioFile.getProperty(
+      PROPERTIES.musicbrainzArtistId.key,
+    );
     if (mbArtistId) {
       metadata.musicBrainzArtistId = mbArtistId;
     }
 
     // ReplayGain
-    const trackGain = audioFile.getProperty("REPLAYGAIN_TRACK_GAIN");
+    const trackGain = audioFile.getProperty(PROPERTIES.replayGainTrackGain.key);
     if (trackGain !== null && trackGain !== undefined) {
       metadata.replayGainTrackGain = trackGain;
     }
-    const trackPeak = audioFile.getProperty("REPLAYGAIN_TRACK_PEAK");
+    const trackPeak = audioFile.getProperty(PROPERTIES.replayGainTrackPeak.key);
     if (trackPeak !== null && trackPeak !== undefined) {
       metadata.replayGainTrackPeak = trackPeak;
     }
-    const albumGain = audioFile.getProperty("REPLAYGAIN_ALBUM_GAIN");
+    const albumGain = audioFile.getProperty(PROPERTIES.replayGainAlbumGain.key);
     if (albumGain !== null && albumGain !== undefined) {
       metadata.replayGainAlbumGain = albumGain;
     }
-    const albumPeak = audioFile.getProperty("REPLAYGAIN_ALBUM_PEAK");
+    const albumPeak = audioFile.getProperty(PROPERTIES.replayGainAlbumPeak.key);
     if (albumPeak !== null && albumPeak !== undefined) {
       metadata.replayGainAlbumPeak = albumPeak;
     }

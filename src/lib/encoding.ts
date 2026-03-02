@@ -5,8 +5,8 @@ import { ensureTagLib } from "./taglib_init.ts";
 import { formatError } from "../utils/error_utils.ts";
 
 const LOSSLESS_FORMATS = ["wav", "flac", "alac"]; // .alac files are Apple Lossless
-const LOSSY_FORMATS = ["mp3", "ogg", "m4a", "mp4"]; // .m4a/.mp4 assumed to be AAC (lossy)
-const AMBIGUOUS_FORMATS: string[] = []; // No longer checking codecs - using file extensions only
+const LOSSY_FORMATS = ["mp3", "ogg"]; // Known lossy-only formats
+const AMBIGUOUS_FORMATS = ["m4a", "mp4"]; // May be AAC (lossy) or ALAC (lossless) — inspected via audioProperties.isLossless
 
 export interface EncodingOptions {
   forceLossyTranscodes?: boolean;
