@@ -235,7 +235,7 @@ function filterPropertiesToCopy(
   // Properties that are handled separately or shouldn't be copied
   const skipProperties = [
     // Audio properties that are format-specific
-    "LENGTH",
+    "DURATION",
     "BITRATE",
     "SAMPLERATE",
     "CHANNELS",

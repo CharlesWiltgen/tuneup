@@ -151,10 +151,10 @@ export function formatMetadataForDisplay(
 
   // Extended metadata if available
   if (metadata.tags && "acoustidFingerprint" in metadata.tags) {
-    display.acoustidFingerprint = metadata.tags.acoustidFingerprint;
+    display.acoustIdFingerprint = metadata.tags.acoustidFingerprint;
   }
   if (metadata.tags && "acoustidId" in metadata.tags) {
-    display.acoustidId = metadata.tags.acoustidId;
+    display.acoustIdId = metadata.tags.acoustidId;
   }
 
   return display;
