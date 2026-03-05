@@ -99,7 +99,7 @@ export async function calculateReplayGain(
 /**
  * Parses ReplayGain CSV output from rsgain.
  */
-function parseReplayGainCSV(csvContent: string): Record<string, {
+export function parseReplayGainCSV(csvContent: string): Record<string, {
   trackGain: number;
   trackPeak: number;
   albumGain?: number;

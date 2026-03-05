@@ -5,7 +5,7 @@ import { formatError } from "../utils/error_utils.ts";
 /**
  * Format container format for display, adding descriptive names where appropriate
  */
-function formatContainerFormat(format: string): string {
+export function formatContainerFormat(format: string): string {
   switch (format) {
     case "MP4":
       return "MP4 (ISOBMFF)";
@@ -27,7 +27,7 @@ function formatContainerFormat(format: string): string {
 /**
  * Format codec for display, adding descriptive names where appropriate
  */
-function formatCodec(codec: string): string {
+export function formatCodec(codec: string): string {
   switch (codec) {
     case "AAC":
       return "AAC-LC";
