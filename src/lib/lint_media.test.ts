@@ -2,7 +2,6 @@ import { assertEquals } from "@std/assert";
 import { describe, it } from "@std/testing/bdd";
 import { detectFormatFromHeader, validateFileHeader } from "./lint_media.ts";
 
-
 describe("detectFormatFromHeader", () => {
   it("should detect MP3 with ID3 header", () => {
     const buf = new Uint8Array([

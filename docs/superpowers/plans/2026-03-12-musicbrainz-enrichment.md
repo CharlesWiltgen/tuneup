@@ -1,8 +1,8 @@
 # MusicBrainz Enrichment Implementation Plan
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development
-> (if subagents available) or superpowers:executing-plans to implement this plan.
-> Steps use checkbox (`- [ ]`) syntax for tracking.
+> (if subagents available) or superpowers:executing-plans to implement this
+> plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Capture MusicBrainz IDs during AcoustID processing (Tier 1) and add an
 `amusic enrich` command that uses album-level scoring to identify correct
@@ -25,14 +25,15 @@ API v2 (JSON, unauthenticated)
 ### Task 1: Add `writeMusicBrainzTags` function to tagging.ts
 
 **Files:**
+
 - Modify: `src/lib/tagging.ts`
 - Test: `src/lib/tagging.test.ts` (create — no existing test file for tagging)
 
 **Context:** `tagging.ts` already has `writeAcoustIDTags()` (line 97) and
 `writeReplayGainTags()` (line 193) as patterns. taglib-wasm property keys are
 available via `PROPERTIES.musicbrainzTrackId.key`,
-`PROPERTIES.musicbrainzArtistId.key`, `PROPERTIES.musicbrainzReleaseId.key`.
-The `openFileForWrite` helper (line 14) handles file opening.
+`PROPERTIES.musicbrainzArtistId.key`, `PROPERTIES.musicbrainzReleaseId.key`. The
+`openFileForWrite` helper (line 14) handles file opening.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -103,7 +104,8 @@ describe("hasMusicBrainzTags", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `deno test --allow-read --allow-write --allow-env --allow-net src/lib/tagging.test.ts`
+Run:
+`deno test --allow-read --allow-write --allow-env --allow-net src/lib/tagging.test.ts`
 Expected: FAIL — `writeMusicBrainzTags` not exported
 
 - [ ] **Step 3: Implement `writeMusicBrainzTags`**
@@ -175,7 +177,8 @@ export async function hasMusicBrainzTags(filePath: string): Promise<boolean> {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `deno test --allow-read --allow-write --allow-env --allow-net src/lib/tagging.test.ts`
+Run:
+`deno test --allow-read --allow-write --allow-env --allow-net src/lib/tagging.test.ts`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -190,6 +193,7 @@ git commit -m "feat: add writeMusicBrainzTags and hasMusicBrainzTags functions"
 ### Task 2: Add `extractMusicBrainzIds` helper to acoustid.ts
 
 **Files:**
+
 - Modify: `src/lib/acoustid.ts`
 - Test: `src/lib/acoustid.test.ts` (existing)
 
@@ -229,7 +233,10 @@ describe("extractMusicBrainzIds", () => {
   });
 
   it("should return empty object when no recordings", () => {
-    assertEquals(extractMusicBrainzIds({ results: [{ id: "x", score: 0.9 }] }), {});
+    assertEquals(
+      extractMusicBrainzIds({ results: [{ id: "x", score: 0.9 }] }),
+      {},
+    );
   });
 
   it("should return partial IDs when some fields missing", () => {
@@ -252,7 +259,8 @@ describe("extractMusicBrainzIds", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `deno test --allow-read --allow-run --allow-write --allow-env --allow-net src/lib/acoustid.test.ts --filter "extractMusicBrainzIds"`
+Run:
+`deno test --allow-read --allow-run --allow-write --allow-env --allow-net src/lib/acoustid.test.ts --filter "extractMusicBrainzIds"`
 Expected: FAIL — `extractMusicBrainzIds` not exported
 
 - [ ] **Step 3: Implement `extractMusicBrainzIds`**
@@ -287,7 +295,8 @@ export function extractMusicBrainzIds(
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `deno test --allow-read --allow-run --allow-write --allow-env --allow-net src/lib/acoustid.test.ts --filter "extractMusicBrainzIds"`
+Run:
+`deno test --allow-read --allow-run --allow-write --allow-env --allow-net src/lib/acoustid.test.ts --filter "extractMusicBrainzIds"`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -302,10 +311,12 @@ git commit -m "feat: add extractMusicBrainzIds to extract MB IDs from AcoustID r
 ### Task 3: Wire MusicBrainz tag writing into AcoustID processing
 
 **Files:**
+
 - Modify: `src/lib/acoustid.ts`
 - Test: Manual integration test (run on real file)
 
 **Context:** `processAcoustIDTagging()` (line 158) currently:
+
 1. Checks for existing AcoustID tags (line 184) — returns `"skipped"` if present
 2. Generates fingerprint (line 204)
 3. Looks up via API (line 232)
@@ -321,6 +332,7 @@ AcoustID tags are present (the lookup needs the fingerprint which requires
 fpcalc to run).
 
 The restructured flow:
+
 1. Generate fingerprint (always — needed for both AcoustID and MB)
 2. Look up via API (always — if apiKey present)
 3. Write AcoustID tags (skip if present unless `--force`)
@@ -332,23 +344,22 @@ The restructured flow:
 In `src/lib/acoustid.ts`, add imports at top:
 
 ```ts
-import {
-  hasMusicBrainzTags,
-  writeMusicBrainzTags,
-} from "./tagging.ts";
+import { hasMusicBrainzTags, writeMusicBrainzTags } from "./tagging.ts";
 ```
 
 Restructure the function so fingerprint generation and lookup always execute.
-Move the AcoustID skip check to only guard the AcoustID tag *write*, not the
+Move the AcoustID skip check to only guard the AcoustID tag _write_, not the
 lookup. Specifically:
 
 1. Hoist `lookupResult` declaration to function scope (before the `if (apiKey)`
-   block). Change `const lookupResult = await lookupFingerprint(...)` at
-   line 232 to `lookupResult = await lookupFingerprint(...)` (assignment, not
+   block). Change `const lookupResult = await lookupFingerprint(...)` at line
+   232 to `lookupResult = await lookupFingerprint(...)` (assignment, not
    declaration).
 
-2. Replace the early return at line 184 (`if (hasExistingTags && !force)
-   return "skipped"`) with a flag: `const skipAcoustIdWrite = hasExistingTags
+2. Replace the early return at line 184
+   (`if (hasExistingTags && !force)
+   return "skipped"`) with a flag:
+   `const skipAcoustIdWrite = hasExistingTags
    && !force;`
 
 3. Keep fingerprint generation and API lookup running unconditionally (they are
@@ -363,27 +374,33 @@ lookup. Specifically:
 6. Add the MB tag writing block after the AcoustID section:
 
 ```ts
-  // Write MusicBrainz tags (independent of AcoustID skip logic)
-  if (lookupResult?.results?.[0]?.recordings?.length) {
-    const hasMBTags = await hasMusicBrainzTags(filePath);
-    if (!hasMBTags || force) {
-      const mbIds = extractMusicBrainzIds(lookupResult);
-      if (Object.keys(mbIds).length > 0) {
-        if (!dryRun) {
-          const mbSuccess = await writeMusicBrainzTags(filePath, mbIds);
-          if (!quiet) {
-            if (mbSuccess) {
-              console.log(`  SUCCESS: MusicBrainz IDs written (${Object.keys(mbIds).join(", ")}).`);
-            } else {
-              console.log("  WARNING: Failed to write MusicBrainz tags.");
-            }
+// Write MusicBrainz tags (independent of AcoustID skip logic)
+if (lookupResult?.results?.[0]?.recordings?.length) {
+  const hasMBTags = await hasMusicBrainzTags(filePath);
+  if (!hasMBTags || force) {
+    const mbIds = extractMusicBrainzIds(lookupResult);
+    if (Object.keys(mbIds).length > 0) {
+      if (!dryRun) {
+        const mbSuccess = await writeMusicBrainzTags(filePath, mbIds);
+        if (!quiet) {
+          if (mbSuccess) {
+            console.log(
+              `  SUCCESS: MusicBrainz IDs written (${
+                Object.keys(mbIds).join(", ")
+              }).`,
+            );
+          } else {
+            console.log("  WARNING: Failed to write MusicBrainz tags.");
           }
-        } else if (!quiet) {
-          console.log(`  DRY RUN: Would write MusicBrainz IDs: ${JSON.stringify(mbIds)}`);
         }
+      } else if (!quiet) {
+        console.log(
+          `  DRY RUN: Would write MusicBrainz IDs: ${JSON.stringify(mbIds)}`,
+        );
       }
     }
   }
+}
 ```
 
 - [ ] **Step 2: Restructure `batchProcessAcoustIDTagging` similarly**
@@ -397,35 +414,36 @@ Restructure the batch function:
    AcoustID tags. For each file, track whether it needs AcoustID write
    (`needsAcoustIdWrite`) vs. just MB write.
 
-2. Hoist `lookupResult` declaration above the `if (apiKey)` block (same
-   pattern as Step 1). Change `const` to assignment inside the block.
+2. Hoist `lookupResult` declaration above the `if (apiKey)` block (same pattern
+   as Step 1). Change `const` to assignment inside the block.
 
-3. For each file in the loop: if `needsAcoustIdWrite`, write AcoustID tags.
-   Then independently check MB tags and write if needed.
+3. For each file in the loop: if `needsAcoustIdWrite`, write AcoustID tags. Then
+   independently check MB tags and write if needed.
 
 **Performance note**: This means files that already have AcoustID tags will
-still run through fingerprint generation and API lookup (needed to get MB
-data). This is acceptable for Tier 1 — the fpcalc call is the expensive part,
-and it's needed to get the fingerprint for the AcoustID API lookup which
-returns the MB data. If a file has *both* AcoustID and MB tags, the function
-skips both writes quickly.
+still run through fingerprint generation and API lookup (needed to get MB data).
+This is acceptable for Tier 1 — the fpcalc call is the expensive part, and it's
+needed to get the fingerprint for the AcoustID API lookup which returns the MB
+data. If a file has _both_ AcoustID and MB tags, the function skips both writes
+quickly.
 
 ```ts
-        // Write MusicBrainz tags (independent skip logic)
-        if (lookupResult?.results?.[0]?.recordings?.length) {
-          const hasMBTags = await hasMusicBrainzTags(filePath);
-          if (!hasMBTags || force) {
-            const mbIds = extractMusicBrainzIds(lookupResult);
-            if (Object.keys(mbIds).length > 0 && !dryRun) {
-              await writeMusicBrainzTags(filePath, mbIds);
-            }
-          }
-        }
+// Write MusicBrainz tags (independent skip logic)
+if (lookupResult?.results?.[0]?.recordings?.length) {
+  const hasMBTags = await hasMusicBrainzTags(filePath);
+  if (!hasMBTags || force) {
+    const mbIds = extractMusicBrainzIds(lookupResult);
+    if (Object.keys(mbIds).length > 0 && !dryRun) {
+      await writeMusicBrainzTags(filePath, mbIds);
+    }
+  }
+}
 ```
 
 - [ ] **Step 3: Run existing AcoustID tests to verify no regressions**
 
-Run: `deno test --allow-read --allow-run --allow-write --allow-env --allow-net src/lib/acoustid.test.ts`
+Run:
+`deno test --allow-read --allow-run --allow-write --allow-env --allow-net src/lib/acoustid.test.ts`
 Expected: All existing tests PASS
 
 - [ ] **Step 4: Run full test suite**
@@ -447,6 +465,7 @@ git commit -m "feat: write MusicBrainz IDs during AcoustID processing (Tier 1)"
 ### Task 4: MusicBrainz API types and rate-limited client
 
 **Files:**
+
 - Create: `src/lib/musicbrainz.ts`
 - Test: `src/lib/musicbrainz.test.ts`
 
@@ -462,7 +481,12 @@ The `VERSION` constant is in `src/version.ts`.
 Create `src/lib/musicbrainz.test.ts`:
 
 ```ts
-import { assert, assertEquals, assertGreater, assertNotEquals } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertGreater,
+  assertNotEquals,
+} from "@std/assert";
 import { describe, it } from "@std/testing/bdd";
 import {
   fetchRecording,
@@ -510,14 +534,18 @@ describe("fetchRecording", () => {
     assertNotEquals(result, null);
     assertEquals(result!.id, "465ad10c-dc4c-45c1-9f7d-ee5225e39741");
     assert(result!.title.length > 0, "Expected non-empty title");
-    assert((result!.releases ?? []).length > 0, "Expected at least one release");
+    assert(
+      (result!.releases ?? []).length > 0,
+      "Expected at least one release",
+    );
   });
 });
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `deno test --allow-read --allow-env --allow-net src/lib/musicbrainz.test.ts`
+Run:
+`deno test --allow-read --allow-env --allow-net src/lib/musicbrainz.test.ts`
 Expected: FAIL — module not found
 
 - [ ] **Step 3: Implement types and rate limiter**
@@ -528,7 +556,8 @@ Create `src/lib/musicbrainz.ts`:
 import { VERSION } from "../version.ts";
 
 const MUSICBRAINZ_API_BASE = "https://musicbrainz.org/ws/2";
-const USER_AGENT = `amusic/${VERSION} (https://github.com/CharlesWiltgen/amusic)`;
+const USER_AGENT =
+  `amusic/${VERSION} (https://github.com/CharlesWiltgen/amusic)`;
 const RATE_LIMIT_MS = 1100; // slightly over 1s to be safe
 const RETRY_DELAY_MS = 5000;
 const REQUEST_TIMEOUT_MS = 10000;
@@ -639,7 +668,9 @@ export async function fetchRecording(
       if (response.status === 503) {
         if (attempt === 0) {
           console.error(
-            `  MusicBrainz rate limited, retrying in ${RETRY_DELAY_MS / 1000}s...`,
+            `  MusicBrainz rate limited, retrying in ${
+              RETRY_DELAY_MS / 1000
+            }s...`,
           );
           await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
           continue;
@@ -683,7 +714,8 @@ export async function fetchRecording(
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `deno test --allow-read --allow-env --allow-net src/lib/musicbrainz.test.ts`
+Run:
+`deno test --allow-read --allow-env --allow-net src/lib/musicbrainz.test.ts`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -698,6 +730,7 @@ git commit -m "feat: add MusicBrainz API types, rate limiter, and fetch client"
 ### Task 5: String similarity using normalizeForMatching
 
 **Files:**
+
 - Modify: `src/lib/musicbrainz.ts`
 - Test: `src/lib/musicbrainz.test.ts`
 
@@ -732,7 +765,10 @@ describe("normalizedSimilarity", () => {
 
   it("should return low score for very different strings", () => {
     const score = normalizedSimilarity("Abbey Road", "Thriller");
-    assert(score < 0.3, `Expected score < 0.3 for very different strings, got ${score}`);
+    assert(
+      score < 0.3,
+      `Expected score < 0.3 for very different strings, got ${score}`,
+    );
   });
 
   it("should return 0.5 when either string is empty", () => {
@@ -744,7 +780,8 @@ describe("normalizedSimilarity", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `deno test --allow-read --allow-env --allow-net src/lib/musicbrainz.test.ts --filter "normalizedSimilarity"`
+Run:
+`deno test --allow-read --allow-env --allow-net src/lib/musicbrainz.test.ts --filter "normalizedSimilarity"`
 Expected: FAIL
 
 - [ ] **Step 3: Implement `normalizedSimilarity`**
@@ -782,7 +819,8 @@ export function normalizedSimilarity(a: string, b: string): number {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `deno test --allow-read --allow-env --allow-net src/lib/musicbrainz.test.ts --filter "normalizedSimilarity"`
+Run:
+`deno test --allow-read --allow-env --allow-net src/lib/musicbrainz.test.ts --filter "normalizedSimilarity"`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -797,6 +835,7 @@ git commit -m "feat: add normalizedSimilarity for tag agreement scoring"
 ### Task 6: Longest increasing subsequence (track order scoring)
 
 **Files:**
+
 - Modify: `src/lib/musicbrainz.ts`
 - Test: `src/lib/musicbrainz.test.ts`
 
@@ -870,21 +909,22 @@ git commit -m "feat: add longest increasing subsequence for track order scoring"
 ### Task 7: Release scoring model
 
 **Files:**
+
 - Modify: `src/lib/musicbrainz.ts`
 - Test: `src/lib/musicbrainz.test.ts`
 
 **Context:** The scoring model takes an album group (list of user files with
 their recording IDs, durations, existing tags) and a candidate release (from
 MusicBrainz), and returns a 0.0–1.0 score. Six weighted signals per the spec:
-track count (30), recording coverage (25), duration (15), track order (10),
-tag agreement (10), release quality (10).
+track count (30), recording coverage (25), duration (15), track order (10), tag
+agreement (10), release quality (10).
 
 - [ ] **Step 1: Write failing tests**
 
 Add to `src/lib/musicbrainz.test.ts`:
 
 ```ts
-import { scoreRelease, type AlbumFileInfo } from "./musicbrainz.ts";
+import { type AlbumFileInfo, scoreRelease } from "./musicbrainz.ts";
 
 describe("scoreRelease", () => {
   const makeFiles = (count: number): AlbumFileInfo[] =>
@@ -1058,7 +1098,9 @@ export function scoreRelease(
   const tagScores: number[] = [];
   const firstFile = files[0];
   if (firstFile?.existingAlbum) {
-    tagScores.push(normalizedSimilarity(firstFile.existingAlbum, release.title));
+    tagScores.push(
+      normalizedSimilarity(firstFile.existingAlbum, release.title),
+    );
   }
   if (firstFile?.existingYear && release.date) {
     const releaseYear = parseInt(release.date.substring(0, 4), 10);
@@ -1103,13 +1145,12 @@ export function scoreRelease(
   const qualityScore = (statusScore + typeScore + formatScore) / 3;
 
   // Weighted sum (weights sum to 100)
-  const score =
-    (trackCountScore * 30 +
-      coverageScore * 25 +
-      durationScore * 15 +
-      orderScore * 10 +
-      tagScore * 10 +
-      qualityScore * 10) / 100;
+  const score = (trackCountScore * 30 +
+    coverageScore * 25 +
+    durationScore * 15 +
+    orderScore * 10 +
+    tagScore * 10 +
+    qualityScore * 10) / 100;
 
   return score;
 }
@@ -1117,12 +1158,14 @@ export function scoreRelease(
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `deno test --allow-read --allow-env --allow-net src/lib/musicbrainz.test.ts --filter "scoreRelease"`
+Run:
+`deno test --allow-read --allow-env --allow-net src/lib/musicbrainz.test.ts --filter "scoreRelease"`
 Expected: PASS
 
 - [ ] **Step 5: Run all musicbrainz tests**
 
-Run: `deno test --allow-read --allow-env --allow-net src/lib/musicbrainz.test.ts`
+Run:
+`deno test --allow-read --allow-env --allow-net src/lib/musicbrainz.test.ts`
 Expected: All PASS
 
 - [ ] **Step 6: Commit**
@@ -1139,6 +1182,7 @@ git commit -m "feat: add album-level release scoring model with 6 weighted signa
 ### Task 8: `selectBestRelease` — orchestrate scoring across candidates
 
 **Files:**
+
 - Modify: `src/lib/musicbrainz.ts`
 - Test: `src/lib/musicbrainz.test.ts`
 
@@ -1151,7 +1195,7 @@ and return the best release with its score. Handle tie-breaking per spec.
 Add to `src/lib/musicbrainz.test.ts`:
 
 ```ts
-import { selectBestRelease, type ScoreReleaseOptions } from "./musicbrainz.ts";
+import { type ScoreReleaseOptions, selectBestRelease } from "./musicbrainz.ts";
 
 describe("selectBestRelease", () => {
   it("should return null when no candidates", () => {
@@ -1255,16 +1299,18 @@ git commit -m "feat: add selectBestRelease with confidence threshold and tie-bre
 ### Task 9: Enrich command — CLI wiring and diff display
 
 **Files:**
+
 - Create: `src/commands/enrich.ts`
 - Modify: `src/cli/cli.ts`
 - Test: `src/commands/enrich.test.ts`
 
 **Context:** Follow the pattern of `src/commands/lint.ts` for the command
-handler. Uses `listAudioFilesRecursive()` for file discovery, taglib-wasm
-batch API for reading existing tags, groups by directory, calls MusicBrainz
-for each album group, builds diff, displays and confirms.
+handler. Uses `listAudioFilesRecursive()` for file discovery, taglib-wasm batch
+API for reading existing tags, groups by directory, calls MusicBrainz for each
+album group, builds diff, displays and confirms.
 
 This is the largest task. The command handler orchestrates:
+
 1. File discovery
 2. Tag reading (batch API)
 3. Grouping by directory
@@ -1274,8 +1320,8 @@ This is the largest task. The command handler orchestrates:
 
 - [ ] **Step 1: Create minimal command with CLI wiring**
 
-Create `src/commands/enrich.ts` with the command handler skeleton that
-validates the path and discovers files:
+Create `src/commands/enrich.ts` with the command handler skeleton that validates
+the path and discovers files:
 
 ```ts
 import { listAudioFilesRecursive } from "../lib/fastest_audio_scan_recursive.ts";
@@ -1287,10 +1333,7 @@ import {
   type MBRecordingResponse,
   selectBestRelease,
 } from "../lib/musicbrainz.ts";
-import {
-  type MusicBrainzIds,
-  writeMusicBrainzTags,
-} from "../lib/tagging.ts";
+import { type MusicBrainzIds, writeMusicBrainzTags } from "../lib/tagging.ts";
 import { ensureTagLib } from "../lib/taglib_init.ts";
 import { PROPERTIES } from "@charlesw/taglib-wasm";
 
@@ -1341,7 +1384,9 @@ export async function enrichCommand(
     }
   } catch (err) {
     console.error(
-      `Error: Cannot access ${path}: ${err instanceof Error ? err.message : err}`,
+      `Error: Cannot access ${path}: ${
+        err instanceof Error ? err.message : err
+      }`,
     );
     Deno.exit(2);
     return;
@@ -1403,7 +1448,8 @@ export async function enrichCommand(
         recordingId: mbTrackId,
         duration: props?.duration ?? 0,
         trackNumber: tag.track || undefined,
-        discNumber: parseInt(audioFile.getProperty("DISCNUMBER") || "0", 10) || undefined,
+        discNumber: parseInt(audioFile.getProperty("DISCNUMBER") || "0", 10) ||
+          undefined,
         existingTitle: tag.title || undefined,
         existingAlbum: tag.album || undefined,
         existingAlbumArtist: audioFile.getProperty("ALBUMARTIST") || undefined,
@@ -1417,7 +1463,9 @@ export async function enrichCommand(
       albumGroups.set(dir, group);
     } catch (error) {
       console.error(
-        `  Warning: Could not read tags from ${item.path}: ${error instanceof Error ? error.message : error}`,
+        `  Warning: Could not read tags from ${item.path}: ${
+          error instanceof Error ? error.message : error
+        }`,
       );
       continue;
     } finally {
@@ -1465,7 +1513,9 @@ export async function enrichCommand(
 
     if (!options.quiet) {
       writeStderr(
-        `${isSingle ? "Single" : "Album"}: ${dir} (${uniqueRecordingIds.length} recordings)\n`,
+        `${
+          isSingle ? "Single" : "Album"
+        }: ${dir} (${uniqueRecordingIds.length} recordings)\n`,
       );
     }
 
@@ -1520,7 +1570,9 @@ export async function enrichCommand(
     // Confirm and apply
     let shouldApply = options.yes;
     if (!shouldApply && !options.dryRun) {
-      shouldApply = confirm(`  Apply changes to ${albumDiff.files.length} files?`);
+      shouldApply = confirm(
+        `  Apply changes to ${albumDiff.files.length} files?`,
+      );
     }
 
     if (shouldApply && !options.dryRun) {
@@ -1736,39 +1788,41 @@ async function applyFileDiff(fileDiff: FileDiff): Promise<boolean> {
 Add to `src/cli/cli.ts` after the lint subcommand (after line 236):
 
 Import at top:
+
 ```ts
 import { enrichCommand } from "../commands/enrich.ts";
 ```
 
 Command definition:
+
 ```ts
-  // Add enrich subcommand
-  program
-    .command(
-      "enrich <path:string>",
-      "Enrich music metadata using MusicBrainz (requires existing MusicBrainz recording IDs from AcoustID processing)",
-    )
-    .option(
-      "--yes",
-      "Apply all changes without prompting",
-      { default: false },
-    )
-    .option(
-      "--dry-run",
-      "Show what would change without writing",
-      { default: false },
-    )
-    .option(
-      "-q, --quiet",
-      "Suppress progress output (errors still shown)",
-      { default: false },
-    )
-    .option(
-      "-f, --force",
-      "Re-enrich even if previously enriched",
-      { default: false },
-    )
-    .action(enrichCommand);
+// Add enrich subcommand
+program
+  .command(
+    "enrich <path:string>",
+    "Enrich music metadata using MusicBrainz (requires existing MusicBrainz recording IDs from AcoustID processing)",
+  )
+  .option(
+    "--yes",
+    "Apply all changes without prompting",
+    { default: false },
+  )
+  .option(
+    "--dry-run",
+    "Show what would change without writing",
+    { default: false },
+  )
+  .option(
+    "-q, --quiet",
+    "Suppress progress output (errors still shown)",
+    { default: false },
+  )
+  .option(
+    "-f, --force",
+    "Re-enrich even if previously enriched",
+    { default: false },
+  )
+  .action(enrichCommand);
 ```
 
 - [ ] **Step 3: Write integration test**
@@ -1803,7 +1857,8 @@ describe("enrich command integration", () => {
 
 - [ ] **Step 4: Run tests**
 
-Run: `deno test --allow-read --allow-run --allow-write --allow-env --allow-net src/commands/enrich.test.ts`
+Run:
+`deno test --allow-read --allow-run --allow-write --allow-env --allow-net src/commands/enrich.test.ts`
 Expected: PASS
 
 - [ ] **Step 5: Run full test suite**
@@ -1827,55 +1882,57 @@ git commit -m "feat: add 'amusic enrich' command for MusicBrainz metadata enrich
 ### Task 10: End-to-end integration test with real files
 
 **Files:**
+
 - Modify: `src/commands/enrich.test.ts`
 
 **Context:** Test the full enrichment flow on a real album from the test
 directory. This validates that the command reads tags, queries MusicBrainz,
-scores releases, and produces output. Uses `--dry-run` to avoid modifying
-files.
+scores releases, and produces output. Uses `--dry-run` to avoid modifying files.
 
 - [ ] **Step 1: Add integration test**
 
 Add to `src/commands/enrich.test.ts`:
 
 ```ts
-  it("should run dry-run on a test directory with --quiet --dry-run", async () => {
-    const testDir =
-      "/Volumes/T9 (4TB)/Downloads/Deezer/America/America - Hits";
-    try {
-      await Deno.stat(testDir);
-    } catch {
-      return; // Skip if test directory not available
-    }
+it("should run dry-run on a test directory with --quiet --dry-run", async () => {
+  const testDir = "/Volumes/T9 (4TB)/Downloads/Deezer/America/America - Hits";
+  try {
+    await Deno.stat(testDir);
+  } catch {
+    return; // Skip if test directory not available
+  }
 
-    const cmd = new Deno.Command("deno", {
-      args: [
-        "run",
-        "--allow-read",
-        "--allow-env",
-        "--allow-net",
-        "--allow-write",
-        "src/amusic.ts",
-        "enrich",
-        "--dry-run",
-        "--quiet",
-        testDir,
-      ],
-      stdout: "piped",
-      stderr: "piped",
-    });
-    const output = await cmd.output();
-    // Should succeed (0) or report errors (1), not crash (2)
-    assert(
-      output.code === 0 || output.code === 1,
-      `Expected exit code 0 or 1, got ${output.code}. stderr: ${new TextDecoder().decode(output.stderr)}`,
-    );
+  const cmd = new Deno.Command("deno", {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-env",
+      "--allow-net",
+      "--allow-write",
+      "src/amusic.ts",
+      "enrich",
+      "--dry-run",
+      "--quiet",
+      testDir,
+    ],
+    stdout: "piped",
+    stderr: "piped",
   });
+  const output = await cmd.output();
+  // Should succeed (0) or report errors (1), not crash (2)
+  assert(
+    output.code === 0 || output.code === 1,
+    `Expected exit code 0 or 1, got ${output.code}. stderr: ${
+      new TextDecoder().decode(output.stderr)
+    }`,
+  );
+});
 ```
 
 - [ ] **Step 2: Run test**
 
-Run: `deno test --allow-read --allow-run --allow-write --allow-env --allow-net src/commands/enrich.test.ts`
+Run:
+`deno test --allow-read --allow-run --allow-write --allow-env --allow-net src/commands/enrich.test.ts`
 Expected: PASS (or skip if test dir unavailable)
 
 - [ ] **Step 3: Run full test suite**

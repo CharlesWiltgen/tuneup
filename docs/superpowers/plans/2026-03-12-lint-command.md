@@ -1,8 +1,8 @@
 # Lint Command Implementation Plan
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development
-> (if subagents available) or superpowers:executing-plans to implement this plan.
-> Steps use checkbox (`- [ ]`) syntax for tracking.
+> (if subagents available) or superpowers:executing-plans to implement this
+> plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add an `amusic lint` command that scans music libraries for tagging
 problems, inconsistencies, and file integrity issues.
@@ -35,15 +35,15 @@ In `src/lib/lint.test.ts`:
 import { assertEquals } from "@std/assert";
 import { describe, it } from "@std/testing/bdd";
 import {
+  ALBUM_RULES,
   type AlbumIndex,
+  createLintSummary,
+  FILE_METADATA_RULES,
   type FileMetadataForLint,
   type LintIssue,
   type LintSummary,
-  FILE_METADATA_RULES,
-  ALBUM_RULES,
-  runFileMetadataRules,
   runAlbumRules,
-  createLintSummary,
+  runFileMetadataRules,
   SEVERITY_ORDER,
 } from "./lint.ts";
 
@@ -92,8 +92,8 @@ describe("ALBUM_RULES", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `deno test --allow-read --allow-env src/lib/lint.test.ts`
-Expected: FAIL (module not found)
+Run: `deno test --allow-read --allow-env src/lib/lint.test.ts` Expected: FAIL
+(module not found)
 
 - [ ] **Step 3: Write types and rule registry skeleton**
 
@@ -176,22 +176,64 @@ type AlbumRule = {
 };
 
 export const FILE_METADATA_RULES: FileRule[] = [
-  { name: "missing-title", severity: "error", check: (f) => !f.title ? "No title tag" : undefined },
-  { name: "missing-artist", severity: "error", check: (f) => !f.artist ? "No artist tag" : undefined },
-  { name: "missing-album", severity: "warning", check: (f) => !f.album ? "No album tag" : undefined },
-  { name: "missing-year", severity: "warning", check: (f) => !f.year ? "No year tag" : undefined },
-  { name: "missing-track-number", severity: "warning", check: (f) => !f.track ? "No track number" : undefined },
-  { name: "missing-genre", severity: "info", check: (f) => !f.genre ? "No genre tag" : undefined },
-  { name: "missing-cover-art", severity: "warning", check: (f) => !f.hasCoverArt ? "No embedded cover art" : undefined },
-  { name: "missing-replaygain", severity: "info", check: (f) => !f.hasReplayGain ? "No ReplayGain tags" : undefined },
-  { name: "missing-acoustid", severity: "info", check: (f) => !f.hasAcoustId ? "No AcoustID fingerprint/ID" : undefined },
+  {
+    name: "missing-title",
+    severity: "error",
+    check: (f) => !f.title ? "No title tag" : undefined,
+  },
+  {
+    name: "missing-artist",
+    severity: "error",
+    check: (f) => !f.artist ? "No artist tag" : undefined,
+  },
+  {
+    name: "missing-album",
+    severity: "warning",
+    check: (f) => !f.album ? "No album tag" : undefined,
+  },
+  {
+    name: "missing-year",
+    severity: "warning",
+    check: (f) => !f.year ? "No year tag" : undefined,
+  },
+  {
+    name: "missing-track-number",
+    severity: "warning",
+    check: (f) => !f.track ? "No track number" : undefined,
+  },
+  {
+    name: "missing-genre",
+    severity: "info",
+    check: (f) => !f.genre ? "No genre tag" : undefined,
+  },
+  {
+    name: "missing-cover-art",
+    severity: "warning",
+    check: (f) => !f.hasCoverArt ? "No embedded cover art" : undefined,
+  },
+  {
+    name: "missing-replaygain",
+    severity: "info",
+    check: (f) => !f.hasReplayGain ? "No ReplayGain tags" : undefined,
+  },
+  {
+    name: "missing-acoustid",
+    severity: "info",
+    check: (f) => !f.hasAcoustId ? "No AcoustID fingerprint/ID" : undefined,
+  },
   {
     name: "suspicious-duration",
     severity: "warning",
     check: (f) => {
       if (!f.duration) return undefined;
-      if (f.duration < 5) return `Duration ${f.duration.toFixed(1)}s is unusually short (< 5s)`;
-      if (f.duration > 2700) return `Duration ${(f.duration / 60).toFixed(0)}min is unusually long (> 45min)`;
+      if (f.duration < 5) {
+        return `Duration ${f.duration.toFixed(1)}s is unusually short (< 5s)`;
+      }
+      if (f.duration > 2700) {
+        return `Duration ${
+          (f.duration / 60).toFixed(0)
+        }min is unusually long (> 45min)`;
+      }
       return undefined;
     },
   },
@@ -200,7 +242,9 @@ export const FILE_METADATA_RULES: FileRule[] = [
     severity: "warning",
     check: (f) => {
       if (!f.isLossy || !f.bitrate) return undefined;
-      if (f.bitrate < 64) return `Bitrate ${f.bitrate}kbps is unusually low (< 64kbps)`;
+      if (f.bitrate < 64) {
+        return `Bitrate ${f.bitrate}kbps is unusually low (< 64kbps)`;
+      }
       return undefined;
     },
   },
@@ -213,7 +257,13 @@ export const ALBUM_RULES: AlbumRule[] = [
     check: (albumName, entry) => {
       if (entry.albumArtists.size <= 1) return [];
       const artists = [...entry.albumArtists].join(", ");
-      return [{ type: "issue", rule: "inconsistent-artist", severity: "warning", album: albumName, message: `Multiple album artists: ${artists}` }];
+      return [{
+        type: "issue",
+        rule: "inconsistent-artist",
+        severity: "warning",
+        album: albumName,
+        message: `Multiple album artists: ${artists}`,
+      }];
     },
   },
   {
@@ -222,7 +272,13 @@ export const ALBUM_RULES: AlbumRule[] = [
     check: (albumName, entry) => {
       if (entry.years.size <= 1) return [];
       const years = [...entry.years].sort().join(", ");
-      return [{ type: "issue", rule: "inconsistent-year", severity: "warning", album: albumName, message: `Mixed years: ${years}` }];
+      return [{
+        type: "issue",
+        rule: "inconsistent-year",
+        severity: "warning",
+        album: albumName,
+        message: `Mixed years: ${years}`,
+      }];
     },
   },
   {
@@ -234,7 +290,8 @@ export const ALBUM_RULES: AlbumRule[] = [
       for (const disc of discs) {
         const tracks = entry.trackNumbers.get(disc);
         if (!tracks || tracks.length < 2) continue;
-        const nums = tracks.map((t) => parseInt(t)).filter((n) => !isNaN(n)).sort((a, b) => a - b);
+        const nums = tracks.map((t) => parseInt(t)).filter((n) => !isNaN(n))
+          .sort((a, b) => a - b);
         if (nums.length < 2) continue;
         const missing: number[] = [];
         for (let i = nums[0]; i <= nums[nums.length - 1]; i++) {
@@ -242,7 +299,15 @@ export const ALBUM_RULES: AlbumRule[] = [
         }
         if (missing.length > 0) {
           const discLabel = disc > 0 ? ` (disc ${disc})` : "";
-          issues.push({ type: "issue", rule: "track-number-gaps", severity: "warning", album: albumName, message: `Missing track${missing.length > 1 ? "s" : ""} ${missing.join(", ")} in sequence ${nums[0]}-${nums[nums.length - 1]}${discLabel}` });
+          issues.push({
+            type: "issue",
+            rule: "track-number-gaps",
+            severity: "warning",
+            album: albumName,
+            message: `Missing track${missing.length > 1 ? "s" : ""} ${
+              missing.join(", ")
+            } in sequence ${nums[0]}-${nums[nums.length - 1]}${discLabel}`,
+          });
         }
       }
       return issues;
@@ -264,7 +329,13 @@ export const ALBUM_RULES: AlbumRule[] = [
         for (const [trackNum, count] of seen) {
           if (count > 1) {
             const discLabel = disc > 0 ? ` on disc ${disc}` : "";
-            issues.push({ type: "issue", rule: "duplicate-track-number", severity: "error", album: albumName, message: `Track ${trackNum} appears ${count} times${discLabel}` });
+            issues.push({
+              type: "issue",
+              rule: "duplicate-track-number",
+              severity: "error",
+              album: albumName,
+              message: `Track ${trackNum} appears ${count} times${discLabel}`,
+            });
           }
         }
       }
@@ -281,11 +352,21 @@ export const ALBUM_RULES: AlbumRule[] = [
       const seen = new Set<string>();
       let hasDuplicates = false;
       for (const t of allTracks) {
-        if (seen.has(t)) { hasDuplicates = true; break; }
+        if (seen.has(t)) {
+          hasDuplicates = true;
+          break;
+        }
         seen.add(t);
       }
       if (!hasDuplicates) return [];
-      return [{ type: "issue", rule: "missing-disc-number", severity: "warning", album: albumName, message: "Duplicate track numbers detected but no disc number tags — possible multi-disc album" }];
+      return [{
+        type: "issue",
+        rule: "missing-disc-number",
+        severity: "warning",
+        album: albumName,
+        message:
+          "Duplicate track numbers detected but no disc number tags — possible multi-disc album",
+      }];
     },
   },
   {
@@ -293,7 +374,13 @@ export const ALBUM_RULES: AlbumRule[] = [
     severity: "info",
     check: (albumName, entry) => {
       if (entry.formats.size <= 1) return [];
-      return [{ type: "issue", rule: "mixed-formats", severity: "info", album: albumName, message: "Album contains both lossy and lossless files" }];
+      return [{
+        type: "issue",
+        rule: "mixed-formats",
+        severity: "info",
+        album: albumName,
+        message: "Album contains both lossy and lossless files",
+      }];
     },
   },
   {
@@ -301,8 +388,16 @@ export const ALBUM_RULES: AlbumRule[] = [
     severity: "warning",
     check: (albumName, entry) => {
       if (entry.sampleRates.size <= 1) return [];
-      const rates = [...entry.sampleRates].sort((a, b) => a - b).map((r) => `${r}Hz`).join(", ");
-      return [{ type: "issue", rule: "mixed-sample-rates", severity: "warning", album: albumName, message: `Mixed sample rates: ${rates}` }];
+      const rates = [...entry.sampleRates].sort((a, b) => a - b).map((r) =>
+        `${r}Hz`
+      ).join(", ");
+      return [{
+        type: "issue",
+        rule: "mixed-sample-rates",
+        severity: "warning",
+        album: albumName,
+        message: `Mixed sample rates: ${rates}`,
+      }];
     },
   },
 ];
@@ -312,7 +407,13 @@ export function runFileMetadataRules(file: FileMetadataForLint): LintIssue[] {
   for (const rule of FILE_METADATA_RULES) {
     const message = rule.check(file);
     if (message) {
-      issues.push({ type: "issue", rule: rule.name, severity: rule.severity, file: file.path, message });
+      issues.push({
+        type: "issue",
+        rule: rule.name,
+        severity: rule.severity,
+        file: file.path,
+        message,
+      });
     }
   }
   return issues;
@@ -359,8 +460,7 @@ export function createLintSummary(
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `deno test --allow-read --allow-env src/lib/lint.test.ts`
-Expected: PASS
+Run: `deno test --allow-read --allow-env src/lib/lint.test.ts` Expected: PASS
 
 - [ ] **Step 5: Commit**
 
@@ -380,7 +480,9 @@ git commit -m "feat(lint): add core types, rule registry, and rule definitions"
 Add to `src/lib/lint.test.ts`:
 
 ```ts
-function makeFile(overrides: Partial<FileMetadataForLint> = {}): FileMetadataForLint {
+function makeFile(
+  overrides: Partial<FileMetadataForLint> = {},
+): FileMetadataForLint {
   return {
     path: "/music/test.mp3",
     title: "Test Song",
@@ -445,11 +547,21 @@ describe("runFileMetadataRules", () => {
   });
 
   it("should flag low bitrate only for lossy files", () => {
-    const lossyIssues = runFileMetadataRules(makeFile({ bitrate: 32, isLossy: true }));
-    assertEquals(lossyIssues.some((i) => i.rule === "suspicious-bitrate"), true);
+    const lossyIssues = runFileMetadataRules(
+      makeFile({ bitrate: 32, isLossy: true }),
+    );
+    assertEquals(
+      lossyIssues.some((i) => i.rule === "suspicious-bitrate"),
+      true,
+    );
 
-    const losslessIssues = runFileMetadataRules(makeFile({ bitrate: 32, isLossy: false }));
-    assertEquals(losslessIssues.some((i) => i.rule === "suspicious-bitrate"), false);
+    const losslessIssues = runFileMetadataRules(
+      makeFile({ bitrate: 32, isLossy: false }),
+    );
+    assertEquals(
+      losslessIssues.some((i) => i.rule === "suspicious-bitrate"),
+      false,
+    );
   });
 
   it("should flag all missing optional metadata as appropriate severities", () => {
@@ -477,8 +589,8 @@ describe("runFileMetadataRules", () => {
 
 - [ ] **Step 2: Run tests to verify they pass**
 
-Run: `deno test --allow-read --allow-env src/lib/lint.test.ts`
-Expected: PASS (rules are already implemented)
+Run: `deno test --allow-read --allow-env src/lib/lint.test.ts` Expected: PASS
+(rules are already implemented)
 
 - [ ] **Step 3: Commit**
 
@@ -498,7 +610,9 @@ git commit -m "test(lint): add per-file metadata rule unit tests"
 Add to `src/lib/lint.test.ts`:
 
 ```ts
-function makeAlbumEntry(overrides: Partial<AlbumIndexEntry> = {}): AlbumIndexEntry {
+function makeAlbumEntry(
+  overrides: Partial<AlbumIndexEntry> = {},
+): AlbumIndexEntry {
   return {
     albumArtists: new Set(["Test Artist"]),
     years: new Set([2024]),
@@ -508,7 +622,11 @@ function makeAlbumEntry(overrides: Partial<AlbumIndexEntry> = {}): AlbumIndexEnt
     sampleRates: new Set([44100]),
     directories: new Set(["/music/album"]),
     fileCount: 3,
-    files: ["/music/album/01.mp3", "/music/album/02.mp3", "/music/album/03.mp3"],
+    files: [
+      "/music/album/01.mp3",
+      "/music/album/02.mp3",
+      "/music/album/03.mp3",
+    ],
     ...overrides,
   };
 }
@@ -522,7 +640,10 @@ describe("runAlbumRules", () => {
 
   it("should flag inconsistent artists", () => {
     const index: AlbumIndex = new Map([
-      ["Test Album", makeAlbumEntry({ albumArtists: new Set(["Artist A", "Artist B"]) })],
+      [
+        "Test Album",
+        makeAlbumEntry({ albumArtists: new Set(["Artist A", "Artist B"]) }),
+      ],
     ]);
     const issues = runAlbumRules(index);
     assertEquals(issues.some((i) => i.rule === "inconsistent-artist"), true);
@@ -538,7 +659,10 @@ describe("runAlbumRules", () => {
 
   it("should detect track number gaps", () => {
     const index: AlbumIndex = new Map([
-      ["Test Album", makeAlbumEntry({ trackNumbers: new Map([[0, ["1", "2", "4", "5"]]]) })],
+      [
+        "Test Album",
+        makeAlbumEntry({ trackNumbers: new Map([[0, ["1", "2", "4", "5"]]]) }),
+      ],
     ]);
     const issues = runAlbumRules(index);
     const gapIssue = issues.find((i) => i.rule === "track-number-gaps");
@@ -547,7 +671,10 @@ describe("runAlbumRules", () => {
 
   it("should detect duplicate track numbers", () => {
     const index: AlbumIndex = new Map([
-      ["Test Album", makeAlbumEntry({ trackNumbers: new Map([[0, ["1", "2", "2", "3"]]]) })],
+      [
+        "Test Album",
+        makeAlbumEntry({ trackNumbers: new Map([[0, ["1", "2", "2", "3"]]]) }),
+      ],
     ]);
     const issues = runAlbumRules(index);
     assertEquals(issues.some((i) => i.rule === "duplicate-track-number"), true);
@@ -555,10 +682,13 @@ describe("runAlbumRules", () => {
 
   it("should detect missing disc numbers when tracks repeat", () => {
     const index: AlbumIndex = new Map([
-      ["Test Album", makeAlbumEntry({
-        trackNumbers: new Map([[0, ["1", "2", "3", "1", "2"]]]),
-        discNumbers: new Set(),
-      })],
+      [
+        "Test Album",
+        makeAlbumEntry({
+          trackNumbers: new Map([[0, ["1", "2", "3", "1", "2"]]]),
+          discNumbers: new Set(),
+        }),
+      ],
     ]);
     const issues = runAlbumRules(index);
     assertEquals(issues.some((i) => i.rule === "missing-disc-number"), true);
@@ -566,10 +696,13 @@ describe("runAlbumRules", () => {
 
   it("should not flag missing disc numbers when disc numbers are present", () => {
     const index: AlbumIndex = new Map([
-      ["Test Album", makeAlbumEntry({
-        trackNumbers: new Map([[1, ["1", "2", "3"]], [2, ["1", "2"]]]),
-        discNumbers: new Set([1, 2]),
-      })],
+      [
+        "Test Album",
+        makeAlbumEntry({
+          trackNumbers: new Map([[1, ["1", "2", "3"]], [2, ["1", "2"]]]),
+          discNumbers: new Set([1, 2]),
+        }),
+      ],
     ]);
     const issues = runAlbumRules(index);
     assertEquals(issues.some((i) => i.rule === "missing-disc-number"), false);
@@ -577,10 +710,13 @@ describe("runAlbumRules", () => {
 
   it("should check track gaps per-disc when disc numbers present", () => {
     const index: AlbumIndex = new Map([
-      ["Test Album", makeAlbumEntry({
-        trackNumbers: new Map([[1, ["1", "2", "4"]], [2, ["1", "2"]]]),
-        discNumbers: new Set([1, 2]),
-      })],
+      [
+        "Test Album",
+        makeAlbumEntry({
+          trackNumbers: new Map([[1, ["1", "2", "4"]], [2, ["1", "2"]]]),
+          discNumbers: new Set([1, 2]),
+        }),
+      ],
     ]);
     const issues = runAlbumRules(index);
     const gapIssue = issues.find((i) => i.rule === "track-number-gaps");
@@ -589,7 +725,10 @@ describe("runAlbumRules", () => {
 
   it("should flag mixed formats", () => {
     const index: AlbumIndex = new Map([
-      ["Test Album", makeAlbumEntry({ formats: new Set(["lossy", "lossless"]) })],
+      [
+        "Test Album",
+        makeAlbumEntry({ formats: new Set(["lossy", "lossless"]) }),
+      ],
     ]);
     const issues = runAlbumRules(index);
     assertEquals(issues.some((i) => i.rule === "mixed-formats"), true);
@@ -609,10 +748,34 @@ describe("runAlbumRules", () => {
 describe("createLintSummary", () => {
   it("should correctly count issues by severity", () => {
     const issues: LintIssue[] = [
-      { type: "issue", rule: "missing-title", severity: "error", file: "/a.mp3", message: "x" },
-      { type: "issue", rule: "missing-album", severity: "warning", file: "/b.mp3", message: "x" },
-      { type: "issue", rule: "missing-genre", severity: "info", file: "/b.mp3", message: "x" },
-      { type: "issue", rule: "mixed-formats", severity: "info", album: "Album", message: "x" },
+      {
+        type: "issue",
+        rule: "missing-title",
+        severity: "error",
+        file: "/a.mp3",
+        message: "x",
+      },
+      {
+        type: "issue",
+        rule: "missing-album",
+        severity: "warning",
+        file: "/b.mp3",
+        message: "x",
+      },
+      {
+        type: "issue",
+        rule: "missing-genre",
+        severity: "info",
+        file: "/b.mp3",
+        message: "x",
+      },
+      {
+        type: "issue",
+        rule: "mixed-formats",
+        severity: "info",
+        album: "Album",
+        message: "x",
+      },
     ];
     const summary = createLintSummary(issues, 10);
     assertEquals(summary, {
@@ -630,8 +793,7 @@ describe("createLintSummary", () => {
 
 - [ ] **Step 2: Run tests to verify they pass**
 
-Run: `deno test --allow-read --allow-env src/lib/lint.test.ts`
-Expected: PASS
+Run: `deno test --allow-read --allow-env src/lib/lint.test.ts` Expected: PASS
 
 - [ ] **Step 3: Commit**
 
@@ -663,43 +825,147 @@ import type { LintIssue } from "./lint.ts";
 
 describe("detectFormatFromHeader", () => {
   it("should detect MP3 with ID3 header", () => {
-    const buf = new Uint8Array([0x49, 0x44, 0x33, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+    const buf = new Uint8Array([
+      0x49,
+      0x44,
+      0x33,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+    ]);
     assertEquals(detectFormatFromHeader(buf), "mp3");
   });
 
   it("should detect MP3 MPEG sync bytes (0xFF 0xFB)", () => {
-    const buf = new Uint8Array([0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+    const buf = new Uint8Array([
+      0xFF,
+      0xFB,
+      0x90,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+    ]);
     assertEquals(detectFormatFromHeader(buf), "mp3");
   });
 
   it("should detect MP3 MPEG sync bytes (0xFF 0xE0 mask)", () => {
     // MPEG2 Layer III frame sync
-    const buf = new Uint8Array([0xFF, 0xE3, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+    const buf = new Uint8Array([
+      0xFF,
+      0xE3,
+      0x90,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+    ]);
     assertEquals(detectFormatFromHeader(buf), "mp3");
   });
 
   it("should detect FLAC", () => {
-    const buf = new Uint8Array([0x66, 0x4C, 0x61, 0x43, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+    const buf = new Uint8Array([
+      0x66,
+      0x4C,
+      0x61,
+      0x43,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+    ]);
     assertEquals(detectFormatFromHeader(buf), "flac");
   });
 
   it("should detect OGG", () => {
-    const buf = new Uint8Array([0x4F, 0x67, 0x67, 0x53, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+    const buf = new Uint8Array([
+      0x4F,
+      0x67,
+      0x67,
+      0x53,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+    ]);
     assertEquals(detectFormatFromHeader(buf), "ogg");
   });
 
   it("should detect M4A/MP4 (ftyp at offset 4)", () => {
-    const buf = new Uint8Array([0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70, 0x00, 0x00, 0x00, 0x00]);
+    const buf = new Uint8Array([
+      0x00,
+      0x00,
+      0x00,
+      0x20,
+      0x66,
+      0x74,
+      0x79,
+      0x70,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+    ]);
     assertEquals(detectFormatFromHeader(buf), "m4a");
   });
 
   it("should detect WAV (RIFF)", () => {
-    const buf = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+    const buf = new Uint8Array([
+      0x52,
+      0x49,
+      0x46,
+      0x46,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+    ]);
     assertEquals(detectFormatFromHeader(buf), "wav");
   });
 
   it("should return null for unknown format", () => {
-    const buf = new Uint8Array([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+    const buf = new Uint8Array([
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+    ]);
     assertEquals(detectFormatFromHeader(buf), null);
   });
 });
@@ -715,7 +981,20 @@ describe("validateFileHeader", () => {
 
   it("should return extension-mismatch when header differs from extension", () => {
     // FLAC header but .mp3 extension
-    const buf = new Uint8Array([0x66, 0x4C, 0x61, 0x43, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+    const buf = new Uint8Array([
+      0x66,
+      0x4C,
+      0x61,
+      0x43,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+    ]);
     const issues = validateFileHeader("/test/file.mp3", ".mp3", buf);
     assertEquals(issues.length, 1);
     assertEquals(issues[0].rule, "extension-mismatch");
@@ -724,13 +1003,39 @@ describe("validateFileHeader", () => {
 
   it("should return no issues when header matches extension", () => {
     // FLAC header with .flac extension
-    const buf = new Uint8Array([0x66, 0x4C, 0x61, 0x43, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+    const buf = new Uint8Array([
+      0x66,
+      0x4C,
+      0x61,
+      0x43,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+    ]);
     const issues = validateFileHeader("/test/file.flac", ".flac", buf);
     assertEquals(issues, []);
   });
 
   it("should treat m4a and mp4 as equivalent for ftyp header", () => {
-    const buf = new Uint8Array([0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70, 0x00, 0x00, 0x00, 0x00]);
+    const buf = new Uint8Array([
+      0x00,
+      0x00,
+      0x00,
+      0x20,
+      0x66,
+      0x74,
+      0x79,
+      0x70,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+    ]);
     assertEquals(validateFileHeader("/test/file.m4a", ".m4a", buf), []);
     assertEquals(validateFileHeader("/test/file.mp4", ".mp4", buf), []);
   });
@@ -739,8 +1044,8 @@ describe("validateFileHeader", () => {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `deno test --allow-read --allow-env src/lib/lint_media.test.ts`
-Expected: FAIL (module not found)
+Run: `deno test --allow-read --allow-env src/lib/lint_media.test.ts` Expected:
+FAIL (module not found)
 
 - [ ] **Step 3: Write the media validation module**
 
@@ -758,7 +1063,7 @@ const EXTENSION_TO_FORMATS: Record<string, string[]> = {
   ".wav": ["wav"],
   ".aac": ["mp3", "m4a"], // AAC can appear in ADTS (mp3-like sync) or M4A containers
   ".opus": ["ogg"],
-  ".wma": [],  // WMA header detection not implemented
+  ".wma": [], // WMA header detection not implemented
   ".alac": ["m4a"],
 };
 
@@ -772,16 +1077,24 @@ export function detectFormatFromHeader(buf: Uint8Array): string | null {
   if (buf[0] === 0xFF && (buf[1] & 0xE0) === 0xE0) return "mp3";
 
   // FLAC: "fLaC"
-  if (buf[0] === 0x66 && buf[1] === 0x4C && buf[2] === 0x61 && buf[3] === 0x43) return "flac";
+  if (
+    buf[0] === 0x66 && buf[1] === 0x4C && buf[2] === 0x61 && buf[3] === 0x43
+  ) return "flac";
 
   // OGG: "OggS"
-  if (buf[0] === 0x4F && buf[1] === 0x67 && buf[2] === 0x67 && buf[3] === 0x53) return "ogg";
+  if (
+    buf[0] === 0x4F && buf[1] === 0x67 && buf[2] === 0x67 && buf[3] === 0x53
+  ) return "ogg";
 
   // M4A/MP4: "ftyp" at offset 4
-  if (buf[4] === 0x66 && buf[5] === 0x74 && buf[6] === 0x79 && buf[7] === 0x70) return "m4a";
+  if (
+    buf[4] === 0x66 && buf[5] === 0x74 && buf[6] === 0x79 && buf[7] === 0x70
+  ) return "m4a";
 
   // WAV: "RIFF"
-  if (buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46) return "wav";
+  if (
+    buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46
+  ) return "wav";
 
   return null;
 }
@@ -812,7 +1125,8 @@ export function validateFileHeader(
       rule: "extension-mismatch",
       severity: "warning",
       file: filePath,
-      message: `File header indicates ${detectedFormat} but extension is ${extLower}`,
+      message:
+        `File header indicates ${detectedFormat} but extension is ${extLower}`,
     }];
   }
 
@@ -833,8 +1147,8 @@ export async function readFileHeader(filePath: string): Promise<Uint8Array> {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `deno test --allow-read --allow-env src/lib/lint_media.test.ts`
-Expected: PASS
+Run: `deno test --allow-read --allow-env src/lib/lint_media.test.ts` Expected:
+PASS
 
 - [ ] **Step 5: Commit**
 
@@ -929,8 +1243,24 @@ describe("addToAlbumIndex", () => {
       containerFormat: "MP3",
       isLossy: true,
     };
-    addToAlbumIndex(index, "test album", { ...base, path: "/a/01.mp3", artist: "A", albumArtist: "AA", year: 2024, track: 1, sampleRate: 44100 });
-    addToAlbumIndex(index, "test album", { ...base, path: "/a/02.mp3", artist: "B", albumArtist: "AA", year: 2024, track: 2, sampleRate: 44100 });
+    addToAlbumIndex(index, "test album", {
+      ...base,
+      path: "/a/01.mp3",
+      artist: "A",
+      albumArtist: "AA",
+      year: 2024,
+      track: 1,
+      sampleRate: 44100,
+    });
+    addToAlbumIndex(index, "test album", {
+      ...base,
+      path: "/a/02.mp3",
+      artist: "B",
+      albumArtist: "AA",
+      year: 2024,
+      track: 2,
+      sampleRate: 44100,
+    });
     const entry = index.get("test album")!;
     assertEquals(entry.fileCount, 2);
     assertEquals(entry.albumArtists.size, 1); // Same albumArtist
@@ -940,10 +1270,23 @@ describe("addToAlbumIndex", () => {
   it("should use artist as fallback when albumArtist is missing", () => {
     const index: AlbumIndex = new Map();
     addToAlbumIndex(index, "test album", {
-      path: "/a/01.mp3", title: "Song", artist: "Track Artist", album: "Test Album",
-      year: 2024, track: 1, genre: "Rock", hasCoverArt: true, hasReplayGain: true,
-      hasAcoustId: true, duration: 180000, bitrate: 320, sampleRate: 44100, channels: 2,
-      codec: "MP3", containerFormat: "MP3", isLossy: true,
+      path: "/a/01.mp3",
+      title: "Song",
+      artist: "Track Artist",
+      album: "Test Album",
+      year: 2024,
+      track: 1,
+      genre: "Rock",
+      hasCoverArt: true,
+      hasReplayGain: true,
+      hasAcoustId: true,
+      duration: 180000,
+      bitrate: 320,
+      sampleRate: 44100,
+      channels: 2,
+      codec: "MP3",
+      containerFormat: "MP3",
+      isLossy: true,
     });
     const entry = index.get("test album")!;
     assertEquals(entry.albumArtists.has("Track Artist"), true);
@@ -953,8 +1296,8 @@ describe("addToAlbumIndex", () => {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `deno test --allow-read --allow-env src/lib/lint_engine.test.ts`
-Expected: FAIL (module not found)
+Run: `deno test --allow-read --allow-env src/lib/lint_engine.test.ts` Expected:
+FAIL (module not found)
 
 - [ ] **Step 3: Write the lint engine**
 
@@ -962,19 +1305,19 @@ In `src/lib/lint_engine.ts`:
 
 ```ts
 import { readMetadataBatch } from "@charlesw/taglib-wasm/simple";
-import { extname, dirname } from "@std/path";
+import { dirname, extname } from "@std/path";
 import { normalizeForMatching } from "../utils/normalize.ts";
 import {
   type AlbumIndex,
   type AlbumIndexEntry,
+  createLintSummary,
   type FileMetadataForLint,
   type LintIssue,
   type LintSummary,
+  runAlbumRules,
+  runFileMetadataRules,
   type Severity,
   SEVERITY_ORDER,
-  runFileMetadataRules,
-  runAlbumRules,
-  createLintSummary,
 } from "./lint.ts";
 import { readFileHeader, validateFileHeader } from "./lint_media.ts";
 
@@ -1104,7 +1447,8 @@ function batchItemToFileMetadata(item: BatchItemOk): FileMetadataForLint {
     track: tags?.track,
     genre: tags?.genre?.[0],
     hasCoverArt: item.data.hasCoverArt ?? dynamics?.hasCoverArt ?? false,
-    hasReplayGain: !!(dynamics?.replayGainTrackGain || dynamics?.replayGainAlbumGain),
+    hasReplayGain:
+      !!(dynamics?.replayGainTrackGain || dynamics?.replayGainAlbumGain),
     hasAcoustId: !!(tags?.acoustidFingerprint?.[0] || tags?.acoustidId?.[0]),
     duration: props?.duration,
     bitrate: props?.bitrate,
@@ -1168,7 +1512,9 @@ export async function runLint(
       try {
         const headerBytes = await readFileHeader(fileMeta.path);
         const ext = extname(fileMeta.path);
-        for (const issue of validateFileHeader(fileMeta.path, ext, headerBytes)) {
+        for (
+          const issue of validateFileHeader(fileMeta.path, ext, headerBytes)
+        ) {
           emit(issue);
         }
       } catch (error) {
@@ -1177,7 +1523,9 @@ export async function runLint(
           rule: "invalid-header",
           severity: "error",
           file: fileMeta.path,
-          message: `Failed to read file header: ${error instanceof Error ? error.message : String(error)}`,
+          message: `Failed to read file header: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
         });
       }
     }
@@ -1204,8 +1552,8 @@ export async function runLint(
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `deno test --allow-read --allow-env src/lib/lint_engine.test.ts`
-Expected: PASS
+Run: `deno test --allow-read --allow-env src/lib/lint_engine.test.ts` Expected:
+PASS
 
 - [ ] **Step 5: Commit**
 
@@ -1230,13 +1578,17 @@ In `src/commands/lint.ts`:
 
 ```ts
 import { listAudioFilesRecursive } from "../lib/fastest_audio_scan_recursive.ts";
-import { type LintOptions, type LintResult, runLint } from "../lib/lint_engine.ts";
+import {
+  type LintOptions,
+  type LintResult,
+  runLint,
+} from "../lib/lint_engine.ts";
 import type { LintIssue, LintSummary, Severity } from "../lib/lint.ts";
 
 const SEVERITY_ICONS: Record<string, string> = {
-  error: "\u274C",    // ❌
-  warning: "\u26A0\uFE0F",  // ⚠️
-  info: "\u2139\uFE0F",     // ℹ️
+  error: "\u274C", // ❌
+  warning: "\u26A0\uFE0F", // ⚠️
+  info: "\u2139\uFE0F", // ℹ️
 };
 
 function formatIssueTerminal(issue: LintIssue): string {
@@ -1250,8 +1602,18 @@ function formatIssueTerminal(issue: LintIssue): string {
 function formatSummaryTerminal(summary: LintSummary): string {
   const lines = [
     "Summary:",
-    `  ${summary.errors} error${summary.errors !== 1 ? "s" : ""} \u00B7 ${summary.warnings} warning${summary.warnings !== 1 ? "s" : ""} \u00B7 ${summary.info} info`,
-    `  ${summary.filesOk} file${summary.filesOk !== 1 ? "s" : ""} OK \u00B7 ${summary.filesWithIssues} file${summary.filesWithIssues !== 1 ? "s" : ""} with issues \u00B7 ${summary.albumIssues} album issue${summary.albumIssues !== 1 ? "s" : ""}`,
+    `  ${summary.errors} error${
+      summary.errors !== 1 ? "s" : ""
+    } \u00B7 ${summary.warnings} warning${
+      summary.warnings !== 1 ? "s" : ""
+    } \u00B7 ${summary.info} info`,
+    `  ${summary.filesOk} file${
+      summary.filesOk !== 1 ? "s" : ""
+    } OK \u00B7 ${summary.filesWithIssues} file${
+      summary.filesWithIssues !== 1 ? "s" : ""
+    } with issues \u00B7 ${summary.albumIssues} album issue${
+      summary.albumIssues !== 1 ? "s" : ""
+    }`,
   ];
   return lines.join("\n");
 }
@@ -1322,8 +1684,13 @@ export async function lintCommand(
     (processed, total) => {
       if (options.quiet || options.json) return;
       const now = Date.now();
-      if (processed === total || processed % 1000 === 0 || now - lastProgressUpdate > 1000) {
-        writeStderr(`\x1b[2K\rScanning: ${processed.toLocaleString()}/${total.toLocaleString()} files`);
+      if (
+        processed === total || processed % 1000 === 0 ||
+        now - lastProgressUpdate > 1000
+      ) {
+        writeStderr(
+          `\x1b[2K\rScanning: ${processed.toLocaleString()}/${total.toLocaleString()} files`,
+        );
         lastProgressUpdate = now;
       }
     },
@@ -1352,8 +1719,8 @@ export async function lintCommand(
 
 - [ ] **Step 2: Run linter and formatter**
 
-Run: `deno fmt src/commands/lint.ts && deno lint src/commands/lint.ts`
-Expected: PASS
+Run: `deno fmt src/commands/lint.ts && deno lint src/commands/lint.ts` Expected:
+PASS
 
 - [ ] **Step 3: Commit**
 
@@ -1379,44 +1746,43 @@ import { lintCommand } from "../commands/lint.ts";
 Add before `return program;` at end of `setupCLI()`:
 
 ```ts
-  // Add lint subcommand
-  program
-    .command(
-      "lint <path:string>",
-      "Scan music library for tagging problems, inconsistencies, and file integrity issues",
-    )
-    .option(
-      "--deep",
-      "Enable media integrity checks (header validation)",
-      { default: false },
-    )
-    .option(
-      "--json",
-      "Output as JSONL (one issue per line, summary last line)",
-      { default: false },
-    )
-    .option(
-      "--severity <level:string>",
-      "Minimum severity to report: error, warning (default), info",
-      { default: "warning" },
-    )
-    .option(
-      "-q, --quiet",
-      "Suppress progress output",
-      { default: false },
-    )
-    .action(lintCommand);
+// Add lint subcommand
+program
+  .command(
+    "lint <path:string>",
+    "Scan music library for tagging problems, inconsistencies, and file integrity issues",
+  )
+  .option(
+    "--deep",
+    "Enable media integrity checks (header validation)",
+    { default: false },
+  )
+  .option(
+    "--json",
+    "Output as JSONL (one issue per line, summary last line)",
+    { default: false },
+  )
+  .option(
+    "--severity <level:string>",
+    "Minimum severity to report: error, warning (default), info",
+    { default: "warning" },
+  )
+  .option(
+    "-q, --quiet",
+    "Suppress progress output",
+    { default: false },
+  )
+  .action(lintCommand);
 ```
 
 - [ ] **Step 2: Run formatter and linter**
 
-Run: `deno fmt src/cli/cli.ts && deno lint src/cli/cli.ts`
-Expected: PASS
+Run: `deno fmt src/cli/cli.ts && deno lint src/cli/cli.ts` Expected: PASS
 
 - [ ] **Step 3: Verify CLI shows lint in help**
 
-Run: `deno run --allow-read --allow-env src/amusic.ts --help`
-Expected: `lint` command appears in the help output
+Run: `deno run --allow-read --allow-env src/amusic.ts --help` Expected: `lint`
+command appears in the help output
 
 - [ ] **Step 4: Commit**
 
@@ -1507,7 +1873,8 @@ describe("lint command integration", () => {
 
 - [ ] **Step 2: Run integration test**
 
-Run: `deno test --allow-read --allow-run --allow-write --allow-env --allow-net src/commands/lint.test.ts`
+Run:
+`deno test --allow-read --allow-run --allow-write --allow-env --allow-net src/commands/lint.test.ts`
 Expected: PASS
 
 - [ ] **Step 3: Commit**
@@ -1523,11 +1890,13 @@ git commit -m "test(lint): add integration tests for lint command"
 
 - [ ] **Step 1: Format all new files**
 
-Run: `deno fmt src/lib/lint.ts src/lib/lint.test.ts src/lib/lint_media.ts src/lib/lint_media.test.ts src/lib/lint_engine.ts src/lib/lint_engine.test.ts src/commands/lint.ts src/commands/lint.test.ts`
+Run:
+`deno fmt src/lib/lint.ts src/lib/lint.test.ts src/lib/lint_media.ts src/lib/lint_media.test.ts src/lib/lint_engine.ts src/lib/lint_engine.test.ts src/commands/lint.ts src/commands/lint.test.ts`
 
 - [ ] **Step 2: Lint all new files**
 
-Run: `deno lint src/lib/lint.ts src/lib/lint.test.ts src/lib/lint_media.ts src/lib/lint_media.test.ts src/lib/lint_engine.ts src/lib/lint_engine.test.ts src/commands/lint.ts src/commands/lint.test.ts`
+Run:
+`deno lint src/lib/lint.ts src/lib/lint.test.ts src/lib/lint_media.ts src/lib/lint_media.test.ts src/lib/lint_engine.ts src/lib/lint_engine.test.ts src/commands/lint.ts src/commands/lint.test.ts`
 
 - [ ] **Step 3: Run full test suite**
 
@@ -1545,17 +1914,20 @@ git commit -m "chore(lint): format and lint cleanup"
 
 - [ ] **Step 1: Run lint on a test album folder**
 
-Run: `deno run --allow-read --allow-env --allow-net src/amusic.ts lint --severity info "/Volumes/T9 (4TB)/Downloads/Deezer"`
+Run:
+`deno run --allow-read --allow-env --allow-net src/amusic.ts lint --severity info "/Volumes/T9 (4TB)/Downloads/Deezer"`
 Expected: Formatted terminal output with issues and summary
 
 - [ ] **Step 2: Run lint with --deep**
 
-Run: `deno run --allow-read --allow-env --allow-net src/amusic.ts lint --deep --severity info "/Volumes/T9 (4TB)/Downloads/Deezer"`
+Run:
+`deno run --allow-read --allow-env --allow-net src/amusic.ts lint --deep --severity info "/Volumes/T9 (4TB)/Downloads/Deezer"`
 Expected: Additional media validation issues appear
 
 - [ ] **Step 3: Run lint with --json**
 
-Run: `deno run --allow-read --allow-env --allow-net src/amusic.ts lint --json --severity info "/Volumes/T9 (4TB)/Downloads/Deezer" | head -20`
+Run:
+`deno run --allow-read --allow-env --allow-net src/amusic.ts lint --json --severity info "/Volumes/T9 (4TB)/Downloads/Deezer" | head -20`
 Expected: Valid JSONL output
 
 - [ ] **Step 4: Push to remote**

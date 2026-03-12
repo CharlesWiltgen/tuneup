@@ -17,11 +17,11 @@ The AcoustID API already returns MusicBrainz recording data in its response
 AcoustID UUID is extracted and written. After this change, three additional tags
 are written when available:
 
-| Tag                      | Source                                           |
-| ------------------------ | ------------------------------------------------ |
-| `MUSICBRAINZ_TRACKID`   | `recordings[0].id`                               |
-| `MUSICBRAINZ_ARTISTID`  | `recordings[0].artists[0].id`                    |
-| `MUSICBRAINZ_RELEASEID` | `recordings[0].releasegroups[0].releases[0].id`  |
+| Tag                     | Source                                          |
+| ----------------------- | ----------------------------------------------- |
+| `MUSICBRAINZ_TRACKID`   | `recordings[0].id`                              |
+| `MUSICBRAINZ_ARTISTID`  | `recordings[0].artists[0].id`                   |
+| `MUSICBRAINZ_RELEASEID` | `recordings[0].releasegroups[0].releases[0].id` |
 
 All three are already supported by taglib-wasm (`musicbrainzTrackId`,
 `musicbrainzArtistId`, `musicbrainzReleaseId` property keys).
@@ -43,8 +43,8 @@ other tags are still written if their data is available. Specifically:
 Use the highest-score recording from the AcoustID response (same as current
 behavior for AcoustID ID). For release, pick the first release from the first
 release group. This is a best-effort default — Tier 2 refines it with
-album-level scoring and will overwrite the Tier 1 `MUSICBRAINZ_RELEASEID` with
-a more accurate value.
+album-level scoring and will overwrite the Tier 1 `MUSICBRAINZ_RELEASEID` with a
+more accurate value.
 
 ### Skip Logic
 
@@ -52,9 +52,9 @@ MusicBrainz tag writing is independent of AcoustID tag skip logic. The flow is:
 
 1. AcoustID processing runs as before (skip if ACOUSTID_ID present unless
    `--force`)
-2. **Regardless of whether AcoustID tags were skipped**, if `MUSICBRAINZ_TRACKID`
-   is absent, extract and write available MusicBrainz IDs from the lookup
-   response
+2. **Regardless of whether AcoustID tags were skipped**, if
+   `MUSICBRAINZ_TRACKID` is absent, extract and write available MusicBrainz IDs
+   from the lookup response
 3. If `MUSICBRAINZ_TRACKID` is already present, skip MusicBrainz tag writing
    unless `--force`
 
@@ -140,9 +140,9 @@ writes a marker property `AMUSIC_ENRICHED=1` after applying changes. The
 ### MusicBrainz API
 
 - **Endpoint**: `GET /ws/2/recording/{id}?inc=artists+releases+genres&fmt=json`
-- **Rate limit**: 1 request/second sustained, burst capacity of 1 (strictly
-  1 req/sec, no bursting). If MusicBrainz returns HTTP 503, wait 5 seconds
-  then retry once. If retry also fails, skip that recording and warn.
+- **Rate limit**: 1 request/second sustained, burst capacity of 1 (strictly 1
+  req/sec, no bursting). If MusicBrainz returns HTTP 503, wait 5 seconds then
+  retry once. If retry also fails, skip that recording and warn.
 - **User-Agent**: `amusic/{version} (https://github.com/CharlesWiltgen/amusic)`
 - **Authentication**: None required
 - **Duration units**: MusicBrainz returns durations in milliseconds; convert to
@@ -150,13 +150,13 @@ writes a marker property `AMUSIC_ENRICHED=1` after applying changes. The
 
 ### Error Handling
 
-| Error                    | Behavior                                       |
-| ------------------------ | ---------------------------------------------- |
-| HTTP 503 (rate limited)  | Wait 5s, retry once. If still 503, skip + warn |
-| HTTP 404 (invalid ID)    | Skip file, warn "Recording ID not found"       |
-| Network timeout (10s)    | Skip file, warn                                |
-| Partial album failure    | Continue with available data; scoring uses only successfully fetched recordings. Warn about skipped files. |
-| All recordings fail      | Skip album entirely, warn                      |
+| Error                   | Behavior                                                                                                   |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------- |
+| HTTP 503 (rate limited) | Wait 5s, retry once. If still 503, skip + warn                                                             |
+| HTTP 404 (invalid ID)   | Skip file, warn "Recording ID not found"                                                                   |
+| Network timeout (10s)   | Skip file, warn                                                                                            |
+| Partial album failure   | Continue with available data; scoring uses only successfully fetched recordings. Warn about skipped files. |
+| All recordings fail     | Skip album entirely, warn                                                                                  |
 
 ### Processing Flow
 
@@ -188,8 +188,8 @@ For loose files (single-file directories):
 1. Query MusicBrainz for the recording
 2. Score candidate releases: prefer "Single" type (1.0), then "Album" (0.8),
    then "EP" (0.6). Rank compilations last (0.2). Among same-type releases,
-   prefer "Official" status, then earliest release with a complete date. If
-   only year is available, use year. If no date, rank last within the type.
+   prefer "Official" status, then earliest release with a complete date. If only
+   year is available, use year. If no date, rank last within the type.
 3. Map metadata from the recording + selected release
 
 #### Step 4: Diff and Confirmation
@@ -204,15 +204,15 @@ For loose files (single-file directories):
 
 ### Fields Updated
 
-| Field        | Source                                     |
-| ------------ | ------------------------------------------ |
-| Title        | Recording title                            |
-| Artist       | Recording artist credits (joined)          |
-| Album        | Release title                              |
-| Album Artist | Release artist credits (joined)            |
-| Year         | Release date (year component)              |
-| Track Number | Track position on the matched medium       |
-| Disc Number  | Medium position within release (1-indexed) |
+| Field        | Source                                                                              |
+| ------------ | ----------------------------------------------------------------------------------- |
+| Title        | Recording title                                                                     |
+| Artist       | Recording artist credits (joined)                                                   |
+| Album        | Release title                                                                       |
+| Album Artist | Release artist credits (joined)                                                     |
+| Year         | Release date (year component)                                                       |
+| Track Number | Track position on the matched medium                                                |
+| Disc Number  | Medium position within release (1-indexed)                                          |
 | Genre        | Recording genres preferred; fall back to release group genres if recording has none |
 
 Only fields that differ from existing tags are shown in the diff. Empty fields
@@ -298,8 +298,8 @@ average (neutral).
 
 #### Track Order Match (weight: 10)
 
-Do the recordings appear in the same sequence on the release as in the
-directory (sorted by existing track number tag, falling back to filename sort)?
+Do the recordings appear in the same sequence on the release as in the directory
+(sorted by existing track number tag, falling back to filename sort)?
 
 ```
 matched_positions = list of release track positions for user files, in user order
@@ -317,8 +317,8 @@ needed for a ~15-line function.
 How well do existing tags match the release metadata?
 
 - Album title: normalized comparison using existing `normalizeForMatching()`
-  from `src/utils/normalize.ts`, then simple ratio of matching characters
-  (no external fuzzy matching library needed)
+  from `src/utils/normalize.ts`, then simple ratio of matching characters (no
+  external fuzzy matching library needed)
 - Year: exact match = 1.0, within 1 year = 0.5, else 0.0
 - Artist: same normalized comparison as album title
 
@@ -364,8 +364,8 @@ recordings appear on that release. The scoring model handles this naturally:
 - Recording coverage: 12/12 = 1.0 (all user files found)
 - The release with the highest combined score wins
 
-A 12-file match against a 12-track standard edition vs a 14-track deluxe
-edition is resolved by the other signals (duration, order, existing tags).
+A 12-file match against a 12-track standard edition vs a 14-track deluxe edition
+is resolved by the other signals (duration, order, existing tags).
 
 ### Confidence Threshold
 
@@ -379,6 +379,7 @@ disagreement between signals.
 ### Tie Breaking
 
 If two releases score within 0.05 of each other:
+
 1. Prefer the release with more recordings matched
 2. Prefer the earlier release date (original over reissue)
 3. In interactive mode, present both and let user choose
@@ -387,30 +388,30 @@ If two releases score within 0.05 of each other:
 
 ### New Files
 
-| File                      | Purpose                                                      |
-| ------------------------- | ------------------------------------------------------------ |
-| `src/lib/musicbrainz.ts`  | MusicBrainz API client, response types, rate limiter, release scoring model |
-| `src/commands/enrich.ts`  | CLI command handler, diff display, confirmation flow         |
+| File                     | Purpose                                                                     |
+| ------------------------ | --------------------------------------------------------------------------- |
+| `src/lib/musicbrainz.ts` | MusicBrainz API client, response types, rate limiter, release scoring model |
+| `src/commands/enrich.ts` | CLI command handler, diff display, confirmation flow                        |
 
 ### Modified Files
 
-| File                  | Change                                                    |
-| --------------------- | --------------------------------------------------------- |
+| File                  | Change                                                               |
+| --------------------- | -------------------------------------------------------------------- |
 | `src/lib/acoustid.ts` | Extract MusicBrainz IDs from lookup response, restructure skip logic |
-| `src/lib/tagging.ts`  | Add `writeMusicBrainzTags()` function                     |
-| `src/cli/cli.ts`      | Add `enrich` subcommand with `<path>` positional argument |
+| `src/lib/tagging.ts`  | Add `writeMusicBrainzTags()` function                                |
+| `src/cli/cli.ts`      | Add `enrich` subcommand with `<path>` positional argument            |
 
 ### Test Files
 
-| File                           | Purpose                                              |
-| ------------------------------ | ---------------------------------------------------- |
-| `src/lib/musicbrainz.test.ts`  | Response parsing, scoring model, rate limiter, LIS, disambiguation |
-| `src/commands/enrich.test.ts`  | Integration tests for enrich command                 |
+| File                          | Purpose                                                            |
+| ----------------------------- | ------------------------------------------------------------------ |
+| `src/lib/musicbrainz.test.ts` | Response parsing, scoring model, rate limiter, LIS, disambiguation |
+| `src/commands/enrich.test.ts` | Integration tests for enrich command                               |
 
 ## Design Decisions
 
-1. **Album-level scoring over per-file matching**: A single recording can
-   appear on dozens of releases. Per-file matching is unreliable. Album-level
+1. **Album-level scoring over per-file matching**: A single recording can appear
+   on dozens of releases. Per-file matching is unreliable. Album-level
    collective signals (track count, order, coverage) dramatically improve
    accuracy, especially for identifying deluxe editions and handling partial
    albums.
@@ -424,8 +425,8 @@ If two releases score within 0.05 of each other:
    itself may be wrong — that's what we're trying to fix.
 
 4. **Separate command over process flag**: Enrichment is an interactive
-   review/correction workflow, not a batch operation. Mixing interactive
-   prompts into the process pipeline would complicate both.
+   review/correction workflow, not a batch operation. Mixing interactive prompts
+   into the process pipeline would complicate both.
 
 5. **No authentication required**: MusicBrainz API allows unauthenticated
    read-only access at 1 req/sec. Rate limiting is enforced client-side.
@@ -438,13 +439,13 @@ If two releases score within 0.05 of each other:
    soft penalty, not a disqualification. A 90% match on a deluxe edition can
    outscore a 100% match on a standard edition when other signals agree.
 
-8. **Confidence threshold with manual override**: Below 0.4 confidence, we
-   don't auto-apply. But in interactive mode we still show candidates so the
-   user can decide.
+8. **Confidence threshold with manual override**: Below 0.4 confidence, we don't
+   auto-apply. But in interactive mode we still show candidates so the user can
+   decide.
 
 9. **Separate `writeMusicBrainzTags` function**: Keeps AcoustID and MusicBrainz
-   tag writing independent. Avoids breaking existing `writeAcoustIDTags`
-   callers and allows MusicBrainz tags to have their own skip logic.
+   tag writing independent. Avoids breaking existing `writeAcoustIDTags` callers
+   and allows MusicBrainz tags to have their own skip logic.
 
 10. **No external fuzzy matching dependency**: Use existing
     `normalizeForMatching()` for string similarity rather than adding a

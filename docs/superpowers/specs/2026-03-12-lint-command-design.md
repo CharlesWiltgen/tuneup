@@ -75,19 +75,19 @@ For rules that distinguish lossy from lossless (e.g., `suspicious-bitrate`,
 
 ### Per-File Metadata Rules
 
-| Rule                   | Checks                                  | Severity |
-| ---------------------- | --------------------------------------- | -------- |
-| `missing-title`        | No title tag                            | error    |
-| `missing-artist`       | No artist tag                           | error    |
-| `missing-album`        | No album tag                            | warning  |
-| `missing-year`         | No year tag                             | warning  |
-| `missing-track-number` | No track number                         | warning  |
-| `missing-genre`        | No genre tag                            | info     |
-| `missing-cover-art`    | No embedded artwork                     | warning  |
-| `missing-replaygain`   | No ReplayGain tags                      | info     |
-| `missing-acoustid`     | No AcoustID fingerprint/ID              | info     |
-| `suspicious-duration`  | Duration < 5s or > 45min                | warning  |
-| `suspicious-bitrate`   | Bitrate < 64kbps (lossy only, per above)| warning  |
+| Rule                   | Checks                                   | Severity |
+| ---------------------- | ---------------------------------------- | -------- |
+| `missing-title`        | No title tag                             | error    |
+| `missing-artist`       | No artist tag                            | error    |
+| `missing-album`        | No album tag                             | warning  |
+| `missing-year`         | No year tag                              | warning  |
+| `missing-track-number` | No track number                          | warning  |
+| `missing-genre`        | No genre tag                             | info     |
+| `missing-cover-art`    | No embedded artwork                      | warning  |
+| `missing-replaygain`   | No ReplayGain tags                       | info     |
+| `missing-acoustid`     | No AcoustID fingerprint/ID               | info     |
+| `suspicious-duration`  | Duration < 5s or > 45min                 | warning  |
+| `suspicious-bitrate`   | Bitrate < 64kbps (lossy only, per above) | warning  |
 
 ### Per-File Media Rules (`--deep` only)
 
@@ -103,15 +103,15 @@ These are mutually exclusive.
 
 ### Per-Album Consistency Rules
 
-| Rule                    | Checks                                                         | Severity |
-| ----------------------- | -------------------------------------------------------------- | -------- |
-| `inconsistent-artist`   | Multiple different album artists within album (uses `albumArtist` tag, falls back to `artist`) | warning  |
-| `inconsistent-year`     | Mixed years within album                                       | warning  |
-| `track-number-gaps`     | Missing numbers in track sequence; checked per-disc when disc numbers present | warning  |
-| `duplicate-track-number`| Same track number appears twice within same disc               | error    |
-| `missing-disc-number`   | 2+ files share a track number AND no files have disc number tags | warning  |
-| `mixed-formats`         | Album contains both lossy and lossless files                   | info     |
-| `mixed-sample-rates`    | Different sample rates within album                            | warning  |
+| Rule                     | Checks                                                                                         | Severity |
+| ------------------------ | ---------------------------------------------------------------------------------------------- | -------- |
+| `inconsistent-artist`    | Multiple different album artists within album (uses `albumArtist` tag, falls back to `artist`) | warning  |
+| `inconsistent-year`      | Mixed years within album                                                                       | warning  |
+| `track-number-gaps`      | Missing numbers in track sequence; checked per-disc when disc numbers present                  | warning  |
+| `duplicate-track-number` | Same track number appears twice within same disc                                               | error    |
+| `missing-disc-number`    | 2+ files share a track number AND no files have disc number tags                               | warning  |
+| `mixed-formats`          | Album contains both lossy and lossless files                                                   | info     |
+| `mixed-sample-rates`     | Different sample rates within album                                                            | warning  |
 
 **Multi-disc handling**: When disc numbers are present, `track-number-gaps` and
 `duplicate-track-number` operate per-disc. When disc numbers are absent but
@@ -127,23 +127,23 @@ amusic lint <path> [options]
 
 ### Options
 
-| Flag                 | Description                                                    |
-| -------------------- | -------------------------------------------------------------- |
-| `--deep`             | Enable media integrity checks (header validation)              |
-| `--json`             | Output as JSONL (one issue per line, summary last)             |
+| Flag                 | Description                                                      |
+| -------------------- | ---------------------------------------------------------------- |
+| `--deep`             | Enable media integrity checks (header validation)                |
+| `--json`             | Output as JSONL (one issue per line, summary last)               |
 | `--severity <level>` | Minimum severity to report: `error`, `warning` (default), `info` |
-| `--quiet`            | Suppress progress output (does not change severity filtering)  |
+| `--quiet`            | Suppress progress output (does not change severity filtering)    |
 
-`--quiet` controls progress display only. `--severity` controls which issues
-are reported. They are independent.
+`--quiet` controls progress display only. `--severity` controls which issues are
+reported. They are independent.
 
 ### Exit Codes
 
-| Code | Meaning                                    |
-| ---- | ------------------------------------------ |
-| 0    | No errors found (warnings/info may exist)  |
-| 1    | One or more error-severity issues found     |
-| 2    | Lint could not run (invalid path, etc.)     |
+| Code | Meaning                                   |
+| ---- | ----------------------------------------- |
+| 0    | No errors found (warnings/info may exist) |
+| 1    | One or more error-severity issues found   |
+| 2    | Lint could not run (invalid path, etc.)   |
 
 ### Terminal Output (default)
 
@@ -178,18 +178,18 @@ Displayed on stderr so it doesn't interfere with piped JSONL. Updates every
 
 ### New Files
 
-| File                      | Purpose                                            |
-| ------------------------- | -------------------------------------------------- |
-| `src/lib/lint.ts`         | Rule registry, rule definitions, `LintIssue` type  |
-| `src/lib/lint_engine.ts`  | Streaming engine, album index accumulation          |
-| `src/lib/lint_media.ts`   | `--deep` media checks (header validation)          |
-| `src/commands/lint.ts`    | CLI command handler, output formatting              |
+| File                     | Purpose                                           |
+| ------------------------ | ------------------------------------------------- |
+| `src/lib/lint.ts`        | Rule registry, rule definitions, `LintIssue` type |
+| `src/lib/lint_engine.ts` | Streaming engine, album index accumulation        |
+| `src/lib/lint_media.ts`  | `--deep` media checks (header validation)         |
+| `src/commands/lint.ts`   | CLI command handler, output formatting            |
 
 ### Modified Files
 
-| File              | Change                          |
-| ----------------- | ------------------------------- |
-| `src/cli/cli.ts`  | Add `lint` subcommand           |
+| File             | Change                |
+| ---------------- | --------------------- |
+| `src/cli/cli.ts` | Add `lint` subcommand |
 
 ### Reused Code
 
@@ -212,14 +212,14 @@ Displayed on stderr so it doesn't interfere with piped JSONL. Updates every
 
 ### Magic Bytes Reference
 
-| Format     | Offset | Bytes                    |
-| ---------- | ------ | ------------------------ |
-| MP3 (ID3)  | 0      | `49 44 33` ("ID3")       |
-| MP3 (sync) | 0      | `FF FB` or `FF FA`       |
-| FLAC       | 0      | `66 4C 61 43` ("fLaC")   |
-| OGG        | 0      | `4F 67 67 53` ("OggS")   |
-| M4A/MP4    | 4      | `66 74 79 70` ("ftyp")   |
-| WAV        | 0      | `52 49 46 46` ("RIFF")   |
+| Format     | Offset | Bytes                  |
+| ---------- | ------ | ---------------------- |
+| MP3 (ID3)  | 0      | `49 44 33` ("ID3")     |
+| MP3 (sync) | 0      | `FF FB` or `FF FA`     |
+| FLAC       | 0      | `66 4C 61 43` ("fLaC") |
+| OGG        | 0      | `4F 67 67 53` ("OggS") |
+| M4A/MP4    | 4      | `66 74 79 70` ("ftyp") |
+| WAV        | 0      | `52 49 46 46` ("RIFF") |
 
 ### Future Scope
 
@@ -229,8 +229,8 @@ Displayed on stderr so it doesn't interfere with piped JSONL. Updates every
 
 ## Design Decisions
 
-1. **Metadata-based album grouping over directory-based**: The lint tool's job is
-   to find problems — directory structure itself may be wrong. Grouping by
+1. **Metadata-based album grouping over directory-based**: The lint tool's job
+   is to find problems — directory structure itself may be wrong. Grouping by
    normalized album tag is more accurate.
 
 2. **Streaming over full in-memory**: Supports 500K+ file libraries without
