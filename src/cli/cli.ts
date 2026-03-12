@@ -2,6 +2,7 @@ import { Command } from "@cliffy/command";
 import { defaultCommand } from "../commands/default.ts";
 import { easyCommand } from "../commands/easy.ts";
 import { encodeCommand } from "../commands/encode.ts";
+import { lintCommand } from "../commands/lint.ts";
 import { processCommand } from "../commands/process.ts";
 import { soundcheckCommand } from "../commands/soundcheck.ts";
 import { xRayCommand } from "../commands/x-ray.ts";
@@ -205,6 +206,34 @@ export function setupCLI() {
       { default: false },
     )
     .action(soundcheckCommand);
+
+  // Add lint subcommand
+  program
+    .command(
+      "lint <path:string>",
+      "Scan music library for tagging problems, inconsistencies, and file integrity issues",
+    )
+    .option(
+      "--deep",
+      "Enable media integrity checks (header validation)",
+      { default: false },
+    )
+    .option(
+      "--json",
+      "Output as JSONL (one issue per line, summary last line)",
+      { default: false },
+    )
+    .option(
+      "--severity <level:string>",
+      "Minimum severity to report: error, warning (default), info",
+      { default: "warning" },
+    )
+    .option(
+      "-q, --quiet",
+      "Suppress progress output",
+      { default: false },
+    )
+    .action(lintCommand);
 
   // Add x-ray subcommand for testing/debugging
   program
