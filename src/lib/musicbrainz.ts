@@ -12,6 +12,7 @@ const REQUEST_TIMEOUT_MS = 10000;
 
 export type MBArtistCredit = {
   name: string;
+  joinphrase?: string;
   artist: { id: string; name: string };
 };
 
@@ -63,18 +64,22 @@ export type MBRecordingResponse = {
 
 export class RateLimiter {
   private lastRequestTime = 0;
+  private pending: Promise<void> = Promise.resolve();
 
   constructor(private minIntervalMs: number = RATE_LIMIT_MS) {}
 
-  async acquire(): Promise<void> {
-    const now = Date.now();
-    const elapsed = now - this.lastRequestTime;
-    if (elapsed < this.minIntervalMs) {
-      await new Promise((resolve) =>
-        setTimeout(resolve, this.minIntervalMs - elapsed)
-      );
-    }
-    this.lastRequestTime = Date.now();
+  acquire(): Promise<void> {
+    this.pending = this.pending.then(async () => {
+      const now = Date.now();
+      const elapsed = now - this.lastRequestTime;
+      if (elapsed < this.minIntervalMs) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, this.minIntervalMs - elapsed)
+        );
+      }
+      this.lastRequestTime = Date.now();
+    });
+    return this.pending;
   }
 }
 
@@ -155,6 +160,14 @@ export async function fetchRecording(
   return null;
 }
 
+// --- Artist Credit Helpers ---
+
+export function joinArtistCredits(credits: MBArtistCredit[]): string {
+  return credits.map((c, i) =>
+    c.name + (i < credits.length - 1 ? (c.joinphrase ?? ", ") : "")
+  ).join("");
+}
+
 // --- String Similarity ---
 
 export function normalizedSimilarity(a: string, b: string): number {
@@ -212,6 +225,7 @@ export type AlbumFileInfo = {
   existingArtist?: string;
   existingYear?: number;
   existingGenre?: string;
+  existingReleaseId?: string;
 };
 
 export type ScoreReleaseOptions = {
@@ -303,9 +317,7 @@ export function scoreRelease(
     } else tagScores.push(0.0);
   }
   if (firstFile?.existingArtist && release["artist-credit"]?.[0]) {
-    const releaseArtist = release["artist-credit"]
-      .map((c) => c.name)
-      .join(", ");
+    const releaseArtist = joinArtistCredits(release["artist-credit"]);
     tagScores.push(
       normalizedSimilarity(firstFile.existingArtist, releaseArtist),
     );

@@ -4,6 +4,7 @@ import { dirname } from "@std/path";
 import {
   type AlbumFileInfo,
   fetchRecording,
+  joinArtistCredits,
   type MBRecordingResponse,
   type MBRelease,
   selectBestRelease,
@@ -128,6 +129,9 @@ export async function enrichCommand(
         existingArtist: tag.artist || undefined,
         existingYear: tag.year || undefined,
         existingGenre: tag.genre || undefined,
+        existingReleaseId:
+          audioFile.getProperty(PROPERTIES.musicbrainzReleaseId.key) ||
+          undefined,
       };
 
       const group = albumGroups.get(dir) ?? [];
@@ -286,8 +290,8 @@ function buildAlbumDiff(
   );
 
   const releaseArtist = release["artist-credit"]
-    ?.map((c) => c.name)
-    .join(", ") ?? "";
+    ? joinArtistCredits(release["artist-credit"])
+    : "";
   const releaseYear = release.date?.substring(0, 4) ?? "";
 
   const fileDiffs: FileDiff[] = [];
@@ -310,8 +314,8 @@ function buildAlbumDiff(
 
     // Artist
     const recordingArtist = recording["artist-credit"]
-      ?.map((c) => c.name)
-      .join(", ") ?? "";
+      ? joinArtistCredits(recording["artist-credit"])
+      : "";
     if (recordingArtist && file.existingArtist !== recordingArtist) {
       diffs.push({
         field: "Artist",
@@ -378,6 +382,15 @@ function buildAlbumDiff(
       });
     }
 
+    // MusicBrainz Release ID
+    if (release.id && file.existingReleaseId !== release.id) {
+      diffs.push({
+        field: "MusicBrainz Release ID",
+        current: file.existingReleaseId ?? "(empty)",
+        proposed: release.id,
+      });
+    }
+
     if (diffs.length > 0) {
       fileDiffs.push({ path: file.path, diffs });
     }
@@ -438,6 +451,12 @@ async function applyFileDiff(fileDiff: FileDiff): Promise<boolean> {
           break;
         case "Genre":
           tag.setGenre(diff.proposed);
+          break;
+        case "MusicBrainz Release ID":
+          audioFile.setProperty(
+            PROPERTIES.musicbrainzReleaseId.key,
+            diff.proposed,
+          );
           break;
       }
     }

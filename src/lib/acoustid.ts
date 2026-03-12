@@ -390,11 +390,21 @@ export async function batchProcessAcoustIDTagging(
   if (!quiet) console.log("Checking for existing AcoustID tags...");
   const existingTags = await batchCheckAcoustIDTags(filePaths, concurrency);
 
-  // All files need processing (for potential MB tag writes), track which skip AcoustID write
+  // Track which files skip AcoustID write
   const skipAcoustIdWriteSet = new Set<string>(
     filePaths.filter((file) => (existingTags.get(file) || false) && !force),
   );
-  const filesToProcess = filePaths;
+
+  // Files with both AcoustID and MB tags can be skipped entirely
+  const skipEntirelySet = new Set<string>();
+  for (const file of skipAcoustIdWriteSet) {
+    const hasMBTags = await hasMusicBrainzTags(file);
+    if (hasMBTags) {
+      skipEntirelySet.add(file);
+      results.set(file, "skipped");
+    }
+  }
+  const filesToProcess = filePaths.filter((f) => !skipEntirelySet.has(f));
 
   if (!quiet) {
     const acoustIdCount = filePaths.length - skipAcoustIdWriteSet.size;
