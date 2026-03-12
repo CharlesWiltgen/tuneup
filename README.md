@@ -1,48 +1,34 @@
 # amusic
 
 `amusic` is a command-line music utility for the care and feeding of local music
-libraries.
-
-Initially inspired by `rsgain` (especially its `easy` mode), its early evolution
-is focused on augmenting its capabilities with generating and embedding AcoustID
-fingerprints.
+libraries. It handles the full lifecycle of music metadata: fingerprinting,
+identification, enrichment, volume normalization, encoding, and quality checks.
 
 ## Features
 
-- **ReplayGain generation** — Calculates and embeds ReplayGain metadata. This
-  helps audio players avoid the common problem of having to manually adjust
-  volume levels between tracks when playing audio from albums that have been
-  mastered at different loudness levels.
-- **AcoustID Fingerprint Generation** — Calculates and embeds an AcoustID
-  fingerprint (`ACOUSTID_FINGERPRINT` tag). This uniquely identifies an audio
-  file (typically a music track), which will later help associate the audio file
-  with metadata including Title, Artist, Album, and lots more.
-- **High-quality AAC encoding** — On macOS, `amusic` can encode lossless audio
-  (FLAC, WAV, ALAC) to audibly-transparent `.m4a` files using Apple's Core Audio
-  framework.
-- **Intelligent Folder Processing** — Automatically treats folders as albums by
-  default, with support for processing entire music libraries organized by
-  artist/album hierarchy.
-- **Parallel Processing** — Uses worker pools to process multiple tracks
-  concurrently for improved performance.
-- **Unified Processing** — Process tracks once with multiple operations
-  (encoding, ReplayGain, AcoustID) in a single pass.
+- **AcoustID Fingerprinting** — Generates and embeds AcoustID fingerprints and
+  IDs, uniquely identifying each track for metadata lookup.
 - **MusicBrainz Enrichment** — Enriches metadata (title, artist, album, year,
   genre, track/disc numbers) from MusicBrainz using an album-level scoring
   model. Interactive by default — shows a diff and asks before overwriting any
   tags.
-- **Force Overwrite** — Optionally, users can force AcoustID fingerprints to be
-  re-calculated and overwritten even for files that already have them using the
-  `--force` flag.
-- **Quiet Mode** — Use the `-q`/`--quiet` flag to suppress detail displayed
-  during processing. Errors and the final summary report are still displayed.
-- **Summary Report** — After all files are processed, a summary is shown
-  detailing the number of files successfully processed, skipped, or failed.
-
-### To Do
-
-- 🚧 **Apple SoundCheck generation** — Calculates and embeds Apple SoundCheck
-  metadata, which is Apple's equivalent of ReplayGain.
+- **ReplayGain** — Calculates and embeds ReplayGain metadata so players can
+  normalize volume across albums mastered at different loudness levels.
+- **Apple SoundCheck** — Generates and embeds Apple SoundCheck (ITUNNORM)
+  metadata, Apple's equivalent of ReplayGain.
+- **High-quality AAC Encoding** — On macOS, encodes lossless audio (FLAC, WAV,
+  ALAC) to audibly-transparent `.m4a` files using Apple's Core Audio framework.
+- **Library Linting** — Scans a music library for tagging problems (missing
+  tags, inconsistent metadata, suspicious durations/bitrates), file integrity
+  issues (invalid headers, extension mismatches), and album-level
+  inconsistencies (track gaps, mixed formats/sample rates).
+- **Unified Processing** — Process tracks with multiple operations (encoding,
+  ReplayGain, AcoustID, SoundCheck) in a single pass.
+- **Intelligent Folder Processing** — Automatically treats folders as albums,
+  with support for processing entire music libraries organized by artist/album
+  hierarchy.
+- **Parallel Processing** — Uses worker pools to process multiple tracks
+  concurrently for improved performance.
 
 ### AcoustID Processing Details
 
@@ -217,6 +203,7 @@ Options:
 - `--encode`: Encode files to M4A/AAC format
 - `--replay-gain`: Calculate and apply ReplayGain metadata
 - `--acoust-id`: Generate and embed AcoustID fingerprints
+- `--soundcheck`: Generate and embed Apple SoundCheck (ITUNNORM) data
 - `--singles <patterns...>`: Folder patterns to treat as singles instead of
   albums
 - `-o, --output-dir <dir>`: Output directory for encoded files
@@ -269,6 +256,58 @@ Options:
 - `-o, --output-dir <dir>`: Output directory for encoded files
 - `--flatten-output`: Put all output files in a single directory
 - `--force-lossy-transcodes`: Allow encoding from lossy formats (MP3, OGG)
+
+### SoundCheck Command: Apple Volume Normalization
+
+Generate and embed Apple SoundCheck (ITUNNORM) metadata:
+
+```bash
+amusic soundcheck [options] <files...>
+```
+
+Options:
+
+- `-f, --force`: Force reprocessing even if ITUNNORM already exists
+- `--dry-run`: Simulate processing without writing tags
+- `-q, --quiet`: Suppress progress output
+
+### Lint Command: Library Quality Checks
+
+Scan a music library for tagging problems, inconsistencies, and file integrity
+issues:
+
+```bash
+amusic lint [options] <path>
+```
+
+Options:
+
+- `--deep`: Enable media integrity checks (header validation, extension mismatch
+  detection)
+- `--severity <level>`: Minimum severity to report: `error`, `warning`
+  (default), `info`
+- `--json`: Output as JSONL (one issue per line, summary on last line)
+- `-q, --quiet`: Suppress progress output
+
+Lint checks include: missing tags (title, artist, album, year, genre, track
+number, cover art, ReplayGain, AcoustID), suspicious audio properties (duration,
+bitrate), and album-level issues (inconsistent artist/year, track number gaps,
+duplicates, missing disc numbers, mixed formats/sample rates).
+
+### X-ray Command: Library Structure Inspection
+
+Inspect the music library structure without processing files (useful for
+debugging):
+
+```bash
+amusic x-ray [options] <files...>
+```
+
+Options:
+
+- `--for-encoding`: Validate MPEG-4 codecs as if preparing for encoding
+- `--singles <patterns...>`: Folder patterns to treat as singles
+- `--debug`: Enable debug output
 
 ## Folder Processing Behavior
 
@@ -378,6 +417,19 @@ album tag.
    amusic process --encode --replay-gain --acoust-id \
      --output-dir "/Music/Encoded" \
      "/Music/Lossless/Artist1" "/Music/Lossless/Artist2"
+   ```
+
+7. **Enrich metadata from MusicBrainz** (after AcoustID processing):
+
+   ```bash
+   amusic enrich /path/to/music/library
+   ```
+
+8. **Check a library for tagging problems:**
+
+   ```bash
+   amusic lint /path/to/music/library
+   amusic lint --deep /path/to/music/library  # includes file integrity checks
    ```
 
 ## Contributing
