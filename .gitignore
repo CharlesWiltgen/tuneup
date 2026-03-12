@@ -159,3 +159,6 @@ amusic.code-workspace
 # Dolt database files (added by bd init)
 .dolt/
 *.db
+
+# Git worktrees
+.worktrees/
