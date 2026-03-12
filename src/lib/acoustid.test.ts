@@ -2,14 +2,23 @@
 import { assertEquals, assertExists, assertStringIncludes } from "@std/assert";
 import { returnsNext, stub } from "@std/testing/mock";
 import {
+  cleanupTestDir,
   createFetchStub,
+  createTestRunDir,
   MOCK_API_RESPONSES,
   MOCK_FINGERPRINTS,
   MockDenoCommand,
+  SAMPLE_FILES,
+  setupTestFiles,
   stubConsole,
   TEST_API_KEYS,
 } from "../test_utils/mod.ts";
 import { extractMusicBrainzIds } from "./acoustid.ts";
+import {
+  getAcoustIDTags,
+  writeAcoustIDTags,
+  writeMusicBrainzTags,
+} from "./tagging.ts";
 
 // --- Test Suites ---
 Deno.test("Acoustid Tests", async (t) => {
@@ -391,4 +400,248 @@ Deno.test("extractMusicBrainzIds", async (t) => {
     assertEquals(extractMusicBrainzIds(null), {});
     assertEquals(extractMusicBrainzIds({ results: [] }), {});
   });
+});
+
+// --- batchProcessAcoustIDTagging Tests ---
+Deno.test("batchProcessAcoustIDTagging", async (t) => {
+  const {
+    batchProcessAcoustIDTagging,
+  } = await import("./acoustid.ts");
+
+  const MOCK_API_WITH_RECORDINGS = {
+    status: "ok",
+    results: [{
+      id: "acoustid-batch-123",
+      score: 0.95,
+      recordings: [{
+        id: "mb-recording-batch-123",
+        artists: [{ id: "mb-artist-batch-123", name: "Test Artist" }],
+        releasegroups: [{
+          id: "rg-batch-123",
+          releases: [{ id: "mb-release-batch-123", title: "Test Album" }],
+        }],
+      }],
+    }],
+  };
+
+  // Pre-warm taglib-wasm AND the simple API so subsequent tests don't need network
+  await t.step("Setup: initialize taglib-wasm", async () => {
+    const { ensureTagLib } = await import("./taglib_init.ts");
+    await ensureTagLib();
+    // Also pre-warm readMetadataBatch which has its own internal TagLib init
+    const { readMetadataBatch } = await import(
+      "@charlesw/taglib-wasm/simple"
+    );
+    const warmDir = await createTestRunDir("batch_prewarm");
+    const warmFiles = await setupTestFiles(warmDir, [SAMPLE_FILES.MP3]);
+    await readMetadataBatch(warmFiles, { continueOnError: true });
+    await cleanupTestDir(warmDir);
+  });
+
+  await t.step(
+    "should return 'failed' when fingerprint generation fails",
+    async () => {
+      const dir = await createTestRunDir("batch_fp_fail");
+      const files = await setupTestFiles(dir, [SAMPLE_FILES.MP3]);
+      MockDenoCommand.setup();
+      MockDenoCommand.addMock("fpcalc", { code: 1, stderr: "fpcalc error" });
+      const consoleErrorStub = stubConsole("error");
+      try {
+        const results = await batchProcessAcoustIDTagging(
+          files,
+          TEST_API_KEYS.DUMMY,
+          { quiet: true, concurrency: 1, force: true },
+        );
+        assertEquals(results.get(files[0]), "failed");
+      } finally {
+        consoleErrorStub.restore();
+        MockDenoCommand.restore();
+        await cleanupTestDir(dir);
+      }
+    },
+  );
+
+  await t.step(
+    "should return 'no_results' when API returns empty results",
+    async () => {
+      const dir = await createTestRunDir("batch_no_results");
+      const files = await setupTestFiles(dir, [SAMPLE_FILES.MP3]);
+      MockDenoCommand.setup();
+      MockDenoCommand.addMock("fpcalc", {
+        code: 0,
+        stdout: JSON.stringify({
+          duration: 180,
+          fingerprint: MOCK_FINGERPRINTS.DEFAULT,
+        }),
+      });
+      const fetchStub = createFetchStub({
+        json: MOCK_API_RESPONSES.NO_RESULTS,
+      });
+      const consoleErrorStub = stubConsole("error");
+      try {
+        const results = await batchProcessAcoustIDTagging(
+          files,
+          TEST_API_KEYS.DUMMY,
+          { quiet: true, concurrency: 1, force: true },
+        );
+        assertEquals(results.get(files[0]), "no_results");
+      } finally {
+        consoleErrorStub.restore();
+        fetchStub.restore();
+        MockDenoCommand.restore();
+        await cleanupTestDir(dir);
+      }
+    },
+  );
+
+  await t.step(
+    "should return 'lookup_failed' when API returns null",
+    async () => {
+      const dir = await createTestRunDir("batch_lookup_fail");
+      const files = await setupTestFiles(dir, [SAMPLE_FILES.MP3]);
+      MockDenoCommand.setup();
+      MockDenoCommand.addMock("fpcalc", {
+        code: 0,
+        stdout: JSON.stringify({
+          duration: 180,
+          fingerprint: MOCK_FINGERPRINTS.DEFAULT,
+        }),
+      });
+      const fetchStub = createFetchStub({
+        status: 500,
+        statusText: "Server Error",
+        text: "Internal Server Error",
+      });
+      const consoleErrorStub = stubConsole("error");
+      try {
+        const results = await batchProcessAcoustIDTagging(
+          files,
+          TEST_API_KEYS.DUMMY,
+          { quiet: true, concurrency: 1, force: true },
+        );
+        assertEquals(results.get(files[0]), "lookup_failed");
+      } finally {
+        consoleErrorStub.restore();
+        fetchStub.restore();
+        MockDenoCommand.restore();
+        await cleanupTestDir(dir);
+      }
+    },
+  );
+
+  await t.step("should call onProgress callback", async () => {
+    const dir = await createTestRunDir("batch_progress");
+    const files = await setupTestFiles(dir, [SAMPLE_FILES.MP3]);
+    MockDenoCommand.setup();
+    MockDenoCommand.addMock("fpcalc", {
+      code: 0,
+      stdout: JSON.stringify({
+        duration: 180,
+        fingerprint: MOCK_FINGERPRINTS.DEFAULT,
+      }),
+    });
+    const fetchStub = createFetchStub({ json: MOCK_API_WITH_RECORDINGS });
+    const consoleErrorStub = stubConsole("error");
+    const progressCalls: { processed: number; total: number; file: string }[] =
+      [];
+    try {
+      await batchProcessAcoustIDTagging(
+        files,
+        TEST_API_KEYS.DUMMY,
+        {
+          quiet: true,
+          concurrency: 1,
+          onProgress: (processed, total, currentFile) => {
+            progressCalls.push({
+              processed,
+              total,
+              file: currentFile,
+            });
+          },
+        },
+      );
+      assertEquals(progressCalls.length, 1);
+      assertEquals(progressCalls[0].total, files.length);
+      assertEquals(progressCalls[0].file, files[0]);
+    } finally {
+      consoleErrorStub.restore();
+      fetchStub.restore();
+      MockDenoCommand.restore();
+      await cleanupTestDir(dir);
+    }
+  });
+
+  await t.step(
+    "should not write tags in dryRun mode",
+    async () => {
+      const dir = await createTestRunDir("batch_dryrun");
+      const files = await setupTestFiles(dir, [SAMPLE_FILES.MP3]);
+
+      // Record existing tag values before batch call
+      const tagsBefore = await getAcoustIDTags(files[0]);
+
+      MockDenoCommand.setup();
+      MockDenoCommand.addMock("fpcalc", {
+        code: 0,
+        stdout: JSON.stringify({
+          duration: 180,
+          fingerprint: MOCK_FINGERPRINTS.DEFAULT,
+        }),
+      });
+      const fetchStub = createFetchStub({ json: MOCK_API_WITH_RECORDINGS });
+      const consoleErrorStub = stubConsole("error");
+      try {
+        await batchProcessAcoustIDTagging(
+          files,
+          TEST_API_KEYS.DUMMY,
+          { quiet: true, concurrency: 1, dryRun: true, force: true },
+        );
+
+        // Tags should be unchanged after dry run
+        MockDenoCommand.restore();
+        fetchStub.restore();
+        const tagsAfter = await getAcoustIDTags(files[0]);
+        assertEquals(tagsAfter, tagsBefore);
+      } finally {
+        consoleErrorStub.restore();
+        try {
+          fetchStub.restore();
+        } catch { /* already restored */ }
+        try {
+          MockDenoCommand.restore();
+        } catch { /* already restored */ }
+        await cleanupTestDir(dir);
+      }
+    },
+  );
+
+  await t.step(
+    "should return 'skipped' for files with existing AcoustID and MusicBrainz tags",
+    async () => {
+      const dir = await createTestRunDir("batch_skipped");
+      const files = await setupTestFiles(dir, [SAMPLE_FILES.MP3]);
+
+      // Pre-write tags to simulate existing tagged file
+      await writeAcoustIDTags(files[0], "existing-fp", "existing-id");
+      await writeMusicBrainzTags(files[0], {
+        trackId: "existing-track",
+        artistId: "existing-artist",
+      });
+
+      MockDenoCommand.setup();
+      const consoleErrorStub = stubConsole("error");
+      try {
+        const results = await batchProcessAcoustIDTagging(
+          files,
+          TEST_API_KEYS.DUMMY,
+          { quiet: true, concurrency: 1, force: false },
+        );
+        assertEquals(results.get(files[0]), "skipped");
+      } finally {
+        consoleErrorStub.restore();
+        MockDenoCommand.restore();
+        await cleanupTestDir(dir);
+      }
+    },
+  );
 });

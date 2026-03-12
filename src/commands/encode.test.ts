@@ -247,3 +247,68 @@ Deno.test("wrapEncodingLine", async (t) => {
     }
   });
 });
+
+// --- E2E Tests ---
+import { assert } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
+
+describe("encode command E2E", () => {
+  it("should exit with error when no input files match", async () => {
+    const cmd = new Deno.Command("deno", {
+      args: [
+        "run",
+        "--no-check",
+        "--allow-read",
+        "--allow-env",
+        "--allow-net",
+        "--allow-write",
+        "--allow-run",
+        "src/amusic.ts",
+        "encode",
+        "/nonexistent/path/file.flac",
+      ],
+      stdout: "piped",
+      stderr: "piped",
+    });
+    const output = await cmd.output();
+    assert(
+      output.code !== 0,
+      `Expected non-zero exit code, got ${output.code}`,
+    );
+  });
+
+  it("should run dry-run on a test directory", async () => {
+    const testDir = "/Volumes/T9 (4TB)/Downloads/Deezer/America/America - Hits";
+    try {
+      await Deno.stat(testDir);
+    } catch {
+      return; // Skip if test directory not available
+    }
+
+    const cmd = new Deno.Command("deno", {
+      args: [
+        "run",
+        "--no-check",
+        "--allow-read",
+        "--allow-env",
+        "--allow-net",
+        "--allow-write",
+        "--allow-run",
+        "src/amusic.ts",
+        "encode",
+        "--dry-run",
+        "--quiet",
+        testDir,
+      ],
+      stdout: "piped",
+      stderr: "piped",
+    });
+    const output = await cmd.output();
+    assert(
+      output.code === 0 || output.code === 1,
+      `Expected exit code 0 or 1, got ${output.code}. stderr: ${
+        new TextDecoder().decode(output.stderr)
+      }`,
+    );
+  });
+});

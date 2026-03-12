@@ -1,6 +1,8 @@
 import { assertEquals } from "@std/assert";
 import { describe, it } from "@std/testing/bdd";
-import { parseReplayGainCSV } from "./replaygain.ts";
+import { returnsNext, stub } from "@std/testing/mock";
+import { MockDenoCommand, stubConsole } from "../test_utils/mod.ts";
+import { calculateReplayGain, parseReplayGainCSV } from "./replaygain.ts";
 
 describe("parseReplayGainCSV", () => {
   it("should parse track gain and peak from tab-separated CSV", () => {
@@ -87,5 +89,154 @@ describe("parseReplayGainCSV", () => {
     const csv = "/path/quiet.mp3\t3.2\t0.45";
     const result = parseReplayGainCSV(csv);
     assertEquals(result["/path/quiet.mp3"].trackGain, 3.2);
+  });
+});
+
+describe("calculateReplayGain", () => {
+  it("should run rsgain in 'easy' mode for directory target", async () => {
+    const statStub = stub(
+      Deno,
+      "stat",
+      returnsNext([
+        Promise.resolve({ isDirectory: true } as Deno.FileInfo),
+      ]),
+    );
+    MockDenoCommand.setup();
+    MockDenoCommand.addMock("rsgain", { code: 0 });
+    const consoleStub = stubConsole("log");
+    try {
+      const result = await calculateReplayGain("/path/to/album", false);
+      assertEquals(result, { success: true });
+      const args = MockDenoCommand.getLastArgs("rsgain");
+      assertEquals(args?.[0], "easy");
+    } finally {
+      consoleStub.restore();
+      MockDenoCommand.restore();
+      statStub.restore();
+    }
+  });
+
+  it("should run rsgain in 'custom' mode for file target", async () => {
+    const statStub = stub(
+      Deno,
+      "stat",
+      returnsNext([
+        Promise.resolve({ isDirectory: false } as Deno.FileInfo),
+      ]),
+    );
+    MockDenoCommand.setup();
+    MockDenoCommand.addMock("rsgain", { code: 0 });
+    const consoleStub = stubConsole("log");
+    try {
+      const result = await calculateReplayGain("/path/to/song.mp3", false);
+      assertEquals(result, { success: true });
+      const args = MockDenoCommand.getLastArgs("rsgain");
+      assertEquals(args?.[0], "custom");
+    } finally {
+      consoleStub.restore();
+      MockDenoCommand.restore();
+      statStub.restore();
+    }
+  });
+
+  it("should return { success: false } on non-zero exit code", async () => {
+    const statStub = stub(
+      Deno,
+      "stat",
+      returnsNext([
+        Promise.resolve({ isDirectory: false } as Deno.FileInfo),
+      ]),
+    );
+    MockDenoCommand.setup();
+    MockDenoCommand.addMock("rsgain", { code: 1 });
+    const consoleStub = stubConsole("log");
+    try {
+      const result = await calculateReplayGain("/path/to/song.mp3", false);
+      assertEquals(result, { success: false });
+    } finally {
+      consoleStub.restore();
+      MockDenoCommand.restore();
+      statStub.restore();
+    }
+  });
+
+  it("should suppress output when quiet=true", async () => {
+    const statStub = stub(
+      Deno,
+      "stat",
+      returnsNext([
+        Promise.resolve({ isDirectory: false } as Deno.FileInfo),
+      ]),
+    );
+    MockDenoCommand.setup();
+    MockDenoCommand.addMock("rsgain", { code: 0 });
+    const consoleStub = stubConsole("log");
+    try {
+      await calculateReplayGain("/path/to/song.mp3", true);
+      assertEquals(consoleStub.calls.length, 0);
+    } finally {
+      consoleStub.restore();
+      MockDenoCommand.restore();
+      statStub.restore();
+    }
+  });
+
+  it("should default to 'custom' mode when stat fails", async () => {
+    const statStub = stub(
+      Deno,
+      "stat",
+      returnsNext([
+        Promise.reject(new Error("stat failed")),
+      ]),
+    );
+    MockDenoCommand.setup();
+    MockDenoCommand.addMock("rsgain", { code: 0 });
+    const consoleStub = stubConsole("log");
+    try {
+      const result = await calculateReplayGain("/nonexistent/path", false);
+      assertEquals(result, { success: true });
+      const args = MockDenoCommand.getLastArgs("rsgain");
+      assertEquals(args?.[0], "custom");
+    } finally {
+      consoleStub.restore();
+      MockDenoCommand.restore();
+      statStub.restore();
+    }
+  });
+
+  it("should return parsed CSV data when returnData=true for directory", async () => {
+    const csvContent = "/path/to/song.mp3\t-6.5\t0.95\t-5.0\t0.88";
+    const statStub = stub(
+      Deno,
+      "stat",
+      returnsNext([
+        Promise.resolve({ isDirectory: true } as Deno.FileInfo),
+      ]),
+    );
+    MockDenoCommand.setup();
+    MockDenoCommand.addMock("rsgain", { code: 0 });
+    const readTextStub = stub(
+      Deno,
+      "readTextFile",
+      returnsNext([Promise.resolve(csvContent)]),
+    );
+    const removeStub = stub(
+      Deno,
+      "remove",
+      returnsNext([Promise.resolve()]),
+    );
+    const consoleStub = stubConsole("log");
+    try {
+      const result = await calculateReplayGain("/path/to/album", false, true);
+      assertEquals(result.success, true);
+      assertEquals(result.data?.["/path/to/song.mp3"]?.trackGain, -6.5);
+      assertEquals(result.data?.["/path/to/song.mp3"]?.albumGain, -5.0);
+    } finally {
+      consoleStub.restore();
+      removeStub.restore();
+      readTextStub.restore();
+      MockDenoCommand.restore();
+      statStub.restore();
+    }
   });
 });
