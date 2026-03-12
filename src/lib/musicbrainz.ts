@@ -345,3 +345,61 @@ export function scoreRelease(
 
   return score;
 }
+
+// --- Best Release Selection ---
+
+const CONFIDENCE_THRESHOLD = 0.4;
+
+export type ScoredRelease = {
+  release: MBRelease;
+  score: number;
+  matchedRecordings: number;
+};
+
+export function selectBestRelease(
+  files: AlbumFileInfo[],
+  recordings: Map<string, MBRecordingResponse>,
+  options: ScoreReleaseOptions = {},
+): ScoredRelease | null {
+  if (files.length === 0) return null;
+
+  // Build candidate release set
+  const candidateMap = new Map<string, MBRelease>();
+  for (const [, recording] of recordings) {
+    for (const release of recording.releases ?? []) {
+      if (!candidateMap.has(release.id)) {
+        candidateMap.set(release.id, release);
+      }
+    }
+  }
+
+  if (candidateMap.size === 0) return null;
+
+  // Score each candidate
+  const scored: ScoredRelease[] = [];
+  for (const release of candidateMap.values()) {
+    const score = scoreRelease(files, release, options);
+    const tracks = (release.media ?? []).flatMap((m) => m.tracks ?? []);
+    const releaseRecIds = new Set(tracks.map((t) => t.recording.id));
+    const matchedRecordings = files.filter((f) =>
+      releaseRecIds.has(f.recordingId)
+    ).length;
+    scored.push({ release, score, matchedRecordings });
+  }
+
+  // Sort by score descending, then by matched recordings, then by date
+  scored.sort((a, b) => {
+    if (Math.abs(a.score - b.score) > 0.05) return b.score - a.score;
+    if (a.matchedRecordings !== b.matchedRecordings) {
+      return b.matchedRecordings - a.matchedRecordings;
+    }
+    const dateA = a.release.date ?? "9999";
+    const dateB = b.release.date ?? "9999";
+    return dateA.localeCompare(dateB);
+  });
+
+  const best = scored[0];
+  if (best.score < CONFIDENCE_THRESHOLD) return null;
+
+  return best;
+}

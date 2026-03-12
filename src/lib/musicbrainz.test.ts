@@ -9,10 +9,12 @@ import {
   type AlbumFileInfo,
   fetchRecording,
   longestIncreasingSubsequenceLength,
+  type MBRecordingResponse,
   type MBRelease,
   normalizedSimilarity,
   RateLimiter,
   scoreRelease,
+  selectBestRelease,
 } from "./musicbrainz.ts";
 
 describe("RateLimiter", () => {
@@ -176,5 +178,29 @@ describe("scoreRelease", () => {
     const albumScore = scoreRelease(files, album);
     const compScore = scoreRelease(files, compilation);
     assertGreater(albumScore, compScore);
+  });
+});
+
+describe("selectBestRelease", () => {
+  it("should return null when no files", () => {
+    const result = selectBestRelease([], new Map());
+    assertEquals(result, null);
+  });
+
+  it("should return null when no candidates (recordings have no releases)", () => {
+    const files: AlbumFileInfo[] = [{
+      path: "/a.mp3",
+      recordingId: "rec-orphan",
+      duration: 200,
+    }];
+    const recordings = new Map<string, MBRecordingResponse>();
+    recordings.set("rec-orphan", {
+      id: "rec-orphan",
+      title: "Orphan",
+      length: 200000,
+      releases: [],
+    });
+    const result = selectBestRelease(files, recordings);
+    assertEquals(result, null);
   });
 });
