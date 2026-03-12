@@ -9,6 +9,7 @@ import {
   stubConsole,
   TEST_API_KEYS,
 } from "../test_utils/mod.ts";
+import { extractMusicBrainzIds } from "./acoustid.ts";
 
 // --- Test Suites ---
 Deno.test("Acoustid Tests", async (t) => {
@@ -342,5 +343,52 @@ Deno.test("Acoustid Tests", async (t) => {
   // Restore mocks
   await t.step("Restore Mocks", () => {
     MockDenoCommand.restore();
+  });
+});
+
+Deno.test("extractMusicBrainzIds", async (t) => {
+  await t.step("should extract all three IDs from a complete result", () => {
+    const result = {
+      results: [{
+        id: "acoustid-123",
+        score: 0.95,
+        recordings: [{
+          id: "mb-recording-123",
+          artists: [{ id: "mb-artist-123", name: "Test" }],
+          releasegroups: [{
+            id: "rg-123",
+            releases: [{ id: "mb-release-123", title: "Album" }],
+          }],
+        }],
+      }],
+    };
+    assertEquals(extractMusicBrainzIds(result), {
+      trackId: "mb-recording-123",
+      artistId: "mb-artist-123",
+      releaseId: "mb-release-123",
+    });
+  });
+
+  await t.step("should return empty object when no recordings", () => {
+    assertEquals(
+      extractMusicBrainzIds({ results: [{ id: "x", score: 0.9 }] }),
+      {},
+    );
+  });
+
+  await t.step("should return partial IDs when some fields missing", () => {
+    const result = {
+      results: [{
+        id: "x",
+        score: 0.9,
+        recordings: [{ id: "mb-rec", releasegroups: [] }],
+      }],
+    };
+    assertEquals(extractMusicBrainzIds(result), { trackId: "mb-rec" });
+  });
+
+  await t.step("should return empty object for null/empty results", () => {
+    assertEquals(extractMusicBrainzIds(null), {});
+    assertEquals(extractMusicBrainzIds({ results: [] }), {});
   });
 });

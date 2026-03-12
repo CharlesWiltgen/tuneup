@@ -6,6 +6,7 @@ import {
   hasAcoustIDTags,
   writeAcoustIDTags,
 } from "./tagging.ts";
+import type { MusicBrainzIds } from "./tagging.ts";
 import { ACOUSTID_API_URL, DEFAULT_CONCURRENCY } from "../constants.ts";
 import { formatError } from "../utils/error_utils.ts";
 export { getAcoustIDTags, hasAcoustIDTags, writeAcoustIDTags };
@@ -54,6 +55,27 @@ export interface LookupResult {
   status?: "ok" | "error";
   results?: ResultItem[];
   error?: AcoustIDApiError; // Present if status is "error"
+}
+
+export function extractMusicBrainzIds(
+  lookupResult: LookupResult | null,
+): MusicBrainzIds {
+  const ids: MusicBrainzIds = {};
+  const recording = lookupResult?.results?.[0]?.recordings?.[0];
+  if (!recording) return ids;
+
+  ids.trackId = recording.id;
+
+  if (recording.artists?.[0]?.id) {
+    ids.artistId = recording.artists[0].id;
+  }
+
+  const release = recording.releasegroups?.[0]?.releases?.[0];
+  if (release?.id) {
+    ids.releaseId = release.id;
+  }
+
+  return ids;
 }
 
 /**
