@@ -480,8 +480,13 @@ export async function batchProcessAcoustIDTagging(
           if (!hasMBTags || force) {
             const mbIds = extractMusicBrainzIds(lookupResult);
             if (Object.keys(mbIds).length > 0 && !dryRun) {
-              await writeMusicBrainzTags(filePath, mbIds);
-              if (skipAcoustIdWrite) {
+              const mbSuccess = await writeMusicBrainzTags(filePath, mbIds);
+              if (!mbSuccess && !quiet) {
+                console.log(
+                  `  WARNING: Failed to write MusicBrainz tags for ${filePath}.`,
+                );
+              }
+              if (mbSuccess && skipAcoustIdWrite) {
                 resultStatus = "processed";
               }
             }
