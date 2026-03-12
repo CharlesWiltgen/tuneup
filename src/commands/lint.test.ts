@@ -21,7 +21,7 @@ describe("lint command integration", () => {
   });
 
   it("should produce valid JSONL with --json flag on a test directory", async () => {
-    const testDir = "/Volumes/T9 (4TB)/Downloads/Deezer/America";
+    const testDir = "/Volumes/T9 (4TB)/Downloads/Deezer/America/America - Hits";
     try {
       await Deno.stat(testDir);
     } catch {
