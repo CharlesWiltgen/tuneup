@@ -27,6 +27,10 @@ fingerprints.
   concurrently for improved performance.
 - **Unified Processing** — Process tracks once with multiple operations
   (encoding, ReplayGain, AcoustID) in a single pass.
+- **MusicBrainz Enrichment** — Enriches metadata (title, artist, album, year,
+  genre, track/disc numbers) from MusicBrainz using an album-level scoring
+  model. Interactive by default — shows a diff and asks before overwriting any
+  tags.
 - **Force Overwrite** — Optionally, users can force AcoustID fingerprints to be
   re-calculated and overwritten even for files that already have them using the
   `--force` flag.
@@ -60,9 +64,9 @@ Alternatively, you can pass the key directly:
 amusic --api-key $ACOUSTID_API_KEY <file1> [file2 ...]
 ```
 
-It retrieves and embeds the `ACOUSTID_ID` (the UUID from the AcoustID database);
-it does NOT fetch or embed other metadata (like track title, artist, album), but
-this may be supported in a future release.
+It retrieves and embeds the `ACOUSTID_ID` (the UUID from the AcoustID database)
+and MusicBrainz recording IDs. To enrich tags with full metadata (title, artist,
+album, etc.), run `amusic enrich` after AcoustID processing.
 
 ## Dependencies
 
@@ -218,6 +222,39 @@ Options:
 - `-o, --output-dir <dir>`: Output directory for encoded files
 - `--force-lossy-transcodes`: Allow encoding from lossy formats (not
   recommended)
+
+### Enrich Command: MusicBrainz Metadata Enrichment
+
+Enrich your music library with metadata from MusicBrainz. Requires files to
+already have MusicBrainz recording IDs (run `amusic process --acoust-id` first).
+
+```bash
+amusic enrich <path>
+```
+
+**By default, `enrich` is interactive.** For each album, it shows a diff of
+every tag it wants to change and asks for your confirmation before writing
+anything. No tags are ever overwritten without your explicit approval.
+
+Options:
+
+- `--dangerously-overwrite-tags`: Skip all confirmation prompts and apply every
+  proposed change automatically. This will overwrite existing metadata across
+  your entire library without asking. Use with extreme caution.
+- `--dry-run`: Show what would change without writing anything
+- `-f, --force`: Re-enrich files that were previously enriched
+- `-q, --quiet`: Suppress progress output
+
+```bash
+# Interactive (default) — review and approve each album
+amusic enrich /path/to/music/library
+
+# Preview changes without writing anything
+amusic enrich --dry-run /path/to/music/library
+
+# Unattended — overwrites all tags without prompting (use with caution)
+amusic enrich --dangerously-overwrite-tags /path/to/music/library
+```
 
 ### Encode Command: High-Quality AAC Encoding
 
