@@ -2,6 +2,7 @@ import { Command } from "@cliffy/command";
 import { defaultCommand } from "../commands/default.ts";
 import { easyCommand } from "../commands/easy.ts";
 import { encodeCommand } from "../commands/encode.ts";
+import { enrichCommand } from "../commands/enrich.ts";
 import { lintCommand } from "../commands/lint.ts";
 import { processCommand } from "../commands/process.ts";
 import { soundcheckCommand } from "../commands/soundcheck.ts";
@@ -234,6 +235,34 @@ export function setupCLI() {
       { default: false },
     )
     .action(lintCommand);
+
+  // Add enrich subcommand
+  program
+    .command(
+      "enrich <path:string>",
+      "Enrich music metadata using MusicBrainz (requires existing MusicBrainz recording IDs from AcoustID processing)",
+    )
+    .option(
+      "--yes",
+      "Apply all changes without prompting",
+      { default: false },
+    )
+    .option(
+      "--dry-run",
+      "Show what would change without writing",
+      { default: false },
+    )
+    .option(
+      "-q, --quiet",
+      "Suppress progress output (errors still shown)",
+      { default: false },
+    )
+    .option(
+      "-f, --force",
+      "Re-enrich even if previously enriched",
+      { default: false },
+    )
+    .action(enrichCommand);
 
   // Add x-ray subcommand for testing/debugging
   program
