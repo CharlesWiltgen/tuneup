@@ -4,7 +4,9 @@ import {
   getAcoustIDTags,
   getAudioDuration,
   hasAcoustIDTags,
+  hasMusicBrainzTags,
   writeAcoustIDTags,
+  writeMusicBrainzTags,
 } from "./tagging.ts";
 import type { MusicBrainzIds } from "./tagging.ts";
 import { ACOUSTID_API_URL, DEFAULT_CONCURRENCY } from "../constants.ts";
@@ -204,14 +206,14 @@ export async function processAcoustIDTagging(
 
   if (!quiet) console.log("  Checking for existing AcoustID tags...");
   const tagsExist = await hasAcoustIDTags(filePath);
+  const skipAcoustIdWrite = tagsExist && !force;
 
-  if (tagsExist && !force) {
+  if (skipAcoustIdWrite) {
     if (!quiet) {
       console.log(
         "  INFO: File already has AcoustID tags. Skipping (use --force to overwrite).",
       );
     }
-    return "skipped";
   }
 
   if (tagsExist && force) {
@@ -247,11 +249,12 @@ export async function processAcoustIDTagging(
 
   let acoustIDToWrite = "";
   let resultStatus: ProcessResultStatus = "processed";
+  let lookupResult: LookupResult | null = null;
   if (apiKey) {
     if (!quiet) {
       console.log("  ACTION: Looking up fingerprint with AcoustID API...");
     }
-    const lookupResult = await lookupFingerprint(fingerprint, duration, apiKey);
+    lookupResult = await lookupFingerprint(fingerprint, duration, apiKey);
     if (!lookupResult) {
       resultStatus = "lookup_failed";
       if (!quiet) {
@@ -285,35 +288,74 @@ export async function processAcoustIDTagging(
     }
   }
 
-  if (dryRun) {
-    if (!quiet) {
-      console.log(
-        `  DRY RUN: Would write ACOUSTID_FINGERPRINT=${
-          fingerprint.substring(0, 30)
-        }... and ACOUSTID_ID=${acoustIDToWrite} to ${filePath}`,
+  if (!skipAcoustIdWrite) {
+    if (dryRun) {
+      if (!quiet) {
+        console.log(
+          `  DRY RUN: Would write ACOUSTID_FINGERPRINT=${
+            fingerprint.substring(0, 30)
+          }... and ACOUSTID_ID=${acoustIDToWrite} to ${filePath}`,
+        );
+        console.log("  DRY RUN: Skipping actual tag writing.");
+      }
+    } else {
+      if (!quiet) {
+        console.log(
+          "  ACTION: Writing ACOUSTID_FINGERPRINT and ACOUSTID_ID tags...",
+        );
+      }
+      const success = await writeAcoustIDTags(
+        filePath,
+        fingerprint,
+        acoustIDToWrite,
       );
-      console.log("  DRY RUN: Skipping actual tag writing.");
+
+      if (!success) {
+        if (!quiet) console.log("  ERROR: Failed to write AcoustID tags.");
+        return "failed";
+      }
+      if (!quiet) console.log("  SUCCESS: AcoustID fingerprint tag processed.");
     }
-    return resultStatus;
   }
 
-  if (!quiet) {
-    console.log(
-      "  ACTION: Writing ACOUSTID_FINGERPRINT and ACOUSTID_ID tags...",
-    );
+  // Write MusicBrainz tags (independent of AcoustID skip logic)
+  if (lookupResult?.results?.[0]?.recordings?.length) {
+    const hasMBTags = await hasMusicBrainzTags(filePath);
+    if (!hasMBTags || force) {
+      const mbIds = extractMusicBrainzIds(lookupResult);
+      if (Object.keys(mbIds).length > 0) {
+        if (!dryRun) {
+          const mbSuccess = await writeMusicBrainzTags(filePath, mbIds);
+          if (!quiet) {
+            if (mbSuccess) {
+              console.log(
+                `  SUCCESS: MusicBrainz IDs written (${
+                  Object.keys(mbIds).join(", ")
+                }).`,
+              );
+            } else {
+              console.log("  WARNING: Failed to write MusicBrainz tags.");
+            }
+          }
+        } else if (!quiet) {
+          console.log(
+            `  DRY RUN: Would write MusicBrainz IDs: ${JSON.stringify(mbIds)}`,
+          );
+        }
+        if (skipAcoustIdWrite) {
+          resultStatus = "processed";
+        }
+      }
+    }
   }
-  const success = await writeAcoustIDTags(
-    filePath,
-    fingerprint,
-    acoustIDToWrite,
-  );
 
-  if (success) {
-    if (!quiet) console.log("  SUCCESS: AcoustID fingerprint tag processed.");
+  if (skipAcoustIdWrite && resultStatus === "processed") {
     return resultStatus;
   }
-  if (!quiet) console.log("  ERROR: Failed to write AcoustID tags.");
-  return "failed";
+  if (skipAcoustIdWrite) {
+    return "skipped";
+  }
+  return resultStatus;
 }
 
 /**
@@ -348,19 +390,16 @@ export async function batchProcessAcoustIDTagging(
   if (!quiet) console.log("Checking for existing AcoustID tags...");
   const existingTags = await batchCheckAcoustIDTags(filePaths, concurrency);
 
-  // Filter files that need processing
-  const filesToProcess = filePaths.filter((file) => {
-    const hasTag = existingTags.get(file) || false;
-    if (hasTag && !force) {
-      results.set(file, "skipped");
-      return false;
-    }
-    return true;
-  });
+  // All files need processing (for potential MB tag writes), track which skip AcoustID write
+  const skipAcoustIdWriteSet = new Set<string>(
+    filePaths.filter((file) => (existingTags.get(file) || false) && !force),
+  );
+  const filesToProcess = filePaths;
 
   if (!quiet) {
+    const acoustIdCount = filePaths.length - skipAcoustIdWriteSet.size;
     console.log(
-      `Files to process: ${filesToProcess.length} of ${filePaths.length}`,
+      `Files to process: ${acoustIdCount} of ${filePaths.length} need AcoustID write`,
     );
   }
 
@@ -383,6 +422,8 @@ export async function batchProcessAcoustIDTagging(
           );
         }
 
+        const skipAcoustIdWrite = skipAcoustIdWriteSet.has(filePath);
+
         // Generate fingerprint
         const fingerprint = await generateFingerprint(filePath);
         if (!fingerprint) {
@@ -396,29 +437,32 @@ export async function batchProcessAcoustIDTagging(
 
         // Lookup in AcoustID API
         let acoustIDToWrite = "";
-        let resultStatus: ProcessResultStatus = "processed";
+        let resultStatus: ProcessResultStatus = skipAcoustIdWrite
+          ? "skipped"
+          : "processed";
+        let lookupResult: LookupResult | null = null;
 
         if (apiKey) {
-          const lookupResult = await lookupFingerprint(
+          lookupResult = await lookupFingerprint(
             fingerprint,
             duration,
             apiKey,
           );
           if (!lookupResult) {
-            resultStatus = "lookup_failed";
+            if (!skipAcoustIdWrite) resultStatus = "lookup_failed";
           } else if (lookupResult.status === "error") {
-            resultStatus = "lookup_failed";
+            if (!skipAcoustIdWrite) resultStatus = "lookup_failed";
           } else if (
             !lookupResult.results || lookupResult.results.length === 0
           ) {
-            resultStatus = "no_results";
+            if (!skipAcoustIdWrite) resultStatus = "no_results";
           } else if (lookupResult.results[0]) {
             acoustIDToWrite = lookupResult.results[0].id;
           }
         }
 
-        // Write tags
-        if (!dryRun) {
+        // Write AcoustID tags
+        if (!skipAcoustIdWrite && !dryRun) {
           const success = await writeAcoustIDTags(
             filePath,
             fingerprint,
@@ -427,6 +471,20 @@ export async function batchProcessAcoustIDTagging(
           if (!success) {
             results.set(filePath, "failed");
             return;
+          }
+        }
+
+        // Write MusicBrainz tags (independent skip logic)
+        if (lookupResult?.results?.[0]?.recordings?.length) {
+          const hasMBTags = await hasMusicBrainzTags(filePath);
+          if (!hasMBTags || force) {
+            const mbIds = extractMusicBrainzIds(lookupResult);
+            if (Object.keys(mbIds).length > 0 && !dryRun) {
+              await writeMusicBrainzTags(filePath, mbIds);
+              if (skipAcoustIdWrite) {
+                resultStatus = "processed";
+              }
+            }
           }
         }
 
