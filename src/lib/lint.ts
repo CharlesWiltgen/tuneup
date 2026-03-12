@@ -23,6 +23,7 @@ export type FileMetadataForLint = {
   path: string;
   title?: string;
   artist?: string;
+  albumArtist?: string;
   album?: string;
   year?: number;
   track?: number;
