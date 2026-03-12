@@ -140,6 +140,10 @@ export async function writeMusicBrainzTags(
   filePath: string,
   ids: MusicBrainzIds,
 ): Promise<boolean> {
+  if (!ids.trackId && !ids.artistId && !ids.releaseId) {
+    return true;
+  }
+
   const taglib = await ensureTagLib();
 
   let audioFile = null;

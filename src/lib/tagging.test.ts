@@ -1,21 +1,20 @@
 import { assertEquals } from "@std/assert";
 import { describe, it } from "@std/testing/bdd";
-import { copy } from "@std/fs";
 import { join } from "@std/path";
+import { PROPERTIES } from "@charlesw/taglib-wasm";
 import {
   hasMusicBrainzTags,
   type MusicBrainzIds,
   writeMusicBrainzTags,
 } from "./tagging.ts";
+import { ensureTagLib } from "./taglib_init.ts";
+import { createSilentAudioFile } from "../test_utils/file_helpers.ts";
 
-const FIXTURE_FILE =
-  "/Users/Charles/Projects/amusic/tests/test_run_files/show_tags_none/clean.wav";
-
-async function withTempCopy(fn: (tmpFile: string) => Promise<void>) {
+async function withTempAudioFile(fn: (tmpFile: string) => Promise<void>) {
   const tmpDir = await Deno.makeTempDir({ prefix: "amusic-test-mb-" });
   try {
-    const tmpFile = join(tmpDir, "clean.wav");
-    await copy(FIXTURE_FILE, tmpFile);
+    const tmpFile = join(tmpDir, "test.wav");
+    await createSilentAudioFile(tmpFile);
     await fn(tmpFile);
   } finally {
     await Deno.remove(tmpDir, { recursive: true });
@@ -23,8 +22,8 @@ async function withTempCopy(fn: (tmpFile: string) => Promise<void>) {
 }
 
 describe("writeMusicBrainzTags", () => {
-  it("should write and read back MusicBrainz IDs from a real audio file", async () => {
-    await withTempCopy(async (testFile) => {
+  it("should write and read back exact MusicBrainz IDs from a real audio file", async () => {
+    await withTempAudioFile(async (testFile) => {
       const ids: MusicBrainzIds = {
         trackId: "12345678-1234-1234-1234-123456789abc",
         artistId: "abcdefab-abcd-abcd-abcd-abcdefabcdef",
@@ -34,25 +33,72 @@ describe("writeMusicBrainzTags", () => {
       const result = await writeMusicBrainzTags(testFile, ids);
       assertEquals(result, true);
 
-      const hasTags = await hasMusicBrainzTags(testFile);
-      assertEquals(hasTags, true);
+      const taglib = await ensureTagLib();
+      const audioFile = await taglib.open(testFile, { partial: true });
+      try {
+        assertEquals(
+          audioFile.getProperty(PROPERTIES.musicbrainzTrackId.key),
+          ids.trackId,
+        );
+        assertEquals(
+          audioFile.getProperty(PROPERTIES.musicbrainzArtistId.key),
+          ids.artistId,
+        );
+        assertEquals(
+          audioFile.getProperty(PROPERTIES.musicbrainzReleaseId.key),
+          ids.releaseId,
+        );
+      } finally {
+        audioFile.dispose();
+      }
     });
   });
 
-  it("should return true even when writing partial IDs", async () => {
-    await withTempCopy(async (testFile) => {
+  it("should write only provided IDs when given partial input", async () => {
+    await withTempAudioFile(async (testFile) => {
       const ids: MusicBrainzIds = {
         trackId: "12345678-1234-1234-1234-123456789abc",
       };
       const result = await writeMusicBrainzTags(testFile, ids);
       assertEquals(result, true);
+
+      const taglib = await ensureTagLib();
+      const audioFile = await taglib.open(testFile, { partial: true });
+      try {
+        assertEquals(
+          audioFile.getProperty(PROPERTIES.musicbrainzTrackId.key),
+          ids.trackId,
+        );
+        assertEquals(
+          audioFile.getProperty(PROPERTIES.musicbrainzArtistId.key) ?? null,
+          null,
+        );
+        assertEquals(
+          audioFile.getProperty(PROPERTIES.musicbrainzReleaseId.key) ?? null,
+          null,
+        );
+      } finally {
+        audioFile.dispose();
+      }
+    });
+  });
+
+  it("should return true without writing when given empty IDs", async () => {
+    await withTempAudioFile(async (testFile) => {
+      const result = await writeMusicBrainzTags(testFile, {});
+      assertEquals(result, true);
+
+      const hasTags = await hasMusicBrainzTags(testFile);
+      assertEquals(hasTags, false);
     });
   });
 });
 
 describe("hasMusicBrainzTags", () => {
   it("should return false for a file without MusicBrainz tags", async () => {
-    const hasTags = await hasMusicBrainzTags(FIXTURE_FILE);
-    assertEquals(hasTags, false);
+    await withTempAudioFile(async (testFile) => {
+      const hasTags = await hasMusicBrainzTags(testFile);
+      assertEquals(hasTags, false);
+    });
   });
 });
