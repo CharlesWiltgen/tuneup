@@ -37,7 +37,7 @@ function writeStderr(text: string) {
 
 export async function enrichCommand(
   options: {
-    yes: boolean;
+    dangerouslyOverwriteTags: boolean;
     dryRun: boolean;
     quiet: boolean;
     force: boolean;
@@ -246,7 +246,7 @@ export async function enrichCommand(
     displayAlbumDiff(albumDiff);
 
     // Confirm and apply
-    let shouldApply = options.yes;
+    let shouldApply = options.dangerouslyOverwriteTags;
     if (!shouldApply && !options.dryRun) {
       shouldApply = confirm(
         `  Apply changes to ${albumDiff.files.length} files?`,

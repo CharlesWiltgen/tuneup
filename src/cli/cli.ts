@@ -243,8 +243,8 @@ export function setupCLI() {
       "Enrich music metadata using MusicBrainz (requires existing MusicBrainz recording IDs from AcoustID processing)",
     )
     .option(
-      "--yes",
-      "Apply all changes without prompting",
+      "--dangerously-overwrite-tags",
+      "Apply all changes without prompting (overwrites existing metadata)",
       { default: false },
     )
     .option(
