@@ -4,6 +4,22 @@
 libraries. It handles the full lifecycle of music metadata: fingerprinting,
 identification, enrichment, volume normalization, encoding, and quality checks.
 
+## Get Started
+
+```bash
+brew tap CharlesWiltgen/tap
+brew install amusic
+```
+
+To update to the latest version:
+
+```bash
+brew upgrade amusic
+```
+
+See [Installation](#installation) for other options including pre-built binaries
+and building from source.
+
 ## Features
 
 - **AcoustID Fingerprinting** — Generates and embeds AcoustID fingerprints and
