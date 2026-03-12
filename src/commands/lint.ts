@@ -4,7 +4,10 @@ import {
   type LintResult,
   runLint,
 } from "../lib/lint_engine.ts";
+import { SEVERITY_ORDER } from "../lib/lint.ts";
 import type { LintIssue, LintSummary, Severity } from "../lib/lint.ts";
+
+const VALID_SEVERITIES = new Set(Object.keys(SEVERITY_ORDER));
 
 const SEVERITY_ICONS: Record<string, string> = {
   error: "\u274C",
@@ -52,6 +55,16 @@ export async function lintCommand(
   },
   path: string,
 ): Promise<void> {
+  if (!VALID_SEVERITIES.has(options.severity)) {
+    console.error(
+      `Error: Invalid severity "${options.severity}". Must be one of: ${
+        [...VALID_SEVERITIES].join(", ")
+      }`,
+    );
+    Deno.exit(2);
+    return;
+  }
+
   let files: string[];
   try {
     const stat = await Deno.stat(path);
@@ -64,8 +77,12 @@ export async function lintCommand(
       Deno.exit(2);
       return;
     }
-  } catch {
-    console.error(`Error: Cannot access ${path}`);
+  } catch (err) {
+    console.error(
+      `Error: Cannot access ${path}: ${
+        err instanceof Error ? err.message : err
+      }`,
+    );
     Deno.exit(2);
     return;
   }

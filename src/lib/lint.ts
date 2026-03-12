@@ -27,6 +27,7 @@ export type FileMetadataForLint = {
   album?: string;
   year?: number;
   track?: number;
+  discNumber?: number;
   genre?: string;
   hasCoverArt: boolean;
   hasReplayGain: boolean;
@@ -156,7 +157,7 @@ export const FILE_METADATA_RULES: FileMetadataRule[] = [
         ? {
           type: "issue",
           rule: "missing-cover-art",
-          severity: "info",
+          severity: "warning",
           file: file.path,
           message: "Missing cover art",
         }
@@ -394,7 +395,7 @@ export const ALBUM_RULES: AlbumRule[] = [
           {
             type: "issue",
             rule: "mixed-sample-rates",
-            severity: "info",
+            severity: "warning",
             album: albumName,
             message: `Mixed sample rates: ${rates}`,
           },

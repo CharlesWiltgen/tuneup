@@ -13,6 +13,7 @@ import {
   createLintSummary,
   runAlbumRules,
   runFileMetadataRules,
+  SEVERITY_ORDER,
 } from "./lint.ts";
 
 const LOSSY_EXTENSIONS = new Set([".mp3", ".ogg", ".aac", ".opus", ".wma"]);
@@ -53,7 +54,8 @@ export function addToAlbumIndex(
   if (artist) entry.albumArtists.add(artist);
   if (file.year !== undefined) entry.years.add(file.year);
 
-  const discNumber = 0;
+  const discNumber = file.discNumber ?? 0;
+  if (discNumber > 0) entry.discNumbers.add(discNumber);
   if (file.track !== undefined) {
     const tracks = entry.trackNumbers.get(discNumber) ?? [];
     tracks.push(String(file.track));
@@ -86,6 +88,7 @@ interface ExtendedBatchTags {
   albumArtist?: string[];
   year?: number;
   track?: number;
+  discNumber?: number;
   genre?: string[];
   acoustidFingerprint?: string[];
   acoustidId?: string[];
@@ -126,6 +129,7 @@ function batchItemToFileMetadata(
     album: tags?.album?.[0],
     year: tags?.year,
     track: tags?.track,
+    discNumber: tags?.discNumber,
     genre: tags?.genre?.[0],
     hasCoverArt: item.data.hasCoverArt ?? false,
     hasReplayGain: dynamics?.replayGainTrackGain !== undefined ||
@@ -151,6 +155,11 @@ export async function runLint(
   const issues: LintIssue[] = [];
   const albumIndex: AlbumIndex = new Map();
   let processed = 0;
+  const minSeverity = SEVERITY_ORDER[options.severity];
+
+  function shouldInclude(issue: LintIssue): boolean {
+    return SEVERITY_ORDER[issue.severity] <= minSeverity;
+  }
 
   const batchResult = await readMetadataBatch(files, {
     concurrency: 8,
@@ -169,8 +178,10 @@ export async function runLint(
         file: item.path,
         message: `Failed to read metadata: ${item.error}`,
       };
-      issues.push(issue);
-      onIssue?.(issue);
+      if (shouldInclude(issue)) {
+        issues.push(issue);
+        onIssue?.(issue);
+      }
       continue;
     }
 
@@ -178,8 +189,10 @@ export async function runLint(
 
     const fileIssues = runFileMetadataRules(fileMeta);
     for (const issue of fileIssues) {
-      issues.push(issue);
-      onIssue?.(issue);
+      if (shouldInclude(issue)) {
+        issues.push(issue);
+        onIssue?.(issue);
+      }
     }
 
     if (options.deep) {
@@ -187,8 +200,10 @@ export async function runLint(
       const headerBytes = await readFileHeader(item.path);
       const headerIssues = validateFileHeader(item.path, ext, headerBytes);
       for (const issue of headerIssues) {
-        issues.push(issue);
-        onIssue?.(issue);
+        if (shouldInclude(issue)) {
+          issues.push(issue);
+          onIssue?.(issue);
+        }
       }
     }
 
@@ -203,8 +218,10 @@ export async function runLint(
 
   const albumIssues = runAlbumRules(albumIndex);
   for (const issue of albumIssues) {
-    issues.push(issue);
-    onIssue?.(issue);
+    if (shouldInclude(issue)) {
+      issues.push(issue);
+      onIssue?.(issue);
+    }
   }
 
   const summary = createLintSummary(issues, files.length);

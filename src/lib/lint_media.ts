@@ -72,7 +72,10 @@ export async function readFileHeader(filePath: string): Promise<Uint8Array> {
   const file = await Deno.open(filePath, { read: true });
   try {
     const buf = new Uint8Array(12);
-    await file.read(buf);
+    const bytesRead = await file.read(buf);
+    if (bytesRead === null || bytesRead < 12) {
+      return buf.subarray(0, bytesRead ?? 0);
+    }
     return buf;
   } finally {
     file.close();
