@@ -124,6 +124,73 @@ export async function writeAcoustIDTags(
   }
 }
 
+export type MusicBrainzIds = {
+  trackId?: string;
+  artistId?: string;
+  releaseId?: string;
+};
+
+/**
+ * Writes MusicBrainz ID tags to an audio file.
+ * @param filePath Path to the audio file
+ * @param ids Object containing MusicBrainz IDs to write
+ * @returns True if successful, false otherwise
+ */
+export async function writeMusicBrainzTags(
+  filePath: string,
+  ids: MusicBrainzIds,
+): Promise<boolean> {
+  const taglib = await ensureTagLib();
+
+  let audioFile = null;
+  try {
+    audioFile = await openFileForWrite(taglib, filePath);
+
+    if (ids.trackId) {
+      audioFile.setProperty(PROPERTIES.musicbrainzTrackId.key, ids.trackId);
+    }
+    if (ids.artistId) {
+      audioFile.setProperty(PROPERTIES.musicbrainzArtistId.key, ids.artistId);
+    }
+    if (ids.releaseId) {
+      audioFile.setProperty(PROPERTIES.musicbrainzReleaseId.key, ids.releaseId);
+    }
+
+    await audioFile.saveToFile();
+    return true;
+  } catch (error) {
+    console.error(
+      `Error writing MusicBrainz tags to ${filePath}: ${formatError(error)}`,
+    );
+    return false;
+  } finally {
+    if (audioFile) {
+      audioFile.dispose();
+    }
+  }
+}
+
+/**
+ * Checks if an audio file has a MusicBrainz track ID tag.
+ * Returns true if the tag is present, false otherwise (including on error).
+ */
+export async function hasMusicBrainzTags(filePath: string): Promise<boolean> {
+  const taglib = await ensureTagLib();
+
+  let audioFile = null;
+  try {
+    audioFile = await openFileForRead(taglib, filePath);
+    const trackId = audioFile.getProperty(PROPERTIES.musicbrainzTrackId.key);
+    return trackId !== null && trackId !== undefined && trackId.length > 0;
+  } catch {
+    return false;
+  } finally {
+    if (audioFile) {
+      audioFile.dispose();
+    }
+  }
+}
+
 /**
  * Gets ReplayGain tags from an audio file.
  * Returns an object with all ReplayGain values or null if none exist.
