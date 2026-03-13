@@ -1,8 +1,8 @@
 # Code Quality: Silent Catch Blocks + File Consolidation
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development
-> (if subagents available) or superpowers:executing-plans to implement this plan.
-> Steps use checkbox (`- [ ]`) syntax for tracking.
+> (if subagents available) or superpowers:executing-plans to implement this
+> plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Fix silent error swallowing in predicate/check functions and
 consolidate the duplicated fast_discovery files into one.
@@ -35,18 +35,18 @@ and `console.error` with the file path before returning.
 Change:
 
 ```typescript
-  } catch {
-    return false;
-  }
+} catch {
+  return false;
+}
 ```
 
 To:
 
 ```typescript
-  } catch (error) {
-    console.error(`Error checking SoundCheck tag for ${filePath}: ${formatError(error)}`);
-    return false;
-  }
+} catch (error) {
+  console.error(`Error checking SoundCheck tag for ${filePath}: ${formatError(error)}`);
+  return false;
+}
 ```
 
 `formatError` is already imported in this file.
@@ -56,9 +56,9 @@ To:
 Change:
 
 ```typescript
-  } catch {
-    return false;
-  }
+} catch {
+  return false;
+}
 ```
 
 (The one at line 68, inside `hasAcoustIDTags`)
@@ -66,10 +66,10 @@ Change:
 To:
 
 ```typescript
-  } catch (error) {
-    console.error(`Error checking AcoustID tags for ${filePath}: ${formatError(error)}`);
-    return false;
-  }
+} catch (error) {
+  console.error(`Error checking AcoustID tags for ${filePath}: ${formatError(error)}`);
+  return false;
+}
 ```
 
 `formatError` is already imported in this file.
@@ -79,9 +79,9 @@ To:
 Change:
 
 ```typescript
-  } catch {
-    return false;
-  }
+} catch {
+  return false;
+}
 ```
 
 (The one at line 189, inside `hasMusicBrainzTags`)
@@ -89,10 +89,10 @@ Change:
 To:
 
 ```typescript
-  } catch (error) {
-    console.error(`Error checking MusicBrainz tags for ${filePath}: ${formatError(error)}`);
-    return false;
-  }
+} catch (error) {
+  console.error(`Error checking MusicBrainz tags for ${filePath}: ${formatError(error)}`);
+  return false;
+}
 ```
 
 - [ ] **Step 4: Fix `isLosslessFormat` in `src/lib/encoding.ts`**
@@ -100,9 +100,9 @@ To:
 Change:
 
 ```typescript
-    } catch {
-      return false;
-    }
+} catch {
+  return false;
+}
 ```
 
 (The one at line 139, inside `isLosslessFormat`)
@@ -110,10 +110,10 @@ Change:
 To:
 
 ```typescript
-    } catch (error) {
-      console.error(`Error checking lossless format for ${filePath}: ${formatError(error)}`);
-      return false;
-    }
+} catch (error) {
+  console.error(`Error checking lossless format for ${filePath}: ${formatError(error)}`);
+  return false;
+}
 ```
 
 `formatError` is already imported in this file.
@@ -154,18 +154,18 @@ Two functions catch errors and throw/exit without the original error message.
 Change:
 
 ```typescript
-  } catch {
-    // afconvert not found in system, this is macOS-only tool
-    throw new Error("afconvert not found. Audio encoding requires macOS.");
-  }
+} catch {
+  // afconvert not found in system, this is macOS-only tool
+  throw new Error("afconvert not found. Audio encoding requires macOS.");
+}
 ```
 
 To:
 
 ```typescript
-  } catch (error) {
-    throw new Error(`afconvert not found. Audio encoding requires macOS: ${formatError(error)}`);
-  }
+} catch (error) {
+  throw new Error(`afconvert not found. Audio encoding requires macOS: ${formatError(error)}`);
+}
 ```
 
 - [ ] **Step 2: Fix `validateDirectory` in `src/utils/console_output.ts`**
@@ -173,17 +173,17 @@ To:
 Change:
 
 ```typescript
-  }).catch(() => {
-    exitWithError(`Error: Directory not found at "${path}".`);
-  });
+}).catch(() => {
+  exitWithError(`Error: Directory not found at "${path}".`);
+});
 ```
 
 To:
 
 ```typescript
-  }).catch((error: unknown) => {
-    exitWithError(`Error: Directory not found at "${path}": ${error instanceof Error ? error.message : String(error)}`);
-  });
+}).catch((error: unknown) => {
+  exitWithError(`Error: Directory not found at "${path}": ${error instanceof Error ? error.message : String(error)}`);
+});
 ```
 
 Note: `console_output.ts` does not import `formatError`. Use inline error
@@ -214,8 +214,8 @@ git commit -m "fix: include original error context in re-thrown errors"
 
 ## Task 3: Log discovery/stat failures to stderr
 
-Four catch blocks silently skip paths that fail `Deno.stat`. Add
-`console.error` with the path.
+Four catch blocks silently skip paths that fail `Deno.stat`. Add `console.error`
+with the path.
 
 **Files:**
 
@@ -229,17 +229,17 @@ Four catch blocks silently skip paths that fail `Deno.stat`. Add
 Change:
 
 ```typescript
-    } catch {
-      // Skip paths that don't exist
-    }
+} catch {
+  // Skip paths that don't exist
+}
 ```
 
 To:
 
 ```typescript
-    } catch (error) {
-      console.error(`Skipping inaccessible path "${p}": ${error instanceof Error ? error.message : String(error)}`);
-    }
+} catch (error) {
+  console.error(`Skipping inaccessible path "${p}": ${error instanceof Error ? error.message : String(error)}`);
+}
 ```
 
 - [ ] **Step 2: Fix `replaygain.ts`**
@@ -247,17 +247,17 @@ To:
 Change:
 
 ```typescript
-  } catch {
-    // If stat fails, default to custom mode on file
-  }
+} catch {
+  // If stat fails, default to custom mode on file
+}
 ```
 
 To:
 
 ```typescript
-  } catch (error) {
-    console.error(`Could not stat "${targetPath}", defaulting to file mode: ${error instanceof Error ? error.message : String(error)}`);
-  }
+} catch (error) {
+  console.error(`Could not stat "${targetPath}", defaulting to file mode: ${error instanceof Error ? error.message : String(error)}`);
+}
 ```
 
 - [ ] **Step 3: Fix `file_discovery.ts`**
@@ -265,17 +265,17 @@ To:
 Change:
 
 ```typescript
-    } catch {
-      // Ignore inaccessible paths
-    }
+} catch {
+  // Ignore inaccessible paths
+}
 ```
 
 To:
 
 ```typescript
-    } catch (error) {
-      console.error(`Skipping inaccessible path "${path}": ${error instanceof Error ? error.message : String(error)}`);
-    }
+} catch (error) {
+  console.error(`Skipping inaccessible path "${path}": ${error instanceof Error ? error.message : String(error)}`);
+}
 ```
 
 - [ ] **Step 4: Fix `fast_discovery_refactored.ts`**
@@ -283,17 +283,17 @@ To:
 Change:
 
 ```typescript
-    } catch {
-      // Skip paths that don't exist
-    }
+} catch {
+  // Skip paths that don't exist
+}
 ```
 
 To:
 
 ```typescript
-    } catch (error) {
-      console.error(`Skipping inaccessible path "${path}": ${error instanceof Error ? error.message : String(error)}`);
-    }
+} catch (error) {
+  console.error(`Skipping inaccessible path "${path}": ${error instanceof Error ? error.message : String(error)}`);
+}
 ```
 
 - [ ] **Step 5: Run tests**
@@ -320,8 +320,8 @@ git commit -m "fix: log discovery stat failures instead of swallowing silently"
 
 ## Task 4: Consolidate fast_discovery files
 
-Merge `fast_discovery.ts` (types + helpers) into
-`fast_discovery_refactored.ts`, then rename to `fast_discovery.ts`.
+Merge `fast_discovery.ts` (types + helpers) into `fast_discovery_refactored.ts`,
+then rename to `fast_discovery.ts`.
 
 **Files:**
 
@@ -332,7 +332,8 @@ Merge `fast_discovery.ts` (types + helpers) into
 - Modify+Rename: `src/utils/fast_discovery_refactored.test.ts` →
   `src/utils/fast_discovery.test.ts`
 
-- [ ] **Step 1: Copy types and helpers from `fast_discovery.ts` into `fast_discovery_refactored.ts`**
+- [ ] **Step 1: Copy types and helpers from `fast_discovery.ts` into
+      `fast_discovery_refactored.ts`**
 
 Move the following from `fast_discovery.ts` into the top of
 `fast_discovery_refactored.ts` (after the existing imports):
@@ -347,8 +348,8 @@ Move the following from `fast_discovery.ts` into the top of
 - `classifyDirectories` function — **must be exported** (tests import it)
 - `parallelFileScan` function — check if used; if only used by the old shim's
   re-export and nowhere else, **delete it** instead of moving (dead code)
-- `parallelCheckMpeg4Codecs` function — check if used by the refactored file;
-  if not, **delete it** instead of moving (dead code after merge)
+- `parallelCheckMpeg4Codecs` function — check if used by the refactored file; if
+  not, **delete it** instead of moving (dead code after merge)
 
 Also copy any imports from `fast_discovery.ts` that the moved code depends on
 (e.g., `readMetadataBatch` from `@charlesw/taglib-wasm/simple`).

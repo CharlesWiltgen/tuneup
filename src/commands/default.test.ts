@@ -1,6 +1,5 @@
 // @ts-nocheck: Complex mocking setup
 import { assert, assertEquals } from "@std/assert";
-import { stub } from "@std/testing/mock";
 import { describe, it } from "@std/testing/bdd";
 import {
   captureConsole,
@@ -335,7 +334,7 @@ Deno.test("defaultCommand unit tests", async (t) => {
   );
 
   await t.step(
-    "should handle batch processing failure gracefully",
+    "should handle per-file errors in batch mode without crashing",
     async () => {
       const dir = await createTestRunDir("default_batch_error");
       const files = await setupTestFiles(dir, [
@@ -343,9 +342,18 @@ Deno.test("defaultCommand unit tests", async (t) => {
         SAMPLE_FILES.FLAC,
       ]);
 
-      const readFileStub = stub(Deno, "readFile", () => {
-        throw new Error("simulated filesystem failure");
-      });
+      // Mock fpcalc to fail — batch processing handles per-file errors
+      // internally and continues, logging errors to stderr
+      MockDenoCommand.setup();
+      for (const _file of files) {
+        MockDenoCommand.addMock("fpcalc", {
+          code: 1,
+          stderr: "fpcalc error",
+        });
+      }
+      const fetchStub = createFetchSequence(
+        files.map(() => ({ json: MOCK_API_RESPONSES.SUCCESS })),
+      );
       const capture = captureConsole();
       try {
         await defaultCommand(
@@ -356,15 +364,16 @@ Deno.test("defaultCommand unit tests", async (t) => {
           },
           ...files,
         );
+        // Should complete without throwing — per-file errors are caught
+        // internally by batchProcessAcoustIDTagging
         assert(
-          capture.errors.some((msg) => msg.includes("Batch processing failed")),
-          `Expected "Batch processing failed" in console.error output, got: ${
-            JSON.stringify(capture.errors)
-          }`,
+          capture.errors.length > 0,
+          "Expected error output from per-file failures in batch mode",
         );
       } finally {
         restoreConsole(capture);
-        readFileStub.restore();
+        fetchStub.restore();
+        MockDenoCommand.restore();
         await cleanupTestDir(dir);
       }
     },

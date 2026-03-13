@@ -1,8 +1,8 @@
 # Default Command: Bug Fix + Tests
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development
-> (if subagents available) or superpowers:executing-plans to implement this plan.
-> Steps use checkbox (`- [ ]`) syntax for tracking.
+> (if subagents available) or superpowers:executing-plans to implement this
+> plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Fix the batch mode missing try-catch bug in `defaultCommand` and add
 comprehensive E2E + unit tests.
@@ -39,77 +39,77 @@ per-file try-catch.
 In `src/commands/default.ts`, wrap the batch block. Change:
 
 ```typescript
-    const results = await batchProcessAcoustIDTagging(
-      filesToProcess,
-      options.apiKey,
-      {
-        force: options.force || false,
-        quiet: options.quiet || false,
-        dryRun: options.dryRun || false,
-        concurrency: HIGH_CONCURRENCY,
-        onProgress: (processed, total, _currentFile) => {
-          if (!options.quiet) {
-            // Move cursor to beginning of line and clear it
-            Deno.stdout.writeSync(new TextEncoder().encode(
-              `\x1b[2K\r→ Processing: ${processed}/${total} files (${
-                Math.round(processed / total * 100)
-              }%)`,
-            ));
-          }
-        },
-      },
-    );
+const results = await batchProcessAcoustIDTagging(
+  filesToProcess,
+  options.apiKey,
+  {
+    force: options.force || false,
+    quiet: options.quiet || false,
+    dryRun: options.dryRun || false,
+    concurrency: HIGH_CONCURRENCY,
+    onProgress: (processed, total, _currentFile) => {
+      if (!options.quiet) {
+        // Move cursor to beginning of line and clear it
+        Deno.stdout.writeSync(new TextEncoder().encode(
+          `\x1b[2K\r→ Processing: ${processed}/${total} files (${
+            Math.round(processed / total * 100)
+          }%)`,
+        ));
+      }
+    },
+  },
+);
 
-    if (!options.quiet) {
-      Deno.stdout.writeSync(new TextEncoder().encode("\n"));
-    }
+if (!options.quiet) {
+  Deno.stdout.writeSync(new TextEncoder().encode("\n"));
+}
 
-    // Update stats from results
-    for (const [_file, status] of results) {
-      stats.increment(status);
-    }
+// Update stats from results
+for (const [_file, status] of results) {
+  stats.increment(status);
+}
 ```
 
 To:
 
 ```typescript
-    try {
-      const results = await batchProcessAcoustIDTagging(
-        filesToProcess,
-        options.apiKey,
-        {
-          force: options.force || false,
-          quiet: options.quiet || false,
-          dryRun: options.dryRun || false,
-          concurrency: HIGH_CONCURRENCY,
-          onProgress: (processed, total, _currentFile) => {
-            if (!options.quiet) {
-              Deno.stdout.writeSync(new TextEncoder().encode(
-                `\x1b[2K\r→ Processing: ${processed}/${total} files (${
-                  Math.round(processed / total * 100)
-                }%)`,
-              ));
-            }
-          },
-        },
-      );
+try {
+  const results = await batchProcessAcoustIDTagging(
+    filesToProcess,
+    options.apiKey,
+    {
+      force: options.force || false,
+      quiet: options.quiet || false,
+      dryRun: options.dryRun || false,
+      concurrency: HIGH_CONCURRENCY,
+      onProgress: (processed, total, _currentFile) => {
+        if (!options.quiet) {
+          Deno.stdout.writeSync(new TextEncoder().encode(
+            `\x1b[2K\r→ Processing: ${processed}/${total} files (${
+              Math.round(processed / total * 100)
+            }%)`,
+          ));
+        }
+      },
+    },
+  );
 
-      if (!options.quiet) {
-        Deno.stdout.writeSync(new TextEncoder().encode("\n"));
-      }
+  if (!options.quiet) {
+    Deno.stdout.writeSync(new TextEncoder().encode("\n"));
+  }
 
-      // Update stats from results
-      for (const [_file, status] of results) {
-        stats.increment(status);
-      }
-    } catch (error) {
-      console.error(
-        `Batch processing failed: ${formatError(error)}`,
-      );
-      for (const _file of filesToProcess) {
-        stats.incrementFailed();
-      }
-    }
+  // Update stats from results
+  for (const [_file, status] of results) {
+    stats.increment(status);
+  }
+} catch (error) {
+  console.error(
+    `Batch processing failed: ${formatError(error)}`,
+  );
+  for (const _file of filesToProcess) {
+    stats.incrementFailed();
+  }
+}
 ```
 
 Note: `formatError` is already imported in `default.ts`.
@@ -177,8 +177,7 @@ describe("default command E2E", () => {
   });
 
   it("should run --show-tags on a test directory", async () => {
-    const testDir =
-      "/Volumes/T9 (4TB)/Downloads/Deezer/America/America - Hits";
+    const testDir = "/Volumes/T9 (4TB)/Downloads/Deezer/America/America - Hits";
     try {
       await Deno.stat(testDir);
     } catch {
@@ -212,8 +211,7 @@ describe("default command E2E", () => {
   });
 
   it("should run --dry-run on a test directory", async () => {
-    const testDir =
-      "/Volumes/T9 (4TB)/Downloads/Deezer/America/America - Hits";
+    const testDir = "/Volumes/T9 (4TB)/Downloads/Deezer/America/America - Hits";
     try {
       await Deno.stat(testDir);
     } catch {

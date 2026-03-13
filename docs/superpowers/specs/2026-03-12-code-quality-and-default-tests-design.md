@@ -19,38 +19,38 @@ definition.
 
 #### Add error logging (predicates/check functions)
 
-| File (catch line) | Function | Current | Change |
-|-------------------|----------|---------|--------|
-| `src/lib/soundcheck.ts:15` | `hasSoundCheckTag` | `catch { return false }` | Add `(error)` binding, log with file path, return false |
-| `src/lib/tagging.ts:68` | `hasAcoustIDTags` | `catch { return false }` | Add `(error)` binding, log with file path, return false |
-| `src/lib/tagging.ts:189` | `hasMusicBrainzTags` | `catch { return false }` | Add `(error)` binding, log with file path, return false |
-| `src/lib/encoding.ts:139` | `isLosslessFormat` | `catch { return false }` | Add `(error)` binding, log with file path, return false |
+| File (catch line)          | Function             | Current                  | Change                                                  |
+| -------------------------- | -------------------- | ------------------------ | ------------------------------------------------------- |
+| `src/lib/soundcheck.ts:15` | `hasSoundCheckTag`   | `catch { return false }` | Add `(error)` binding, log with file path, return false |
+| `src/lib/tagging.ts:68`    | `hasAcoustIDTags`    | `catch { return false }` | Add `(error)` binding, log with file path, return false |
+| `src/lib/tagging.ts:189`   | `hasMusicBrainzTags` | `catch { return false }` | Add `(error)` binding, log with file path, return false |
+| `src/lib/encoding.ts:139`  | `isLosslessFormat`   | `catch { return false }` | Add `(error)` binding, log with file path, return false |
 
 #### Include original error context in re-thrown errors
 
-| File (catch line) | Function | Current | Change |
-|-------------------|----------|---------|--------|
-| `src/lib/encoding.ts:102` | `getAfconvertPath` | Catches original error, throws new without context | Include original error message in thrown error |
-| `src/utils/console_output.ts:34` | `validateDirectory` | `.catch(() => exitWithError(...))` | Add `(error)` parameter, include original error in message |
+| File (catch line)                | Function            | Current                                            | Change                                                     |
+| -------------------------------- | ------------------- | -------------------------------------------------- | ---------------------------------------------------------- |
+| `src/lib/encoding.ts:102`        | `getAfconvertPath`  | Catches original error, throws new without context | Include original error message in thrown error             |
+| `src/utils/console_output.ts:34` | `validateDirectory` | `.catch(() => exitWithError(...))`                 | Add `(error)` parameter, include original error in message |
 
 #### Log to stderr (discovery/stat failures)
 
-| File (catch line) | Location | Current | Change |
-|-------------------|----------|---------|--------|
-| `src/lib/folder_processor.ts:44` | stat failure | Comment-only catch | Log skipped path to stderr |
-| `src/lib/replaygain.ts:44` | stat failure | Comment-only catch | Log with file path context to stderr |
-| `src/utils/file_discovery.ts:159` | stat failure | Comment-only catch | Log skipped path to stderr |
-| `src/utils/fast_discovery_refactored.ts:285` | stat failure | Comment-only catch | Log skipped path to stderr |
+| File (catch line)                            | Location     | Current            | Change                               |
+| -------------------------------------------- | ------------ | ------------------ | ------------------------------------ |
+| `src/lib/folder_processor.ts:44`             | stat failure | Comment-only catch | Log skipped path to stderr           |
+| `src/lib/replaygain.ts:44`                   | stat failure | Comment-only catch | Log with file path context to stderr |
+| `src/utils/file_discovery.ts:159`            | stat failure | Comment-only catch | Log skipped path to stderr           |
+| `src/utils/fast_discovery_refactored.ts:285` | stat failure | Comment-only catch | Log skipped path to stderr           |
 
 #### Leave silent (acceptable)
 
-| File | Location | Reason |
-|------|----------|--------|
-| `src/lib/soundcheck.ts:78` | `Deno.remove(tempDir).catch(() => {})` | Cleanup — temp dir may already be gone |
-| `src/lib/replaygain.ts:88` | `Deno.remove(outputFile)` catch | Cleanup — temp CSV may already be gone |
-| `src/commands/encode.ts:117` | `Deno.consoleSize()` catch | Expected — returns Infinity fallback for piped output |
-| `src/commands/encode.ts:224` | `Deno.stat(outputPath)` catch | Expected — file not existing is the normal case |
-| `src/cli/cli.ts:20` | `.env` loading catch | Expected — most users won't have a .env file |
+| File                         | Location                               | Reason                                                |
+| ---------------------------- | -------------------------------------- | ----------------------------------------------------- |
+| `src/lib/soundcheck.ts:78`   | `Deno.remove(tempDir).catch(() => {})` | Cleanup — temp dir may already be gone                |
+| `src/lib/replaygain.ts:88`   | `Deno.remove(outputFile)` catch        | Cleanup — temp CSV may already be gone                |
+| `src/commands/encode.ts:117` | `Deno.consoleSize()` catch             | Expected — returns Infinity fallback for piped output |
+| `src/commands/encode.ts:224` | `Deno.stat(outputPath)` catch          | Expected — file not existing is the normal case       |
+| `src/cli/cli.ts:20`          | `.env` loading catch                   | Expected — most users won't have a .env file          |
 
 ### File Consolidation
 
@@ -58,8 +58,8 @@ definition.
 `DiscoveryOptions`, `ScanResult`) and helper functions (`buildScanResult`,
 `classifyDirectories`, `parallelFileScan`, `parallelCheckMpeg4Codecs`) that
 `fast_discovery_refactored.ts` imports and depends on. The bottom of
-`fast_discovery.ts` re-exports `discoverMusicRefactored as discoverMusic`.
-This is a **merge** operation, not a simple delete-and-rename.
+`fast_discovery.ts` re-exports `discoverMusicRefactored as discoverMusic`. This
+is a **merge** operation, not a simple delete-and-rename.
 
 Steps:
 
@@ -102,26 +102,26 @@ finally block at the end of `defaultCommand` restores the cursor.
 
 #### E2E Tests (subprocess-based)
 
-| Test | Assertion |
-|------|-----------|
-| Exits with error when no audio files found | Non-zero exit code |
+| Test                                           | Assertion                        |
+| ---------------------------------------------- | -------------------------------- |
+| Exits with error when no audio files found     | Non-zero exit code               |
 | `--show-tags` displays tags without processing | Exit 0, output contains tag info |
-| `--dry-run` completes without writing | Exit 0 |
+| `--dry-run` completes without writing          | Exit 0                           |
 
 E2E tests that require the external test directory skip when unavailable.
 
 #### Unit Tests (mocked)
 
-| Test | What it verifies |
-|------|-----------------|
-| Single file without API key uses sequential processing | `processAcoustIDTagging` called |
-| Multiple files with API key uses batch processing | `batchProcessAcoustIDTagging` called |
-| Multiple files without API key falls back to sequential | No batch when API key missing |
-| Sequential mode catches per-file errors and continues | Other files still processed |
-| Batch mode catches errors and restores cursor | Error isolation for batch path |
-| Stats accumulate mixed results correctly | Summary shows correct counts |
+| Test                                                    | What it verifies                            |
+| ------------------------------------------------------- | ------------------------------------------- |
+| Single file without API key uses sequential processing  | `processAcoustIDTagging` called             |
+| Multiple files with API key uses batch processing       | `batchProcessAcoustIDTagging` called        |
+| Multiple files without API key falls back to sequential | No batch when API key missing               |
+| Sequential mode catches per-file errors and continues   | Other files still processed                 |
+| Batch mode catches errors and restores cursor           | Error isolation for batch path              |
+| Stats accumulate mixed results correctly                | Summary shows correct counts                |
 | Progress callback receives correct counts in batch mode | `onProgress(processed, total, file)` values |
-| Quiet mode suppresses all console output | No stdout/stderr when quiet=true |
+| Quiet mode suppresses all console output                | No stdout/stderr when quiet=true            |
 
 #### Test Infrastructure
 
