@@ -537,7 +537,7 @@ export async function batchGetAudioProperties(
 
   const batchResult = await readMetadataBatch(filePaths, {
     concurrency,
-    continueOnError: true,
+    continueOnError: false,
   });
 
   for (const result of batchResult.items) {
