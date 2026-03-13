@@ -156,8 +156,12 @@ function discoverFilesWithProgress(
       } else if (stat.isDirectory) {
         directories.push(path);
       }
-    } catch {
-      // Ignore inaccessible paths
+    } catch (error) {
+      console.error(
+        `Skipping inaccessible path "${path}": ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     }
   }
 

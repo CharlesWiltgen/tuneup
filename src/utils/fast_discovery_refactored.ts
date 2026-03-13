@@ -282,8 +282,12 @@ export async function discoverMusicRefactored(
       } else {
         directories.push(path);
       }
-    } catch {
-      // Skip paths that don't exist
+    } catch (error) {
+      console.error(
+        `Skipping inaccessible path "${path}": ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     }
   }
 

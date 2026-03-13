@@ -41,8 +41,12 @@ export function analyzeFolderStructure(
       } else {
         directories.push(p);
       }
-    } catch {
-      // Skip paths that don't exist
+    } catch (error) {
+      console.error(
+        `Skipping inaccessible path "${p}": ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     }
   }
 

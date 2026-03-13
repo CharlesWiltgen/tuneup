@@ -41,8 +41,12 @@ export async function calculateReplayGain(
         outputFile = join(targetPath, "replaygain_data.csv");
       }
     }
-  } catch {
-    // If stat fails, default to custom mode on file
+  } catch (error) {
+    console.error(
+      `Could not stat "${targetPath}", defaulting to file mode: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
   }
 
   if (!quiet) {
