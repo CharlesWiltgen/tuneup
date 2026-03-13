@@ -1,9 +1,9 @@
-// Removed unused imports (extname, join)
-import { readMetadataBatch } from "@charlesw/taglib-wasm/simple";
-import { listAudioFilesRecursive } from "../lib/fastest_audio_scan_recursive.ts";
-
-// Using AUDIO_EXTENSIONS from fastest_audio_scan_recursive.ts
-// Extensions include: .mp3, .flac, .ogg, .m4a, .wav, .aac, .opus, .wma
+import { extname } from "@std/path";
+import {
+  AUDIO_EXTENSIONS,
+  listAudioFilesRecursive,
+} from "../lib/fastest_audio_scan_recursive.ts";
+import { detectCompilationsRefactored } from "./detect_compilations_refactored.ts";
 
 /**
  * Result of music discovery
@@ -29,7 +29,7 @@ export interface SkippedFile {
   path: string;
   reason: "aac" | "already-encoded" | "error";
   codec?: string;
-  encodedPath?: string; // Path to the existing encoded file
+  encodedPath?: string;
 }
 
 /**
@@ -59,7 +59,7 @@ export interface DiscoveryOptions {
 /**
  * Internal scan result
  */
-interface ScanResult {
+export interface ScanResult {
   /** Files grouped by immediate parent directory */
   filesByDir: Map<string, string[]>;
   /** Directory metadata for classification */
@@ -81,16 +81,14 @@ interface DirInfo {
 
 /**
  * Build scan result from audio files
- * @deprecated Use listAudioFilesRecursive directly and build grouping as needed
  */
-function buildScanResult(
+export function buildScanResult(
   allFiles: string[],
   options?: DiscoveryOptions,
 ): ScanResult {
   const filesByDir = new Map<string, string[]>();
   const dirInfo = new Map<string, DirInfo>();
 
-  // Group files by directory and build directory info
   for (let i = 0; i < allFiles.length; i++) {
     const file = allFiles[i];
     const dir = file.substring(0, file.lastIndexOf("/")) || ".";
@@ -98,14 +96,13 @@ function buildScanResult(
     if (!filesByDir.has(dir)) {
       filesByDir.set(dir, []);
 
-      // Calculate directory info
       const parent = dir.substring(0, dir.lastIndexOf("/")) || null;
       const depth = dir.split("/").filter(Boolean).length;
 
       dirInfo.set(dir, {
         path: dir,
         parent,
-        hasSubdirs: false, // Will update later
+        hasSubdirs: false,
         fileCount: 0,
         depth,
       });
@@ -113,17 +110,14 @@ function buildScanResult(
 
     filesByDir.get(dir)!.push(file);
 
-    // Progress reporting
     if (i % 50 === 0) {
       options?.onProgress?.("scan", i);
     }
   }
 
-  // Update directory info
   for (const [dir, info] of dirInfo) {
     info.fileCount = filesByDir.get(dir)?.length || 0;
 
-    // Check if this dir has subdirs with files
     for (const [otherDir] of filesByDir) {
       if (otherDir.startsWith(dir + "/") && otherDir !== dir) {
         info.hasSubdirs = true;
@@ -138,21 +132,9 @@ function buildScanResult(
 }
 
 /**
- * Parallel directory scanner for maximum performance
- * @deprecated Use listAudioFilesRecursive directly from fastest_audio_scan_recursive.ts
- */
-function parallelFileScan(
-  roots: string[],
-  options?: DiscoveryOptions,
-): ScanResult {
-  const allFiles = listAudioFilesRecursive(roots);
-  return buildScanResult(allFiles, options);
-}
-
-/**
  * Classify directories into albums and singles based on structure
  */
-function classifyDirectories(
+export function classifyDirectories(
   scan: ScanResult,
   singlePatterns: string[] = [],
   debug?: boolean,
@@ -163,7 +145,6 @@ function classifyDirectories(
   for (const [dir, files] of scan.filesByDir) {
     const info = scan.dirInfo.get(dir);
 
-    // Determine if this should be singles
     let isSingles = false;
     let reason = "";
 
@@ -174,7 +155,6 @@ function classifyDirectories(
       isSingles = true;
       reason = "matches pattern";
     } else if (info?.parent && scan.filesByDir.has(info.parent)) {
-      // Parent directory also has files - likely a flat collection
       isSingles = true;
       reason = "parent has files";
     }
@@ -204,7 +184,6 @@ function classifyDirectories(
 function matchesSinglePattern(dir: string, patterns: string[]): boolean {
   const normalizedDir = dir.toLowerCase();
 
-  // Built-in patterns
   if (
     normalizedDir.includes("/singles/") || normalizedDir.endsWith("/singles")
   ) {
@@ -214,7 +193,6 @@ function matchesSinglePattern(dir: string, patterns: string[]): boolean {
     return true;
   }
 
-  // User patterns
   for (const pattern of patterns) {
     const normalizedPattern = pattern.toLowerCase();
     if (normalizedDir.includes(normalizedPattern)) {
@@ -226,73 +204,362 @@ function matchesSinglePattern(dir: string, patterns: string[]): boolean {
 }
 
 /**
- * Check MPEG-4 files for codec information in parallel
+ * Performance optimization constants for compilation detection
  */
-export async function parallelCheckMpeg4Codecs(
-  files: string[],
-  parallelism: number = 8,
-  debug?: boolean,
-): Promise<{ aac: SkippedFile[]; lossless: string[] }> {
-  const aac: SkippedFile[] = [];
-  const lossless: string[] = [];
+const MAX_FILES_FOR_SMALL_COLLECTION = 10;
 
-  if (files.length === 0) {
-    return { aac, lossless };
+/**
+ * Brand type for file paths to ensure type safety
+ */
+export type FilePath = string & { __brand: "FilePath" };
+export type DirectoryPath = string & { __brand: "DirectoryPath" };
+
+/**
+ * Type guard to ensure string is a FilePath
+ */
+export function asFilePath(path: string): FilePath {
+  return path as FilePath;
+}
+
+/**
+ * Type guard to ensure string is a DirectoryPath
+ */
+export function asDirectoryPath(path: string): DirectoryPath {
+  return path as DirectoryPath;
+}
+
+/**
+ * Configuration for file map building
+ */
+interface FileMapConfig {
+  files: FilePath[];
+  debug?: boolean;
+}
+
+/**
+ * Result of building file maps
+ */
+interface FileMaps {
+  byBaseName: Map<string, FilePath[]>;
+  mpeg4Files: FilePath[];
+}
+
+/**
+ * Configuration for duplicate detection
+ */
+interface DuplicateDetectionConfig {
+  files: FilePath[];
+  fileMaps: FileMaps;
+  aacFiles: Set<FilePath>;
+  forceEncode?: boolean;
+  debug?: boolean;
+}
+
+/**
+ * Result of duplicate detection
+ */
+interface DuplicateDetectionResult {
+  filesToEncode: FilePath[];
+  skippedFiles: SkippedFile[];
+}
+
+/**
+ * Build file maps for efficient lookup
+ */
+export function buildFileMaps(config: FileMapConfig): FileMaps {
+  const { files, debug } = config;
+  const byBaseName = new Map<string, FilePath[]>();
+  const mpeg4Files: FilePath[] = [];
+
+  for (const file of files) {
+    const lower = file.toLowerCase();
+    if (
+      lower.endsWith(".m4a") || lower.endsWith(".mp4") ||
+      lower.endsWith(".alac")
+    ) {
+      mpeg4Files.push(file);
+    }
+
+    const dir = file.substring(0, file.lastIndexOf("/"));
+    const filename = file.substring(file.lastIndexOf("/") + 1);
+    const extIndex = filename.lastIndexOf(".");
+
+    if (extIndex > 0) {
+      const baseName = dir + "/" + filename.substring(0, extIndex);
+      if (!byBaseName.has(baseName)) {
+        byBaseName.set(baseName, []);
+      }
+      byBaseName.get(baseName)!.push(file);
+    }
   }
 
   if (debug) {
-    console.log(`[DEBUG] Checking ${files.length} MPEG-4 files for codecs`);
+    console.log(
+      `[DEBUG] Built file maps: ${byBaseName.size} unique base names, ${mpeg4Files.length} MPEG-4 files`,
+    );
   }
 
-  try {
-    const results = await readMetadataBatch(files, {
-      concurrency: parallelism,
-      continueOnError: true,
-    });
-
-    for (let i = 0; i < results.items.length; i++) {
-      const result = results.items[i];
-      const file = files[i];
-
-      if (result.status === "error") {
-        aac.push({ path: file, reason: "error" });
-        if (debug) {
-          console.log(`[DEBUG] Error reading ${file}: ${result.error}`);
-        }
-        continue;
-      }
-
-      const properties = result.data.properties;
-      const codec = (properties?.codec || "").toLowerCase();
-
-      if (debug) {
-        console.log(`[DEBUG] ${file} codec: ${codec || "unknown"}`);
-      }
-
-      if (codec.includes("aac")) {
-        aac.push({ path: file, reason: "aac", codec });
-      } else if (codec.includes("alac") || codec.includes("apple lossless")) {
-        lossless.push(file);
-      } else {
-        // Unknown or other codec - treat as encodable
-        lossless.push(file);
-      }
-    }
-  } catch (error) {
-    if (debug) {
-      console.error(`[DEBUG] Batch metadata read failed: ${error}`);
-    }
-    // On failure, treat all as encodable to be safe
-    return { aac: [], lossless: files };
-  }
-
-  return { aac, lossless };
+  return { byBaseName, mpeg4Files };
 }
 
-// The main discovery function has been refactored - see fast_discovery_refactored.ts
-export { discoverMusicRefactored as discoverMusic } from "./fast_discovery_refactored.ts";
+/**
+ * Detect files that have already been encoded
+ */
+export function detectAlreadyEncodedFiles(
+  config: DuplicateDetectionConfig,
+): DuplicateDetectionResult {
+  const { files, fileMaps, aacFiles, forceEncode, debug } = config;
+  const filesToEncode: FilePath[] = [];
+  const skippedFiles: SkippedFile[] = [];
 
-// Export internal functions and types for refactored version
-export { buildScanResult, classifyDirectories, parallelFileScan };
-export { detectCompilationsRefactored as detectCompilations } from "./detect_compilations_refactored.ts";
-export type { ScanResult };
+  const losslessFormats = new Set(["flac", "wav", "aiff", "ape", "wv"]);
+  const lossyFormats = new Set(["mp3", "ogg", "opus", "wma"]);
+
+  for (const file of files) {
+    const ext = extname(file).slice(1).toLowerCase();
+
+    if (aacFiles.has(file)) {
+      continue;
+    }
+
+    if (losslessFormats.has(ext)) {
+      const dir = file.substring(0, file.lastIndexOf("/"));
+      const filename = file.substring(file.lastIndexOf("/") + 1);
+      const extIndex = filename.lastIndexOf(".");
+      const baseName = dir + "/" + filename.substring(0, extIndex);
+
+      const relatedFiles = fileMaps.byBaseName.get(baseName) || [];
+      let hasLossyVersion = false;
+      let encodedPath = "";
+
+      for (const related of relatedFiles) {
+        if (related === file) continue;
+
+        const relatedExt = extname(related).slice(1).toLowerCase();
+
+        if (lossyFormats.has(relatedExt)) {
+          hasLossyVersion = true;
+          encodedPath = related;
+          break;
+        }
+
+        if (
+          (relatedExt === "m4a" || relatedExt === "mp4") &&
+          aacFiles.has(related)
+        ) {
+          hasLossyVersion = true;
+          encodedPath = related;
+          break;
+        }
+      }
+
+      if (hasLossyVersion && !forceEncode) {
+        skippedFiles.push({
+          path: file,
+          reason: "already-encoded",
+          encodedPath,
+        });
+        if (debug) {
+          console.log(
+            `[DEBUG] Skipping ${file}: already encoded as ${encodedPath}`,
+          );
+        }
+      } else {
+        filesToEncode.push(file);
+      }
+    } else if (ext === "m4a" || ext === "mp4") {
+      if (!aacFiles.has(file)) {
+        filesToEncode.push(file);
+      }
+    } else if (ext === "alac") {
+      filesToEncode.push(file);
+    } else if (!lossyFormats.has(ext)) {
+      filesToEncode.push(file);
+    }
+  }
+
+  return { filesToEncode, skippedFiles };
+}
+
+/**
+ * Validate MPEG-4 files using file extensions
+ * .alac files are considered lossless (ALAC)
+ * .m4a/.mp4 files are considered lossy (AAC)
+ * This is a performance optimization to avoid slow metadata reading
+ */
+export function validateMpeg4Files(
+  mpeg4Files: FilePath[],
+  _parallelism: number = 8,
+  debug?: boolean,
+): { aacSkipped: SkippedFile[]; aacFiles: Set<FilePath> } {
+  const aacSkipped: SkippedFile[] = [];
+  const aacFiles = new Set<FilePath>();
+
+  if (mpeg4Files.length === 0) {
+    return { aacSkipped, aacFiles };
+  }
+
+  if (debug) {
+    console.log(
+      `[DEBUG] Validating ${mpeg4Files.length} MPEG-4 files by extension`,
+    );
+  }
+
+  for (const file of mpeg4Files) {
+    const ext = extname(file).toLowerCase();
+
+    if (ext === ".alac") {
+      if (debug) {
+        console.log(`[DEBUG] ${file} extension: .alac (ALAC/lossless)`);
+      }
+    } else if (ext === ".m4a" || ext === ".mp4") {
+      aacSkipped.push({ path: file, reason: "aac", codec: "aac (assumed)" });
+      aacFiles.add(file);
+      if (debug) {
+        console.log(`[DEBUG] ${file} extension: ${ext} (AAC/lossy assumed)`);
+      }
+    }
+  }
+
+  return { aacSkipped, aacFiles };
+}
+
+/**
+ * Discover music files, classify into albums/singles, and optionally validate for encoding
+ */
+export async function discoverMusic(
+  paths: string[],
+  options?: DiscoveryOptions,
+): Promise<MusicDiscovery> {
+  const debug = options?.debug;
+
+  if (debug) {
+    console.log(`[DEBUG] Starting discovery for: ${paths.join(", ")}`);
+    console.log(
+      `[DEBUG] Options: forEncoding=${options.forEncoding}, parallelism=${options.parallelism}`,
+    );
+  }
+
+  // Phase 1: Fast FS scan
+  // Separate individual files from directories since listAudioFilesRecursive only handles directories
+  const directories: string[] = [];
+  const individualFiles: string[] = [];
+  for (const path of paths) {
+    try {
+      if (Deno.statSync(path).isFile) {
+        if (AUDIO_EXTENSIONS.has(extname(path).toLowerCase())) {
+          individualFiles.push(path);
+        }
+      } else {
+        directories.push(path);
+      }
+    } catch (error) {
+      console.error(
+        `Skipping inaccessible path "${path}": ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
+  const scannedFiles = directories.length > 0
+    ? listAudioFilesRecursive(directories)
+    : [];
+  const allFiles = [...scannedFiles, ...individualFiles];
+  const scan = buildScanResult(allFiles, options);
+
+  if (debug) {
+    console.log(
+      `[DEBUG] Scan complete: ${scan.allFiles.length} files in ${scan.filesByDir.size} directories`,
+    );
+  }
+
+  // Phase 2: Classify directories
+  options?.onProgress?.("classify", 0);
+  const { albums, singles } = classifyDirectories(
+    scan,
+    options?.singlePatterns,
+    debug,
+  );
+  options?.onProgress?.("classify", 1, 1);
+
+  if (debug) {
+    console.log(
+      `[DEBUG] Classification: ${albums.size} albums, ${singles.length} singles`,
+    );
+  }
+
+  const result: MusicDiscovery = {
+    albums,
+    compilations: new Map<string, string[]>(),
+    singles,
+    totalFiles: scan.allFiles.length,
+    scan,
+  };
+
+  // Phase 3: For encoding, detect compilations and validate files
+  if (options?.forEncoding) {
+    options?.onProgress?.("validate", 0);
+
+    const filePaths = scan.allFiles.map(asFilePath);
+    const fileMaps = buildFileMaps({ files: filePaths, debug });
+
+    const shouldDetectCompilations = !options?.skipCompilationDetection &&
+      (fileMaps.mpeg4Files.length > 0 ||
+        (albums.size === 1 &&
+          scan.allFiles.length <= MAX_FILES_FOR_SMALL_COLLECTION));
+
+    if (shouldDetectCompilations && albums.size > 0) {
+      options?.onProgress?.("compilation-detection", 0, albums.size);
+
+      const { albums: regularAlbums, compilations } =
+        await detectCompilationsRefactored(
+          albums,
+          debug,
+        );
+      result.albums = regularAlbums;
+      result.compilations = compilations;
+
+      if (debug && compilations.size > 0) {
+        console.log(`[DEBUG] Detected ${compilations.size} compilations`);
+      }
+
+      options?.onProgress?.("compilation-detection", albums.size, albums.size);
+    } else if (debug) {
+      const reason = options?.skipCompilationDetection
+        ? "explicitly skipped"
+        : `no MPEG-4 files and ${albums.size} albums`;
+      console.log(
+        `[DEBUG] Skipping compilation detection (${reason})`,
+      );
+    }
+
+    const { aacSkipped, aacFiles } = validateMpeg4Files(
+      fileMaps.mpeg4Files,
+      options?.parallelism,
+      debug,
+    );
+
+    const { filesToEncode, skippedFiles: alreadyEncoded } =
+      detectAlreadyEncodedFiles({
+        files: filePaths,
+        fileMaps,
+        aacFiles,
+        forceEncode: options?.forceEncode,
+        debug,
+      });
+
+    result.filesToEncode = filesToEncode;
+    result.skippedFiles = [...aacSkipped, ...alreadyEncoded];
+
+    if (debug) {
+      console.log(
+        `[DEBUG] Validation complete: ${result.skippedFiles.length} files skipped`,
+      );
+    }
+
+    options?.onProgress?.("validate", 1, 1);
+  }
+
+  return result;
+}
