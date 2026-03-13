@@ -77,34 +77,43 @@ export async function defaultCommand(
       console.log(`\nBatch processing ${filesToProcess.length} files...`);
     }
 
-    const results = await batchProcessAcoustIDTagging(
-      filesToProcess,
-      options.apiKey,
-      {
-        force: options.force || false,
-        quiet: options.quiet || false,
-        dryRun: options.dryRun || false,
-        concurrency: HIGH_CONCURRENCY,
-        onProgress: (processed, total, _currentFile) => {
-          if (!options.quiet) {
-            // Move cursor to beginning of line and clear it
-            Deno.stdout.writeSync(new TextEncoder().encode(
-              `\x1b[2K\r→ Processing: ${processed}/${total} files (${
-                Math.round(processed / total * 100)
-              }%)`,
-            ));
-          }
+    try {
+      const results = await batchProcessAcoustIDTagging(
+        filesToProcess,
+        options.apiKey,
+        {
+          force: options.force || false,
+          quiet: options.quiet || false,
+          dryRun: options.dryRun || false,
+          concurrency: HIGH_CONCURRENCY,
+          onProgress: (processed, total, _currentFile) => {
+            if (!options.quiet) {
+              // Move cursor to beginning of line and clear it
+              Deno.stdout.writeSync(new TextEncoder().encode(
+                `\x1b[2K\r→ Processing: ${processed}/${total} files (${
+                  Math.round(processed / total * 100)
+                }%)`,
+              ));
+            }
+          },
         },
-      },
-    );
+      );
 
-    if (!options.quiet) {
-      Deno.stdout.writeSync(new TextEncoder().encode("\n"));
-    }
+      if (!options.quiet) {
+        Deno.stdout.writeSync(new TextEncoder().encode("\n"));
+      }
 
-    // Update stats from results
-    for (const [_file, status] of results) {
-      stats.increment(status);
+      // Update stats from results
+      for (const [_file, status] of results) {
+        stats.increment(status);
+      }
+    } catch (error) {
+      console.error(
+        `Batch processing failed: ${formatError(error)}`,
+      );
+      for (const _file of filesToProcess) {
+        stats.incrementFailed();
+      }
     }
   } else {
     // Fall back to individual processing for single files or no API key
