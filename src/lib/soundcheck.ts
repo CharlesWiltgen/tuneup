@@ -12,7 +12,10 @@ export async function hasSoundCheckTag(filePath: string): Promise<boolean> {
     const properties = audioFile.properties() ?? {};
     const itunnorm = properties["appleSoundCheck"]?.[0]?.trim() ?? "";
     return itunnorm.length > 0;
-  } catch {
+  } catch (error) {
+    console.error(
+      `Error checking SoundCheck tag for ${filePath}: ${formatError(error)}`,
+    );
     return false;
   } finally {
     if (audioFile) audioFile.dispose();

@@ -136,7 +136,10 @@ export async function isLosslessFormat(filePath: string): Promise<boolean> {
       }
 
       return audioProps.isLossless ?? false;
-    } catch {
+    } catch (error) {
+      console.error(
+        `Error checking lossless format for ${filePath}: ${formatError(error)}`,
+      );
       return false;
     } finally {
       if (audioFile) {

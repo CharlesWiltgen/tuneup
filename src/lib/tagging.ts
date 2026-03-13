@@ -65,7 +65,10 @@ export async function hasAcoustIDTags(filePath: string): Promise<boolean> {
     const fullTags = await getAcoustIDTags(filePath);
     return fullTags !== null &&
       (!!fullTags.ACOUSTID_FINGERPRINT || !!fullTags.ACOUSTID_ID);
-  } catch {
+  } catch (error) {
+    console.error(
+      `Error checking AcoustID tags for ${filePath}: ${formatError(error)}`,
+    );
     return false;
   }
 }
@@ -186,7 +189,10 @@ export async function hasMusicBrainzTags(filePath: string): Promise<boolean> {
     audioFile = await openFileForRead(taglib, filePath);
     const trackId = audioFile.getProperty(PROPERTIES.musicbrainzTrackId.key);
     return trackId !== null && trackId !== undefined && trackId.length > 0;
-  } catch {
+  } catch (error) {
+    console.error(
+      `Error checking MusicBrainz tags for ${filePath}: ${formatError(error)}`,
+    );
     return false;
   } finally {
     if (audioFile) {
