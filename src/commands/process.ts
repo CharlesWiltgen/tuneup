@@ -11,8 +11,6 @@ export interface ProcessCommandOptions extends CommandOptions {
   encode?: boolean;
   forceLossyTranscodes?: boolean;
   outputDir?: string;
-  flattenOutput?: boolean;
-
   // Processing options
   replayGain?: boolean;
   acoustID?: boolean;

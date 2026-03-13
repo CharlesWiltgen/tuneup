@@ -44,32 +44,19 @@ Deno.test("generateOutputPath - generates correct output paths", () => {
   );
 });
 
-Deno.test("generateOutputPath - preserves structure when enabled", () => {
-  // When preserving structure with a directory base
+Deno.test("generateOutputPath - preserves structure with basePath", () => {
   assertEquals(
     generateOutputPath(
       "/music/artist/album/song.wav",
       "/output",
-      true,
       "/music",
     ),
     "/output/artist/album/song.m4a",
   );
 
-  // When preserving structure with a file base (no subdirs to preserve)
+  // When basePath is a file (no subdirs to preserve)
   assertEquals(
-    generateOutputPath("/music/song.wav", "/output", true, "/music/song.wav"),
-    "/output/song.m4a",
-  );
-
-  // When not preserving structure (flatten)
-  assertEquals(
-    generateOutputPath(
-      "/music/artist/album/song.wav",
-      "/output",
-      false,
-      "/music",
-    ),
+    generateOutputPath("/music/song.wav", "/output", "/music/song.wav"),
     "/output/song.m4a",
   );
 });

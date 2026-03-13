@@ -63,8 +63,7 @@ export async function processCollection({
         encode: options.encode,
         forceLossyTranscodes: options.forceLossyTranscodes,
         outputDirectory: options.outputDir,
-        preserveStructure: !options.flattenOutput,
-        basePath: paths[0], // Use first path as base for structure preservation
+        basePath: paths[0],
         processAcoustID: options.acoustID,
         acoustIDApiKey: options.apiKey,
         forceAcoustID: options.force,
@@ -105,8 +104,7 @@ export async function processCollection({
       encode: options.encode,
       forceLossyTranscodes: options.forceLossyTranscodes,
       outputDirectory: options.outputDir,
-      preserveStructure: !options.flattenOutput,
-      basePath: paths[0], // Use first path as base for structure preservation
+      basePath: paths[0],
       calculateGain: false, // No album-level ReplayGain for singles
       processAcoustID: options.acoustID,
       acoustIDApiKey: options.apiKey,

@@ -270,7 +270,6 @@ amusic encode [options] <files...>
 Options:
 
 - `-o, --output-dir <dir>`: Output directory for encoded files
-- `--flatten-output`: Put all output files in a single directory
 - `--force-lossy-transcodes`: Allow encoding from lossy formats (MP3, OGG)
 
 ### SoundCheck Command: Apple Volume Normalization
@@ -414,19 +413,25 @@ album tag.
      "/Music/Prince" "/Music/Madonna" "/Music/Singles"
    ```
 
-4. **Encode a library to a new location preserving structure:**
+4. **Encode lossless files to AAC, preserving folder structure:**
 
    ```bash
-   amusic encode -o "/path/to/output" "/path/to/lossless/library"
+   amusic encode -o "/Music/AAC" "/Music/FLAC"
    ```
 
-5. **Easy Mode: Process entire music library:**
+5. **Preview encoding without writing files:**
+
+   ```bash
+   amusic encode --dry-run "/Music/FLAC/Artist/Album"
+   ```
+
+6. **Easy Mode: Process entire music library:**
 
    ```bash
    amusic easy /path/to/music/library --api-key $ACOUSTID_API_KEY
    ```
 
-6. **Process with unified command for maximum efficiency:**
+7. **Process with unified command for maximum efficiency:**
 
    ```bash
    # Process everything in one pass: encode to M4A, calculate ReplayGain, and add AcoustID
@@ -435,18 +440,30 @@ album tag.
      "/Music/Lossless/Artist1" "/Music/Lossless/Artist2"
    ```
 
-7. **Enrich metadata from MusicBrainz** (after AcoustID processing):
+8. **Enrich metadata from MusicBrainz** (interactive — review each album):
 
    ```bash
    amusic enrich /path/to/music/library
    ```
 
-8. **Check a library for tagging problems:**
+9. **Preview enrichment changes without writing:**
 
    ```bash
-   amusic lint /path/to/music/library
-   amusic lint --deep /path/to/music/library  # includes file integrity checks
+   amusic enrich --dry-run /path/to/music/library
    ```
+
+10. **Re-enrich previously enriched files:**
+
+    ```bash
+    amusic enrich --force /path/to/music/library
+    ```
+
+11. **Check a library for tagging problems:**
+
+    ```bash
+    amusic lint /path/to/music/library
+    amusic lint --deep /path/to/music/library  # includes file integrity checks
+    ```
 
 ## Contributing
 

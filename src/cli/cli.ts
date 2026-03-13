@@ -98,11 +98,6 @@ export function setupCLI() {
       "Output directory for encoded files (defaults: source directory)",
     )
     .option(
-      "--flatten-output",
-      "Put all output files in a single directory when using --output-dir",
-      { default: false },
-    )
-    .option(
       "-q, --quiet",
       "Suppress informational output (errors still shown)",
       { default: false },
@@ -157,11 +152,6 @@ export function setupCLI() {
     .option(
       "-o, --output-dir <dir:string>",
       "Output directory for encoded files (defaults: source directory)",
-    )
-    .option(
-      "--flatten-output",
-      "Put all output files in one directory when using --output-dir",
-      { default: false },
     )
     .option(
       "-f, --force",

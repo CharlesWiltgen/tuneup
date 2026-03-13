@@ -10,7 +10,6 @@ import { EncodingSpinner } from "../utils/spinner.ts";
 interface EncodeOptions extends CommandOptions {
   forceLossyTranscodes?: boolean;
   outputDir?: string;
-  flattenOutput?: boolean;
   concurrency?: number;
   columns?: number;
 }
@@ -257,7 +256,6 @@ async function prepareEncodingTask(
   const outputPath = generateOutputPath(
     file,
     options.outputDir,
-    !options.flattenOutput,
     fileBaseMap.get(file),
   );
 

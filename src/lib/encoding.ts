@@ -158,7 +158,6 @@ export async function isLosslessFormat(filePath: string): Promise<boolean> {
 export function generateOutputPath(
   inputPath: string,
   outputDirectory?: string,
-  preserveStructure?: boolean,
   basePath?: string,
 ): string {
   const inputDir = inputPath.substring(0, inputPath.lastIndexOf("/"));
@@ -168,7 +167,7 @@ export function generateOutputPath(
     inputFilename.lastIndexOf("."),
   );
 
-  if (outputDirectory && preserveStructure && basePath) {
+  if (outputDirectory && basePath) {
     // Calculate relative path from base to preserve structure
     let relativePath = "";
 

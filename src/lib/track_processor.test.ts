@@ -402,7 +402,6 @@ Deno.test("processTrack - preserves directory structure in output", async () => 
     const result = await processTrack(inputFile, {
       encode: true,
       outputDirectory: outputDir,
-      preserveStructure: true,
       basePath: tempDir,
       dryRun: true,
       quiet: true,

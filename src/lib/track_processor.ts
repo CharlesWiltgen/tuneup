@@ -17,7 +17,6 @@ export interface TrackProcessingOptions {
   encode?: boolean;
   forceLossyTranscodes?: boolean;
   outputDirectory?: string;
-  preserveStructure?: boolean;
   basePath?: string;
 
   // ReplayGain options
@@ -84,7 +83,6 @@ export async function processTrack(
       const outputPath = generateOutputPath(
         filePath,
         options.outputDirectory,
-        options.preserveStructure,
         options.basePath,
       );
 
