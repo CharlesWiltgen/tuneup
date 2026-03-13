@@ -99,31 +99,35 @@ Deno.test("encodeToM4A - dry run returns success message", async () => {
   );
 });
 
-Deno.test("encodeToM4A - generates SoundCheck (ITUNNORM) data in encoded output", async () => {
-  const sampleFlac = "sample_audio_files/flac_sample_3mb.flac";
-  const tempDir = await Deno.makeTempDir({ prefix: "soundcheck-test-" });
-  const outputPath = `${tempDir}/output.m4a`;
-
-  try {
-    await encodeToM4A(sampleFlac, outputPath);
-
-    const taglib = await ensureTagLib();
-    const file = await taglib.open(outputPath, { partial: true });
-    assertNotEquals(file, null, "Should be able to open encoded M4A file");
+Deno.test({
+  name: "encodeToM4A - generates SoundCheck (ITUNNORM) data in encoded output",
+  ignore: Deno.build.os !== "darwin",
+  fn: async () => {
+    const sampleFlac = "sample_audio_files/flac_sample_3mb.flac";
+    const tempDir = await Deno.makeTempDir({ prefix: "soundcheck-test-" });
+    const outputPath = `${tempDir}/output.m4a`;
 
     try {
-      const properties = file!.properties() ?? {};
-      const itunnorm = properties["appleSoundCheck"]?.[0]?.trim() ?? "";
+      await encodeToM4A(sampleFlac, outputPath);
 
-      assertNotEquals(
-        itunnorm,
-        "",
-        "Encoded M4A should contain non-empty ITUNNORM (SoundCheck) data",
-      );
+      const taglib = await ensureTagLib();
+      const file = await taglib.open(outputPath, { partial: true });
+      assertNotEquals(file, null, "Should be able to open encoded M4A file");
+
+      try {
+        const properties = file!.properties() ?? {};
+        const itunnorm = properties["appleSoundCheck"]?.[0]?.trim() ?? "";
+
+        assertNotEquals(
+          itunnorm,
+          "",
+          "Encoded M4A should contain non-empty ITUNNORM (SoundCheck) data",
+        );
+      } finally {
+        file!.dispose();
+      }
     } finally {
-      file!.dispose();
+      await Deno.remove(tempDir, { recursive: true });
     }
-  } finally {
-    await Deno.remove(tempDir, { recursive: true });
-  }
+  },
 });

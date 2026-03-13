@@ -304,90 +304,111 @@ Deno.test("TrackProcessorPool - rejects tasks after shutdown", async () => {
   }
 });
 
-Deno.test("processTrack - copies ReplayGain tags from source to encoded file", async () => {
-  const tempDir = await Deno.makeTempDir();
-  try {
-    const inputFile = join(tempDir, "test.flac");
-    await Deno.copyFile("sample_audio_files/flac_sample_3mb.flac", inputFile);
+Deno.test({
+  name: "processTrack - copies ReplayGain tags from source to encoded file",
+  ignore: Deno.build.os !== "darwin",
+  fn: async () => {
+    const tempDir = await Deno.makeTempDir();
+    try {
+      const inputFile = join(tempDir, "test.flac");
+      await Deno.copyFile(
+        "sample_audio_files/flac_sample_3mb.flac",
+        inputFile,
+      );
 
-    const trackGain = "-6.5 dB";
-    const trackPeak = "0.987654";
-    const albumGain = "-7.2 dB";
-    const albumPeak = "0.998765";
-    await writeReplayGainTags(inputFile, {
-      trackGain,
-      trackPeak,
-      albumGain,
-      albumPeak,
-    });
+      const trackGain = "-6.5 dB";
+      const trackPeak = "0.987654";
+      const albumGain = "-7.2 dB";
+      const albumPeak = "0.998765";
+      await writeReplayGainTags(inputFile, {
+        trackGain,
+        trackPeak,
+        albumGain,
+        albumPeak,
+      });
 
-    const result = await processTrack(inputFile, {
-      encode: true,
-      quiet: true,
-    });
+      const result = await processTrack(inputFile, {
+        encode: true,
+        quiet: true,
+      });
 
-    assertEquals(result.encoded, true);
-    assertEquals(result.replayGainApplied, true);
+      assertEquals(result.encoded, true);
+      assertEquals(result.replayGainApplied, true);
 
-    assertExists(result.outputPath);
-    const rgTags = await getReplayGainTags(result.outputPath);
-    assertExists(rgTags);
-    assertEquals(rgTags.trackGain, trackGain);
-    assertEquals(rgTags.trackPeak, trackPeak);
-    assertEquals(rgTags.albumGain, albumGain);
-    assertEquals(rgTags.albumPeak, albumPeak);
-  } finally {
-    await Deno.remove(tempDir, { recursive: true });
-  }
+      assertExists(result.outputPath);
+      const rgTags = await getReplayGainTags(result.outputPath);
+      assertExists(rgTags);
+      assertEquals(rgTags.trackGain, trackGain);
+      assertEquals(rgTags.trackPeak, trackPeak);
+      assertEquals(rgTags.albumGain, albumGain);
+      assertEquals(rgTags.albumPeak, albumPeak);
+    } finally {
+      await Deno.remove(tempDir, { recursive: true });
+    }
+  },
 });
 
-Deno.test("processTrack - copies partial ReplayGain tags (track-level only)", async () => {
-  const tempDir = await Deno.makeTempDir();
-  try {
-    const inputFile = join(tempDir, "test.flac");
-    await Deno.copyFile("sample_audio_files/flac_sample_3mb.flac", inputFile);
+Deno.test({
+  name: "processTrack - copies partial ReplayGain tags (track-level only)",
+  ignore: Deno.build.os !== "darwin",
+  fn: async () => {
+    const tempDir = await Deno.makeTempDir();
+    try {
+      const inputFile = join(tempDir, "test.flac");
+      await Deno.copyFile(
+        "sample_audio_files/flac_sample_3mb.flac",
+        inputFile,
+      );
 
-    const trackGain = "-4.3 dB";
-    const trackPeak = "0.912345";
-    await writeReplayGainTags(inputFile, { trackGain, trackPeak });
+      const trackGain = "-4.3 dB";
+      const trackPeak = "0.912345";
+      await writeReplayGainTags(inputFile, { trackGain, trackPeak });
 
-    const result = await processTrack(inputFile, {
-      encode: true,
-      quiet: true,
-    });
+      const result = await processTrack(inputFile, {
+        encode: true,
+        quiet: true,
+      });
 
-    assertEquals(result.encoded, true);
-    assertEquals(result.replayGainApplied, true);
+      assertEquals(result.encoded, true);
+      assertEquals(result.replayGainApplied, true);
 
-    assertExists(result.outputPath);
-    const rgTags = await getReplayGainTags(result.outputPath);
-    assertExists(rgTags);
-    assertEquals(rgTags.trackGain, trackGain);
-    assertEquals(rgTags.trackPeak, trackPeak);
-    assertEquals(rgTags.albumGain, undefined);
-    assertEquals(rgTags.albumPeak, undefined);
-  } finally {
-    await Deno.remove(tempDir, { recursive: true });
-  }
+      assertExists(result.outputPath);
+      const rgTags = await getReplayGainTags(result.outputPath);
+      assertExists(rgTags);
+      assertEquals(rgTags.trackGain, trackGain);
+      assertEquals(rgTags.trackPeak, trackPeak);
+      assertEquals(rgTags.albumGain, undefined);
+      assertEquals(rgTags.albumPeak, undefined);
+    } finally {
+      await Deno.remove(tempDir, { recursive: true });
+    }
+  },
 });
 
-Deno.test("processTrack - encoding without source RG tags succeeds without error", async () => {
-  const tempDir = await Deno.makeTempDir();
-  try {
-    const inputFile = join(tempDir, "test.flac");
-    await Deno.copyFile("sample_audio_files/flac_sample_3mb.flac", inputFile);
+Deno.test({
+  name: "processTrack - encoding without source RG tags succeeds without error",
+  ignore: Deno.build.os !== "darwin",
+  fn: async () => {
+    const tempDir = await Deno.makeTempDir();
+    try {
+      const inputFile = join(tempDir, "test.flac");
+      await Deno.copyFile(
+        "sample_audio_files/flac_sample_3mb.flac",
+        inputFile,
+      );
 
-    const result = await processTrack(inputFile, {
-      encode: true,
-      quiet: true,
-    });
+      const result = await processTrack(inputFile, {
+        encode: true,
+        quiet: true,
+      });
 
-    assertEquals(result.encoded, true);
-    assertEquals(result.encodingError, undefined);
-    assertEquals(result.replayGainApplied, undefined);
-  } finally {
-    await Deno.remove(tempDir, { recursive: true });
-  }
+      assertEquals(result.encoded, true);
+      assertEquals(result.encodingError, undefined);
+      assertEquals(result.replayGainApplied, undefined);
+    } finally {
+      await Deno.remove(tempDir, { recursive: true });
+    }
+  },
 });
 
 Deno.test("processTrack - preserves directory structure in output", async () => {
