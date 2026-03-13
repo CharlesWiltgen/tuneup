@@ -99,9 +99,12 @@ export async function getAfconvertPath(): Promise<string> {
     });
     await cmd.output();
     return "afconvert";
-  } catch {
-    // afconvert not found in system, this is macOS-only tool
-    throw new Error("afconvert not found. Audio encoding requires macOS.");
+  } catch (error) {
+    throw new Error(
+      `afconvert not found. Audio encoding requires macOS: ${
+        formatError(error)
+      }`,
+    );
   }
 }
 

@@ -31,8 +31,12 @@ export function validateDirectory(path: string): Promise<void> {
     if (!info.isDirectory) {
       exitWithError(`Error: "${path}" is not a directory.`);
     }
-  }).catch(() => {
-    exitWithError(`Error: Directory not found at "${path}".`);
+  }).catch((error: unknown) => {
+    exitWithError(
+      `Error: Directory not found at "${path}": ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
   });
 }
 
