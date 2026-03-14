@@ -25,7 +25,33 @@ export function setupCLI() {
     .name("amusic")
     .version(VERSION)
     .description(
-      "Calculate ReplayGain and embed AcousticID fingerprints and IDs",
+      "A music library toolkit powered by taglib-wasm.\n\n" +
+        "Supports MP3, M4A/MP4, FLAC, OGG, and WAV files.\n\n" +
+        "Without a subcommand, generates and embeds AcoustID fingerprints and IDs.",
+    )
+    .example(
+      "Show tags",
+      "amusic --show-tags *.mp3",
+    )
+    .example(
+      "AcoustID lookup",
+      "amusic --api-key $ACOUSTID_API_KEY song.mp3",
+    )
+    .example(
+      "Process album",
+      "amusic process --encode --replay-gain --acoust-id --soundcheck /path/to/album/",
+    )
+    .example(
+      "Process library",
+      "amusic easy /path/to/music/ --api-key $ACOUSTID_API_KEY",
+    )
+    .example(
+      "Encode to M4A",
+      "amusic encode --output-dir ./encoded *.flac",
+    )
+    .example(
+      "Lint library",
+      "amusic lint /path/to/music/",
     )
     // Default command options
     .option("-f, --force", "Force reprocessing even if tags exist")
@@ -36,7 +62,7 @@ export function setupCLI() {
     )
     .option(
       "--show-tags",
-      "Display existing AcoustID tags and exit",
+      "Display existing tags (AcoustID, ReplayGain, MusicBrainz, and more)",
     )
     .option(
       "--dry-run",
@@ -59,7 +85,7 @@ export function setupCLI() {
   program
     .command(
       "easy <library:string>",
-      "Calculate ReplayGain and AcousticID for each album in a library root directory (each album in its own folder)",
+      "Calculate ReplayGain and AcoustID for each album in a library root directory (each album in its own folder)",
     )
     .option(
       "-f, --force",

@@ -5,7 +5,7 @@
     "jsr:@charlesw/taglib-wasm@1.0.0-beta.7": "1.0.0-beta.7",
     "jsr:@charlesw/taglib-wasm@1.0.0-beta.8": "1.0.0-beta.8",
     "jsr:@charlesw/taglib-wasm@1.0.0-beta.9": "1.0.0-beta.9",
-    "jsr:@charlesw/taglib-wasm@1.0.6": "1.0.6",
+    "jsr:@charlesw/taglib-wasm@1.0.8": "1.0.8",
     "jsr:@cliffy/command@1.0.0": "1.0.0",
     "jsr:@cliffy/flags@1.0.0": "1.0.0",
     "jsr:@cliffy/internal@1.0.0": "1.0.0",
@@ -38,8 +38,8 @@
     "@charlesw/taglib-wasm@1.0.0-beta.10": {
       "integrity": "ba8147a29493cb84d3ffc591753e65335bed9fb577553e7d738930a5dcc85281"
     },
-    "@charlesw/taglib-wasm@1.0.6": {
-      "integrity": "ece02e061551f1516c822ba6551eed07bbe0fb9a789df5bfc1434f4bc29cf060",
+    "@charlesw/taglib-wasm@1.0.8": {
+      "integrity": "e9a943a3309fffa95cf51d596204f19e45868729b58930b1f0d4d6cbd7555162",
       "dependencies": [
         "npm:@msgpack/msgpack",
         "npm:@wasmer/sdk"
@@ -129,7 +129,7 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@charlesw/taglib-wasm@1.0.6",
+      "jsr:@charlesw/taglib-wasm@1.0.8",
       "jsr:@cliffy/command@1.0.0",
       "jsr:@cliffy/table@1.0.0",
       "jsr:@std/assert@1.0.19",
