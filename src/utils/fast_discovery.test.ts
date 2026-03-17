@@ -8,6 +8,7 @@ import {
   classifyDirectories,
   detectAlreadyEncodedFiles,
   type FilePath,
+  mergeDiscSubfolders,
   type ScanResult,
   type SkippedFile as _SkippedFile,
   validateMpeg4Files,
@@ -376,6 +377,74 @@ describe("validateMpeg4Files", () => {
 
     assertEquals(result.aacSkipped, []);
     assertEquals(result.aacFiles.size, 0);
+  });
+});
+
+describe("mergeDiscSubfolders", () => {
+  it("should merge 'Disc 1' and 'Disc 2' subfolders into parent", () => {
+    const filesByDir = new Map([
+      ["/music/Album/Disc 1", ["track1.mp3", "track2.mp3"]],
+      ["/music/Album/Disc 2", ["track3.mp3", "track4.mp3"]],
+    ]);
+    const result = mergeDiscSubfolders(filesByDir);
+    assertEquals(result.get("/music/Album"), [
+      "track1.mp3",
+      "track2.mp3",
+      "track3.mp3",
+      "track4.mp3",
+    ]);
+    assertEquals(result.has("/music/Album/Disc 1"), false);
+    assertEquals(result.has("/music/Album/Disc 2"), false);
+  });
+
+  it("should handle CD1, CD2 naming", () => {
+    const filesByDir = new Map([
+      ["/music/Album/CD1", ["track1.mp3"]],
+      ["/music/Album/CD2", ["track2.mp3"]],
+    ]);
+    const result = mergeDiscSubfolders(filesByDir);
+    assertEquals(result.get("/music/Album"), ["track1.mp3", "track2.mp3"]);
+  });
+
+  it("should handle case-insensitive disc patterns", () => {
+    const filesByDir = new Map([
+      ["/music/Album/disc 1", ["track1.mp3"]],
+      ["/music/Album/DISK2", ["track2.mp3"]],
+    ]);
+    const result = mergeDiscSubfolders(filesByDir);
+    assertEquals(result.get("/music/Album"), ["track1.mp3", "track2.mp3"]);
+  });
+
+  it("should not merge non-disc subfolders", () => {
+    const filesByDir = new Map([
+      ["/music/Album/Extras", ["bonus.mp3"]],
+      ["/music/Album", ["track1.mp3"]],
+    ]);
+    const result = mergeDiscSubfolders(filesByDir);
+    assertEquals(result.get("/music/Album"), ["track1.mp3"]);
+    assertEquals(result.get("/music/Album/Extras"), ["bonus.mp3"]);
+  });
+
+  it("should preserve non-disc directories unchanged", () => {
+    const filesByDir = new Map([
+      ["/music/Singles", ["song1.mp3", "song2.mp3"]],
+    ]);
+    const result = mergeDiscSubfolders(filesByDir);
+    assertEquals(result.get("/music/Singles"), ["song1.mp3", "song2.mp3"]);
+  });
+
+  it("should merge disc subfolders with parent that also has files", () => {
+    const filesByDir = new Map([
+      ["/music/Album", ["booklet.mp3"]],
+      ["/music/Album/Disc 1", ["track1.mp3"]],
+      ["/music/Album/Disc 2", ["track2.mp3"]],
+    ]);
+    const result = mergeDiscSubfolders(filesByDir);
+    assertEquals(result.get("/music/Album"), [
+      "booklet.mp3",
+      "track1.mp3",
+      "track2.mp3",
+    ]);
   });
 });
 

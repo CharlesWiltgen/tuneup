@@ -424,6 +424,39 @@ export function validateMpeg4Files(
   return { aacSkipped, aacFiles };
 }
 
+const DISC_PATTERN = /^(?:disc|cd|disk)\s*\d*$/i;
+
+/**
+ * Merge disc subfolders (Disc 1, CD2, disk 3, etc.) into their parent directories.
+ * Operates on a map of directory path → file paths.
+ */
+export function mergeDiscSubfolders(
+  filesByDir: Map<string, string[]>,
+): Map<string, string[]> {
+  const merged = new Map<string, string[]>();
+  const discDirs = new Set<string>();
+
+  for (const dir of filesByDir.keys()) {
+    const folderName = dir.substring(dir.lastIndexOf("/") + 1);
+    if (DISC_PATTERN.test(folderName)) {
+      discDirs.add(dir);
+    }
+  }
+
+  for (const [dir, files] of filesByDir) {
+    if (discDirs.has(dir)) {
+      const parent = dir.substring(0, dir.lastIndexOf("/"));
+      const existing = merged.get(parent) ?? [];
+      merged.set(parent, [...existing, ...files]);
+    } else {
+      const existing = merged.get(dir) ?? [];
+      merged.set(dir, [...existing, ...files]);
+    }
+  }
+
+  return merged;
+}
+
 /**
  * Discover music files, classify into albums/singles, and optionally validate for encoding
  */
