@@ -1,5 +1,6 @@
 // encoding.test.ts
 import { assertEquals, assertNotEquals, assertRejects } from "@std/assert";
+
 import {
   encodeToM4A,
   generateOutputPath,

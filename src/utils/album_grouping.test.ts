@@ -134,7 +134,8 @@ describe("groupTracksByAlbum", () => {
 });
 
 Deno.test({
-  name: "readTrackMetadata - reads metadata and falls back to dirname for sample file",
+  name:
+    "readTrackMetadata - reads metadata and falls back to dirname for sample file",
   ignore: Deno.build.os !== "darwin",
   fn: async () => {
     const sampleFile = "sample_audio_files/flac_sample_3mb.flac";
