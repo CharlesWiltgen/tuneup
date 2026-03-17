@@ -1,5 +1,5 @@
 import { getVendorBinaryPath } from "./vendor_tools.ts";
-import { join } from "@std/path";
+import { basename, join } from "@std/path";
 
 export interface ReplayGainResult {
   success: boolean;
@@ -97,6 +97,57 @@ export async function calculateReplayGain(
   } catch (error) {
     console.error(`  Warning: Could not parse ReplayGain data: ${error}`);
     return { success: true }; // Still successful, just no data
+  }
+}
+
+/**
+ * Calculates ReplayGain for a specific group of files, regardless of whether
+ * they share a directory. For single files, delegates to calculateReplayGain
+ * in custom mode. For multiple files, creates a temp directory with symlinks
+ * so rsgain can treat them as a single album.
+ *
+ * @param files Absolute paths to the audio files in the group.
+ * @param quiet Whether to suppress informational output.
+ * @param returnData Whether to parse and return the calculated ReplayGain values.
+ * @returns ReplayGainResult with success status and optional calculated data.
+ */
+export async function calculateReplayGainForGroup(
+  files: string[],
+  quiet: boolean,
+  returnData = false,
+): Promise<ReplayGainResult> {
+  if (files.length === 1) {
+    return calculateReplayGain(files[0], quiet, returnData);
+  }
+
+  const tempDir = await Deno.makeTempDir({ prefix: "amusic-rg-" });
+  try {
+    const symlinkMap = new Map<string, string>();
+    for (const file of files) {
+      const linkName = basename(file);
+      const linkPath = join(tempDir, linkName);
+      await Deno.symlink(file, linkPath);
+      symlinkMap.set(linkPath, file);
+    }
+
+    const result = await calculateReplayGain(tempDir, quiet, returnData);
+
+    if (result.data) {
+      const remapped: typeof result.data = {};
+      for (const [tempPath, data] of Object.entries(result.data)) {
+        const originalPath = symlinkMap.get(tempPath) ?? tempPath;
+        remapped[originalPath] = data;
+      }
+      result.data = remapped;
+    }
+
+    return result;
+  } finally {
+    try {
+      await Deno.remove(tempDir, { recursive: true });
+    } catch {
+      // Best-effort cleanup
+    }
   }
 }
 
