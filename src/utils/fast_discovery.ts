@@ -445,14 +445,9 @@ export function mergeDiscSubfolders(
   }
 
   for (const [dir, files] of filesByDir) {
-    if (discDirs.has(dir)) {
-      const parent = dirname(dir);
-      const existing = merged.get(parent) ?? [];
-      merged.set(parent, [...existing, ...files]);
-    } else {
-      const existing = merged.get(dir) ?? [];
-      merged.set(dir, [...existing, ...files]);
-    }
+    const target = discDirs.has(dir) ? dirname(dir) : dir;
+    if (!merged.has(target)) merged.set(target, []);
+    merged.get(target)!.push(...files);
   }
 
   return merged;

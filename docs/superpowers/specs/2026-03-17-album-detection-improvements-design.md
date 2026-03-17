@@ -62,8 +62,10 @@ often have very few tracks.
 Detect disc subfolders and merge them into the parent album **at discovery
 time**, before any processing.
 
-**Detection**: Subfolders matching `Disc`, `CD`, `Disk` (case-insensitive, with
-optional number/whitespace, e.g., `Disc 1`, `CD2`, `disk01`).
+**Detection**: Subfolders matching `Disc`, `CD`, `Disk` followed by a number
+(case-insensitive, e.g., `Disc 1`, `CD2`, `disk01`). Bare names without a
+number (e.g., just `CD` or `Disc`) are excluded to avoid false matches on
+thematic folders like CD singles collections.
 
 **Metadata validation**: After identifying disc subfolders by name, read album
 metadata from at least one file per subfolder. Only merge if album names match
