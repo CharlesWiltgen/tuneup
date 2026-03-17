@@ -2,6 +2,7 @@ import {
   OperationStats,
   PROCESSING_SUMMARY,
 } from "../utils/operation_stats.ts";
+import { createInteractivePrompt } from "../utils/album_grouping.ts";
 import { discoverMusic } from "../utils/fast_discovery.ts";
 import type { CommandOptions } from "../types/command.ts";
 import { processCollection } from "./process_collection.ts";
@@ -42,8 +43,10 @@ export async function processCommand(
     }
 
     const discovery = await discoverMusic(paths, {
+      useMetadataGrouping: true,
       singlePatterns: options.singles?.flat() || [],
-      forEncoding: options.encode, // Validate MPEG-4 codecs if encoding
+      forEncoding: options.encode,
+      onAmbiguous: createInteractivePrompt(options.quiet || false),
       onProgress: (phase, current) => {
         if (!options.quiet) {
           Deno.stdout.writeSync(

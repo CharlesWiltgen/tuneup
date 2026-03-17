@@ -2,7 +2,11 @@ import { assertEquals } from "@std/assert";
 import { describe, it } from "@std/testing/bdd";
 import { returnsNext, stub } from "@std/testing/mock";
 import { MockDenoCommand, stubConsole } from "../test_utils/mod.ts";
-import { calculateReplayGain, parseReplayGainCSV } from "./replaygain.ts";
+import {
+  calculateReplayGain,
+  calculateReplayGainForGroup,
+  parseReplayGainCSV,
+} from "./replaygain.ts";
 
 describe("parseReplayGainCSV", () => {
   it("should parse track gain and peak from tab-separated CSV", () => {
@@ -238,6 +242,133 @@ describe("calculateReplayGain", () => {
       consoleStub.restore();
       removeStub.restore();
       readTextStub.restore();
+      MockDenoCommand.restore();
+      statStub.restore();
+    }
+  });
+});
+
+describe("calculateReplayGainForGroup", () => {
+  it("should create temp directory with symlinks and run rsgain in easy mode", async () => {
+    const statStub = stub(
+      Deno,
+      "stat",
+      returnsNext([
+        Promise.resolve({ isDirectory: true } as Deno.FileInfo),
+      ]),
+    );
+    const mkdirStub = stub(
+      Deno,
+      "makeTempDir",
+      returnsNext([
+        Promise.resolve("/tmp/amusic-rg-test"),
+      ]),
+    );
+    const symlinkStub = stub(
+      Deno,
+      "symlink",
+      returnsNext([
+        Promise.resolve(),
+        Promise.resolve(),
+      ]),
+    );
+    const removeStub = stub(
+      Deno,
+      "remove",
+      returnsNext([
+        Promise.resolve(),
+      ]),
+    );
+    MockDenoCommand.setup();
+    MockDenoCommand.addMock("rsgain", { code: 0 });
+    const consoleStub = stubConsole("log");
+    try {
+      const result = await calculateReplayGainForGroup(
+        ["/music/track1.mp3", "/music/track2.mp3"],
+        true,
+      );
+      assertEquals(result, { success: true });
+      const args = MockDenoCommand.getLastArgs("rsgain");
+      assertEquals(args?.includes("/tmp/amusic-rg-test"), true);
+    } finally {
+      consoleStub.restore();
+      MockDenoCommand.restore();
+      removeStub.restore();
+      symlinkStub.restore();
+      mkdirStub.restore();
+      statStub.restore();
+    }
+  });
+
+  it("should clean up temp directory even if rsgain fails", async () => {
+    const statStub = stub(
+      Deno,
+      "stat",
+      returnsNext([
+        Promise.resolve({ isDirectory: true } as Deno.FileInfo),
+      ]),
+    );
+    const mkdirStub = stub(
+      Deno,
+      "makeTempDir",
+      returnsNext([
+        Promise.resolve("/tmp/amusic-rg-fail"),
+      ]),
+    );
+    const symlinkStub = stub(
+      Deno,
+      "symlink",
+      returnsNext([
+        Promise.resolve(),
+        Promise.resolve(),
+      ]),
+    );
+    let removeCalled = false;
+    const removeStub = stub(Deno, "remove", () => {
+      removeCalled = true;
+      return Promise.resolve();
+    });
+    MockDenoCommand.setup();
+    MockDenoCommand.addMock("rsgain", { code: 1 });
+    const consoleStub = stubConsole("log");
+    try {
+      const result = await calculateReplayGainForGroup(
+        ["/music/track1.mp3", "/music/track2.mp3"],
+        true,
+      );
+      assertEquals(result, { success: false });
+      assertEquals(removeCalled, true);
+    } finally {
+      consoleStub.restore();
+      MockDenoCommand.restore();
+      removeStub.restore();
+      symlinkStub.restore();
+      mkdirStub.restore();
+      statStub.restore();
+    }
+  });
+
+  it("should use custom mode for single files (no temp dir)", async () => {
+    const statStub = stub(
+      Deno,
+      "stat",
+      returnsNext([
+        Promise.resolve({ isDirectory: false } as Deno.FileInfo),
+      ]),
+    );
+    MockDenoCommand.setup();
+    MockDenoCommand.addMock("rsgain", { code: 0 });
+    const consoleStub = stubConsole("log");
+    try {
+      const result = await calculateReplayGainForGroup(
+        ["/music/track1.mp3"],
+        true,
+      );
+      assertEquals(result, { success: true });
+      const args = MockDenoCommand.getLastArgs("rsgain");
+      assertEquals(args?.[0], "custom");
+    } finally {
+      consoleStub.restore();
       MockDenoCommand.restore();
       statStub.restore();
     }

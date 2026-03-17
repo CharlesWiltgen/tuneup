@@ -289,7 +289,6 @@ async function collectAllFiles(
     forEncoding: true, // This will validate MPEG-4 codecs
     forceEncode, // Pass through force encode option
     parallelism: 16, // Increase parallelism for faster metadata reading
-    skipCompilationDetection: true, // Skip slow metadata reading for compilations
     onProgress: (phase, current, total) => {
       const message = total !== undefined
         ? `→ ${phase}: ${current}/${total}`

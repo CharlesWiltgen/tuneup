@@ -3,6 +3,7 @@ import type { CommandOptions } from "../types/command.ts";
 import { ensureCommandExists } from "../utils/command.ts";
 import { EASY_MODE_SUMMARY, OperationStats } from "../utils/operation_stats.ts";
 import { exitWithError } from "../utils/console_output.ts";
+import { createInteractivePrompt } from "../utils/album_grouping.ts";
 import { discoverMusic } from "../utils/fast_discovery.ts";
 import { processAlbum } from "../lib/track_processor.ts";
 
@@ -31,8 +32,10 @@ export async function easyCommand(
     console.log("🎵 Analyzing music library structure...\n");
   }
 
-  // Use fast discovery with folder-based grouping
+  // Use metadata-based grouping for accurate album detection
   const discovery = await discoverMusic([library], {
+    useMetadataGrouping: true,
+    onAmbiguous: createInteractivePrompt(options.quiet || false),
     onProgress: (phase, current) => {
       if (!options.quiet) {
         Deno.stdout.writeSync(
@@ -62,20 +65,25 @@ export async function easyCommand(
   }
 
   // Process each album using unified track processor
-  for (const [albumDir, files] of discovery.albums) {
+  // Process both albums and compilations — both get album-level ReplayGain
+  const allAlbums = new Map([
+    ...discovery.albums,
+    ...discovery.compilations,
+  ]);
+
+  for (const [albumDir, files] of allAlbums) {
     if (!options.quiet) {
       console.log(`\n📁 Processing album: ${albumDir}`);
       console.log(`  Files: ${files.length}`);
     }
 
-    // Use unified track processor for album
     const results = await processAlbum(albumDir, files, {
-      calculateGain: true, // Always calculate ReplayGain in easy mode
+      calculateGain: true,
       forceReplayGain: options.force,
-      processAcoustID: true, // Always process AcoustID in easy mode
+      processAcoustID: true,
       acoustIDApiKey: options.apiKey,
       forceAcoustID: options.force,
-      processSoundCheck: true, // Always generate SoundCheck in easy mode
+      processSoundCheck: true,
       forceSoundCheck: options.force,
       quiet: options.quiet,
       dryRun: options.dryRun,
@@ -95,7 +103,6 @@ export async function easyCommand(
       console.log(""); // New line after progress
     }
 
-    // Update stats from results
     for (const result of results) {
       if (result.acoustIDStatus) {
         stats.increment(result.acoustIDStatus);

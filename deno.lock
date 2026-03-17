@@ -5,7 +5,7 @@
     "jsr:@charlesw/taglib-wasm@1.0.0-beta.7": "1.0.0-beta.7",
     "jsr:@charlesw/taglib-wasm@1.0.0-beta.8": "1.0.0-beta.8",
     "jsr:@charlesw/taglib-wasm@1.0.0-beta.9": "1.0.0-beta.9",
-    "jsr:@charlesw/taglib-wasm@1.0.8": "1.0.8",
+    "jsr:@charlesw/taglib-wasm@1.1.1": "1.1.1",
     "jsr:@cliffy/command@1.0.0": "1.0.0",
     "jsr:@cliffy/flags@1.0.0": "1.0.0",
     "jsr:@cliffy/internal@1.0.0": "1.0.0",
@@ -22,8 +22,7 @@
     "jsr:@std/semver@*": "1.0.8",
     "jsr:@std/testing@1.0.17": "1.0.17",
     "jsr:@std/text@^1.0.17": "1.0.17",
-    "npm:@msgpack/msgpack@^3.1.3": "3.1.3",
-    "npm:@wasmer/sdk@0.10": "0.10.0"
+    "npm:@msgpack/msgpack@^3.1.3": "3.1.3"
   },
   "jsr": {
     "@charlesw/taglib-wasm@1.0.0-beta.7": {
@@ -38,11 +37,10 @@
     "@charlesw/taglib-wasm@1.0.0-beta.10": {
       "integrity": "ba8147a29493cb84d3ffc591753e65335bed9fb577553e7d738930a5dcc85281"
     },
-    "@charlesw/taglib-wasm@1.0.8": {
-      "integrity": "e9a943a3309fffa95cf51d596204f19e45868729b58930b1f0d4d6cbd7555162",
+    "@charlesw/taglib-wasm@1.1.1": {
+      "integrity": "ba658ab21ba333381d6492e96abebbc8b077474e93be3b42bbaa729e2b1f0a17",
       "dependencies": [
-        "npm:@msgpack/msgpack",
-        "npm:@wasmer/sdk"
+        "npm:@msgpack/msgpack"
       ]
     },
     "@cliffy/command@1.0.0": {
@@ -116,20 +114,11 @@
   "npm": {
     "@msgpack/msgpack@3.1.3": {
       "integrity": "sha512-47XIizs9XZXvuJgoaJUIE2lFoID8ugvc0jzSHP+Ptfk8nTbnR8g788wv48N03Kx0UkAv559HWRQ3yzOgzlRNUA=="
-    },
-    "@wasmer/sdk@0.10.0": {
-      "integrity": "sha512-YQ+s5tGag6P/I8kp9BTH+XhjoS9UFvWiZJvnWEEovClHffhYToKhprWr4UJG7wLP7c/2HQpGkF7ZrjoUvKjdmA==",
-      "dependencies": [
-        "web-worker"
-      ]
-    },
-    "web-worker@1.5.0": {
-      "integrity": "sha512-RiMReJrTAiA+mBjGONMnjVDP2u3p9R1vkcGz6gDIrOMT3oGuYwX2WRMYI9ipkphSuE5XKEhydbhNEJh4NY9mlw=="
     }
   },
   "workspace": {
     "dependencies": [
-      "jsr:@charlesw/taglib-wasm@1.0.8",
+      "jsr:@charlesw/taglib-wasm@1.1.1",
       "jsr:@cliffy/command@1.0.0",
       "jsr:@cliffy/table@1.0.0",
       "jsr:@std/assert@1.0.19",

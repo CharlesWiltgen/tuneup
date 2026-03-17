@@ -1,5 +1,6 @@
 import { assertEquals, assertExists } from "@std/assert";
 import { describe, it } from "@std/testing/bdd";
+import type { AmbiguousContext } from "./album_grouping.ts";
 import {
   asDirectoryPath,
   asFilePath,
@@ -7,9 +8,12 @@ import {
   buildScanResult,
   classifyDirectories,
   detectAlreadyEncodedFiles,
+  discoverMusic,
   type FilePath,
+  mergeDiscSubfolders,
   type ScanResult,
   type SkippedFile as _SkippedFile,
+  validateDiscMerge,
   validateMpeg4Files,
 } from "./fast_discovery.ts";
 
@@ -379,6 +383,145 @@ describe("validateMpeg4Files", () => {
   });
 });
 
+describe("mergeDiscSubfolders", () => {
+  it("should merge 'Disc 1' and 'Disc 2' subfolders into parent", () => {
+    const filesByDir = new Map([
+      ["/music/Album/Disc 1", ["track1.mp3", "track2.mp3"]],
+      ["/music/Album/Disc 2", ["track3.mp3", "track4.mp3"]],
+    ]);
+    const result = mergeDiscSubfolders(filesByDir);
+    assertEquals(result.get("/music/Album"), [
+      "track1.mp3",
+      "track2.mp3",
+      "track3.mp3",
+      "track4.mp3",
+    ]);
+    assertEquals(result.has("/music/Album/Disc 1"), false);
+    assertEquals(result.has("/music/Album/Disc 2"), false);
+  });
+
+  it("should handle CD1, CD2 naming", () => {
+    const filesByDir = new Map([
+      ["/music/Album/CD1", ["track1.mp3"]],
+      ["/music/Album/CD2", ["track2.mp3"]],
+    ]);
+    const result = mergeDiscSubfolders(filesByDir);
+    assertEquals(result.get("/music/Album"), ["track1.mp3", "track2.mp3"]);
+  });
+
+  it("should handle case-insensitive disc patterns", () => {
+    const filesByDir = new Map([
+      ["/music/Album/disc 1", ["track1.mp3"]],
+      ["/music/Album/DISK2", ["track2.mp3"]],
+    ]);
+    const result = mergeDiscSubfolders(filesByDir);
+    assertEquals(result.get("/music/Album"), ["track1.mp3", "track2.mp3"]);
+  });
+
+  it("should not merge non-disc subfolders", () => {
+    const filesByDir = new Map([
+      ["/music/Album/Extras", ["bonus.mp3"]],
+      ["/music/Album", ["track1.mp3"]],
+    ]);
+    const result = mergeDiscSubfolders(filesByDir);
+    assertEquals(result.get("/music/Album"), ["track1.mp3"]);
+    assertEquals(result.get("/music/Album/Extras"), ["bonus.mp3"]);
+  });
+
+  it("should preserve non-disc directories unchanged", () => {
+    const filesByDir = new Map([
+      ["/music/Singles", ["song1.mp3", "song2.mp3"]],
+    ]);
+    const result = mergeDiscSubfolders(filesByDir);
+    assertEquals(result.get("/music/Singles"), ["song1.mp3", "song2.mp3"]);
+  });
+
+  it("should merge disc subfolders with parent that also has files", () => {
+    const filesByDir = new Map([
+      ["/music/Album", ["booklet.mp3"]],
+      ["/music/Album/Disc 1", ["track1.mp3"]],
+      ["/music/Album/Disc 2", ["track2.mp3"]],
+    ]);
+    const result = mergeDiscSubfolders(filesByDir);
+    assertEquals(result.get("/music/Album"), [
+      "booklet.mp3",
+      "track1.mp3",
+      "track2.mp3",
+    ]);
+  });
+});
+
+describe("validateDiscMerge", () => {
+  it("should confirm merge when album names match across discs", () => {
+    const discGroups = new Map([
+      ["/album/Disc 1", { albumName: "The Wall", files: ["t1.mp3"] }],
+      ["/album/Disc 2", { albumName: "The Wall", files: ["t2.mp3"] }],
+    ]);
+    const result = validateDiscMerge(discGroups);
+    assertEquals(result.merged, [
+      { parent: "/album", files: ["t1.mp3", "t2.mp3"] },
+    ]);
+    assertEquals(result.separate, []);
+  });
+
+  it("should keep discs separate when album names differ (box set)", () => {
+    const discGroups = new Map([
+      ["/box/Disc 1", { albumName: "Kind of Blue", files: ["t1.mp3"] }],
+      ["/box/Disc 2", { albumName: "Bitches Brew", files: ["t2.mp3"] }],
+    ]);
+    const result = validateDiscMerge(discGroups);
+    assertEquals(result.merged, []);
+    assertEquals(result.separate, [
+      { path: "/box/Disc 1", files: ["t1.mp3"] },
+      { path: "/box/Disc 2", files: ["t2.mp3"] },
+    ]);
+  });
+
+  it("should use normalized album names for comparison", () => {
+    const discGroups = new Map([
+      ["/album/Disc 1", { albumName: "The Wall", files: ["t1.mp3"] }],
+      ["/album/Disc 2", { albumName: "the wall", files: ["t2.mp3"] }],
+    ]);
+    const result = validateDiscMerge(discGroups);
+    assertEquals(result.merged.length, 1);
+    assertEquals(result.merged[0].files, ["t1.mp3", "t2.mp3"]);
+  });
+
+  it("should handle multiple separate parents", () => {
+    const discGroups = new Map([
+      ["/albumA/Disc 1", { albumName: "Album A", files: ["a1.mp3"] }],
+      ["/albumA/Disc 2", { albumName: "Album A", files: ["a2.mp3"] }],
+      ["/albumB/CD1", { albumName: "Album B", files: ["b1.mp3"] }],
+      ["/albumB/CD2", { albumName: "Album B", files: ["b2.mp3"] }],
+    ]);
+    const result = validateDiscMerge(discGroups);
+    assertEquals(result.merged.length, 2);
+    assertEquals(result.separate, []);
+  });
+
+  it("should handle mix of matching and non-matching parents", () => {
+    const discGroups = new Map([
+      ["/album/Disc 1", { albumName: "Same", files: ["a1.mp3"] }],
+      ["/album/Disc 2", { albumName: "Same", files: ["a2.mp3"] }],
+      ["/box/Disc 1", { albumName: "Different A", files: ["b1.mp3"] }],
+      ["/box/Disc 2", { albumName: "Different B", files: ["b2.mp3"] }],
+    ]);
+    const result = validateDiscMerge(discGroups);
+    assertEquals(result.merged.length, 1);
+    assertEquals(result.merged[0].parent, "/album");
+    assertEquals(result.separate.length, 2);
+  });
+
+  it("should merge a single disc subfolder into parent", () => {
+    const discGroups = new Map([
+      ["/album/Disc 1", { albumName: "The Wall", files: ["t1.mp3"] }],
+    ]);
+    const result = validateDiscMerge(discGroups);
+    assertEquals(result.merged, [{ parent: "/album", files: ["t1.mp3"] }]);
+    assertEquals(result.separate, []);
+  });
+});
+
 describe("branded types", () => {
   it("should create FilePath from string", () => {
     const path = asFilePath("/music/song.mp3");
@@ -391,4 +534,230 @@ describe("branded types", () => {
     assertExists(path);
     assertEquals(typeof path, "string");
   });
+});
+
+Deno.test({
+  name: "discoverMusic - uses metadata-based grouping for album detection",
+  ignore: Deno.build.os !== "darwin",
+  fn: async () => {
+    const sampleFile = "sample_audio_files/flac_sample_3mb.flac";
+    const { ensureTagLib } = await import("../lib/taglib_init.ts");
+    const tempDir = await Deno.makeTempDir();
+
+    try {
+      const albumDir = `${tempDir}/Album1`;
+      const singlesDir = `${tempDir}/Singles`;
+      await Deno.mkdir(albumDir);
+      await Deno.mkdir(singlesDir);
+
+      const albumTag = "Test Album";
+      const albumArtist = "Test Artist";
+      const taglib = await ensureTagLib();
+
+      for (const name of ["track1.flac", "track2.flac"]) {
+        const dest = `${albumDir}/${name}`;
+        await Deno.copyFile(sampleFile, dest);
+        using audioFile = await taglib.open(dest);
+        audioFile.setProperty("ALBUM", albumTag);
+        audioFile.setProperty("ALBUMARTIST", albumArtist);
+        audioFile.save();
+        await Deno.writeFile(dest, audioFile.getFileBuffer());
+      }
+
+      const singleFile = `${singlesDir}/random.flac`;
+      await Deno.copyFile(sampleFile, singleFile);
+      {
+        using audioFile = await taglib.open(singleFile);
+        audioFile.setProperty("ALBUM", "");
+        audioFile.save();
+        await Deno.writeFile(singleFile, audioFile.getFileBuffer());
+      }
+
+      const discovery = await discoverMusic([tempDir], {
+        useMetadataGrouping: true,
+      });
+
+      assertEquals(discovery.albums.size, 1);
+      const albumFiles = [...discovery.albums.values()][0];
+      assertEquals(albumFiles.length, 2);
+
+      assertEquals(discovery.singles.length, 1);
+      assertEquals(discovery.singles[0], singleFile);
+
+      assertExists(discovery.albumGroups);
+      assertEquals(discovery.albumGroups.length, 1);
+      assertEquals(discovery.albumGroups[0].albumName, albumTag);
+      assertEquals(discovery.albumGroups[0].isCompilation, false);
+    } finally {
+      await Deno.remove(tempDir, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
+  name:
+    "discoverMusic - metadata grouping detects compilations via distinct artists",
+  ignore: Deno.build.os !== "darwin",
+  fn: async () => {
+    const sampleFile = "sample_audio_files/flac_sample_3mb.flac";
+    const { ensureTagLib } = await import("../lib/taglib_init.ts");
+    const tempDir = await Deno.makeTempDir();
+
+    try {
+      const compDir = `${tempDir}/Compilation`;
+      await Deno.mkdir(compDir);
+
+      const albumTag = "Various Hits";
+      const artists = ["Artist A", "Artist B", "Artist C"];
+      const taglib = await ensureTagLib();
+
+      for (let i = 0; i < artists.length; i++) {
+        const dest = `${compDir}/track${i + 1}.flac`;
+        await Deno.copyFile(sampleFile, dest);
+        using audioFile = await taglib.open(dest);
+        audioFile.setProperty("ALBUM", albumTag);
+        audioFile.setProperty("ARTIST", artists[i]);
+        audioFile.save();
+        await Deno.writeFile(dest, audioFile.getFileBuffer());
+      }
+
+      const discovery = await discoverMusic([tempDir], {
+        useMetadataGrouping: true,
+      });
+
+      assertEquals(discovery.compilations.size, 1);
+      const compFiles = [...discovery.compilations.values()][0];
+      assertEquals(compFiles.length, 3);
+
+      assertExists(discovery.albumGroups);
+      assertEquals(discovery.albumGroups.length, 1);
+      assertEquals(discovery.albumGroups[0].isCompilation, true);
+    } finally {
+      await Deno.remove(tempDir, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
+  name:
+    "discoverMusic - without useMetadataGrouping uses directory-based classification",
+  fn: async () => {
+    const tempDir = await Deno.makeTempDir();
+
+    try {
+      const albumDir = `${tempDir}/Album1`;
+      await Deno.mkdir(albumDir);
+
+      for (const name of ["track1.flac", "track2.flac"]) {
+        await Deno.writeFile(`${albumDir}/${name}`, new Uint8Array(100));
+      }
+
+      const discovery = await discoverMusic([tempDir]);
+
+      assertEquals(discovery.albums.size, 1);
+      assertEquals(discovery.albumGroups, undefined);
+    } finally {
+      await Deno.remove(tempDir, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
+  name:
+    "discoverMusic - calls onAmbiguous for disc subfolders with absent metadata",
+  ignore: Deno.build.os !== "darwin",
+  fn: async () => {
+    const sampleFile = "sample_audio_files/flac_sample_3mb.flac";
+    const { ensureTagLib } = await import("../lib/taglib_init.ts");
+    const tempDir = await Deno.makeTempDir();
+
+    try {
+      const albumDir = `${tempDir}/MyAlbum`;
+      const disc1 = `${albumDir}/Disc 1`;
+      const disc2 = `${albumDir}/Disc 2`;
+      await Deno.mkdir(disc1, { recursive: true });
+      await Deno.mkdir(disc2, { recursive: true });
+
+      const taglib = await ensureTagLib();
+
+      for (
+        const [dir, name] of [
+          [disc1, "track1.flac"],
+          [disc2, "track2.flac"],
+        ] as const
+      ) {
+        const dest = `${dir}/${name}`;
+        await Deno.copyFile(sampleFile, dest);
+        using audioFile = await taglib.open(dest);
+        audioFile.setProperty("ALBUM", "");
+        audioFile.save();
+        await Deno.writeFile(dest, audioFile.getFileBuffer());
+      }
+
+      const calls: AmbiguousContext[] = [];
+      const discovery = await discoverMusic([tempDir], {
+        useMetadataGrouping: true,
+        onAmbiguous: (context) => {
+          calls.push(context);
+          return Promise.resolve("merge");
+        },
+      });
+
+      assertEquals(calls.length, 1);
+      assertEquals(calls[0].type, "disc-merge-unknown");
+      assertEquals(calls[0].options.length, 2);
+      assertEquals(calls[0].options[0].value, "merge");
+      assertEquals(calls[0].options[1].value, "separate");
+      assertEquals(discovery.albums.size + discovery.compilations.size, 1);
+    } finally {
+      await Deno.remove(tempDir, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
+  name:
+    "discoverMusic - onAmbiguous 'separate' keeps disc folders as individual albums",
+  ignore: Deno.build.os !== "darwin",
+  fn: async () => {
+    const sampleFile = "sample_audio_files/flac_sample_3mb.flac";
+    const { ensureTagLib } = await import("../lib/taglib_init.ts");
+    const tempDir = await Deno.makeTempDir();
+
+    try {
+      const albumDir = `${tempDir}/MyAlbum`;
+      const disc1 = `${albumDir}/Disc 1`;
+      const disc2 = `${albumDir}/Disc 2`;
+      await Deno.mkdir(disc1, { recursive: true });
+      await Deno.mkdir(disc2, { recursive: true });
+
+      const taglib = await ensureTagLib();
+
+      for (
+        const [dir, names] of [
+          [disc1, ["track1.flac", "track2.flac"]],
+          [disc2, ["track3.flac", "track4.flac"]],
+        ] as const
+      ) {
+        for (const name of names) {
+          const dest = `${dir}/${name}`;
+          await Deno.copyFile(sampleFile, dest);
+          using audioFile = await taglib.open(dest);
+          audioFile.setProperty("ALBUM", "");
+          audioFile.save();
+          await Deno.writeFile(dest, audioFile.getFileBuffer());
+        }
+      }
+
+      const discovery = await discoverMusic([tempDir], {
+        useMetadataGrouping: true,
+        onAmbiguous: () => Promise.resolve("separate"),
+      });
+
+      const totalAlbums = discovery.albums.size + discovery.compilations.size;
+      assertEquals(totalAlbums, 2);
+    } finally {
+      await Deno.remove(tempDir, { recursive: true });
+    }
+  },
 });

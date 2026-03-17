@@ -1,9 +1,15 @@
-import { extname } from "@std/path";
+import { basename, dirname, extname } from "@std/path";
 import {
   AUDIO_EXTENSIONS,
   listAudioFilesRecursive,
 } from "../lib/fastest_audio_scan_recursive.ts";
-import { detectCompilationsRefactored } from "./detect_compilations_refactored.ts";
+import { normalizeForMatching } from "./normalize.ts";
+import {
+  type AlbumGroup,
+  groupTracksByAlbum,
+  type OnAmbiguousCallback,
+  readTrackMetadata,
+} from "./album_grouping.ts";
 
 /**
  * Result of music discovery
@@ -23,6 +29,8 @@ export interface MusicDiscovery {
   skippedFiles?: SkippedFile[];
   /** Raw scan data for further processing */
   scan: ScanResult;
+  /** Metadata-based album groups (only populated when useMetadataGrouping is true) */
+  albumGroups?: AlbumGroup[];
 }
 
 export interface SkippedFile {
@@ -38,7 +46,11 @@ export interface SkippedFile {
 export interface DiscoveryOptions {
   /** Progress callback */
   onProgress?: (
-    phase: "scan" | "classify" | "validate" | "compilation-detection",
+    phase:
+      | "scan"
+      | "classify"
+      | "validate"
+      | "metadata-grouping",
     current: number,
     total?: number,
   ) => void;
@@ -52,8 +64,10 @@ export interface DiscoveryOptions {
   parallelism?: number;
   /** Enable debug output */
   debug?: boolean;
-  /** Skip compilation detection (for performance when not needed) */
-  skipCompilationDetection?: boolean;
+  /** Use metadata-based album grouping instead of directory-structure heuristics */
+  useMetadataGrouping?: boolean;
+  /** Callback for ambiguous album grouping decisions (e.g. disc merge with absent metadata) */
+  onAmbiguous?: OnAmbiguousCallback;
 }
 
 /**
@@ -202,11 +216,6 @@ function matchesSinglePattern(dir: string, patterns: string[]): boolean {
 
   return false;
 }
-
-/**
- * Performance optimization constants for compilation detection
- */
-const MAX_FILES_FOR_SMALL_COLLECTION = 10;
 
 /**
  * Brand type for file paths to ensure type safety
@@ -424,6 +433,288 @@ export function validateMpeg4Files(
   return { aacSkipped, aacFiles };
 }
 
+const DISC_PATTERN = /^(?:disc|cd|disk)\s*\d+$/i;
+
+/**
+ * Merge disc subfolders (Disc 1, CD2, disk 3, etc.) into their parent directories.
+ * Operates on a map of directory path → file paths.
+ */
+export function mergeDiscSubfolders(
+  filesByDir: Map<string, string[]>,
+): Map<string, string[]> {
+  const merged = new Map<string, string[]>();
+  const discDirs = new Set<string>();
+
+  for (const dir of filesByDir.keys()) {
+    const folderName = basename(dir);
+    if (DISC_PATTERN.test(folderName)) {
+      discDirs.add(dir);
+    }
+  }
+
+  for (const [dir, files] of filesByDir) {
+    const target = discDirs.has(dir) ? dirname(dir) : dir;
+    if (!merged.has(target)) merged.set(target, []);
+    merged.get(target)!.push(...files);
+  }
+
+  return merged;
+}
+
+export type DiscGroupInput = Map<
+  string,
+  { albumName: string; files: string[] }
+>;
+
+export type ValidateDiscMergeResult = {
+  merged: Array<{ parent: string; files: string[] }>;
+  separate: Array<{ path: string; files: string[] }>;
+};
+
+/**
+ * Validate disc subfolders by checking album metadata before merging.
+ * Discs that share the same normalized album name are merged into their parent;
+ * discs with differing album names (box sets) are kept separate.
+ */
+export function validateDiscMerge(
+  discGroups: DiscGroupInput,
+): ValidateDiscMergeResult {
+  const byParent = new Map<
+    string,
+    Array<{ path: string; albumName: string; files: string[] }>
+  >();
+
+  for (const [path, { albumName, files }] of discGroups) {
+    const parent = dirname(path);
+    const existing = byParent.get(parent) ?? [];
+    existing.push({ path, albumName, files });
+    byParent.set(parent, existing);
+  }
+
+  const merged: Array<{ parent: string; files: string[] }> = [];
+  const separate: Array<{ path: string; files: string[] }> = [];
+
+  for (const [parent, discs] of byParent) {
+    const normalizedNames = new Set(
+      discs.map((d) => normalizeForMatching(d.albumName)),
+    );
+
+    if (normalizedNames.size === 1) {
+      merged.push({ parent, files: discs.flatMap((d) => d.files) });
+    } else {
+      for (const disc of discs) {
+        separate.push({ path: disc.path, files: disc.files });
+      }
+    }
+  }
+
+  return { merged, separate };
+}
+
+/**
+ * Classify files using metadata-based album grouping.
+ * Reads tags via taglib-wasm to group tracks by album name/artist,
+ * with disc subfolder merging and compilation detection.
+ *
+ * Performance note: readTrackMetadata is currently sequential per file.
+ * Batch/worker-pool optimization is a future improvement.
+ */
+async function classifyWithMetadata(
+  scan: ScanResult,
+  singlePatterns: string[],
+  debug?: boolean,
+  onAmbiguous?: OnAmbiguousCallback,
+): Promise<{
+  albums: Map<string, string[]>;
+  compilations: Map<string, string[]>;
+  singles: string[];
+  albumGroups: AlbumGroup[];
+}> {
+  let filesByDir = new Map(scan.filesByDir);
+  const albumNameOverrides = new Map<string, string>();
+
+  // Step 1: Identify disc subfolders
+  const discDirs = new Map<string, string[]>();
+  const nonDiscDirs = new Map<string, string[]>();
+  for (const [dir, files] of filesByDir) {
+    if (DISC_PATTERN.test(basename(dir))) {
+      discDirs.set(dir, files);
+    } else {
+      nonDiscDirs.set(dir, files);
+    }
+  }
+
+  // Step 2: Validate disc merges using album metadata
+  if (discDirs.size > 0) {
+    const discGroupInput: DiscGroupInput = new Map();
+    const dirsWithAbsentMetadata = new Set<string>();
+
+    for (const [dir, files] of discDirs) {
+      const sampleMetadata = await readTrackMetadata([files[0]]);
+      const tagAlbumName = sampleMetadata[0]?.albumName;
+      const dirBaseName = basename(dir);
+      const metadataIsAbsent = !tagAlbumName || tagAlbumName === dirBaseName;
+      const albumName = tagAlbumName ?? dirBaseName;
+      if (metadataIsAbsent) {
+        dirsWithAbsentMetadata.add(dir);
+      }
+      discGroupInput.set(dir, { albumName, files });
+    }
+
+    // Prompt for disc groups where ALL discs under a parent have absent metadata
+    if (onAmbiguous && dirsWithAbsentMetadata.size > 0) {
+      const byParent = new Map<string, string[]>();
+      for (const dir of dirsWithAbsentMetadata) {
+        const parent = dirname(dir);
+        const existing = byParent.get(parent) ?? [];
+        existing.push(dir);
+        byParent.set(parent, existing);
+      }
+
+      for (const [parent, _dirs] of byParent) {
+        const allDiscsUnderParent = [...discDirs.keys()].filter((d) =>
+          dirname(d) === parent
+        );
+        const allAbsent = allDiscsUnderParent.every((d) =>
+          dirsWithAbsentMetadata.has(d)
+        );
+        if (!allAbsent) continue;
+
+        const discPaths = allDiscsUnderParent.flatMap((d) =>
+          discDirs.get(d) ?? []
+        );
+        const answer = await onAmbiguous({
+          type: "disc-merge-unknown",
+          description: `Disc subfolders found under "${
+            basename(parent)
+          }" but album metadata is missing. Should they be merged as one album?`,
+          paths: discPaths,
+          options: [
+            { label: "Merge as one album", value: "merge" },
+            { label: "Keep as separate albums", value: "separate" },
+          ],
+        });
+
+        if (answer === "merge") {
+          const mergedAlbumName = basename(parent);
+          for (const dir of allDiscsUnderParent) {
+            const entry = discGroupInput.get(dir);
+            if (entry) {
+              discGroupInput.set(dir, {
+                ...entry,
+                albumName: mergedAlbumName,
+              });
+              for (const file of entry.files) {
+                albumNameOverrides.set(file, mergedAlbumName);
+              }
+            }
+          }
+        } else {
+          for (const dir of allDiscsUnderParent) {
+            const entry = discGroupInput.get(dir);
+            if (entry) {
+              discGroupInput.delete(dir);
+              nonDiscDirs.set(dir, entry.files);
+            }
+          }
+        }
+      }
+    }
+
+    const { merged, separate } = validateDiscMerge(discGroupInput);
+
+    filesByDir = new Map(nonDiscDirs);
+    for (const { parent, files } of merged) {
+      const existing = filesByDir.get(parent) ?? [];
+      filesByDir.set(parent, [...existing, ...files]);
+    }
+    for (const { path, files } of separate) {
+      filesByDir.set(path, files);
+    }
+
+    if (debug) {
+      console.log(
+        `[DEBUG] Disc merge: ${merged.length} merged, ${separate.length} kept separate`,
+      );
+    }
+  }
+
+  // Step 3: Filter out singles directories before metadata reading
+  const dirsToRead = new Map<string, string[]>();
+  const singles: string[] = [];
+  for (const [dir, files] of filesByDir) {
+    if (matchesSinglePattern(dir, singlePatterns)) {
+      singles.push(...files);
+      if (debug) {
+        console.log(
+          `[DEBUG] Classifying "${dir}" as singles (matches pattern)`,
+        );
+      }
+    } else {
+      dirsToRead.set(dir, files);
+    }
+  }
+
+  // Step 4: Read metadata for all remaining files
+  const allFilesToRead = [...dirsToRead.values()].flat();
+  const trackMetadata = await readTrackMetadata(allFilesToRead);
+
+  // Apply album name overrides from user-confirmed disc merges
+  for (const track of trackMetadata) {
+    const override = albumNameOverrides.get(track.path);
+    if (override) {
+      track.albumName = override;
+    }
+  }
+
+  // Step 5: Group tracks by album metadata
+  const { albums: albumGroups, singles: metadataSingles } = groupTracksByAlbum(
+    trackMetadata,
+  );
+  singles.push(...metadataSingles);
+
+  // Step 6: Populate Maps for backward compatibility
+  // Key albums by their common directory (or the album name if files span dirs)
+  const albums = new Map<string, string[]>();
+  const compilations = new Map<string, string[]>();
+
+  for (const group of albumGroups) {
+    const commonDir = findCommonDirectory(group.files);
+    const key = commonDir ?? group.albumName;
+    if (group.isCompilation) {
+      compilations.set(key, group.files);
+    } else {
+      albums.set(key, group.files);
+    }
+  }
+
+  if (debug) {
+    console.log(
+      `[DEBUG] Metadata grouping: ${albums.size} albums, ${compilations.size} compilations, ${singles.length} singles`,
+    );
+  }
+
+  return { albums, compilations, singles, albumGroups };
+}
+
+function findCommonDirectory(files: string[]): string | null {
+  if (files.length === 0) return null;
+  const dirs = [...new Set(files.map((f) => dirname(f)))];
+  if (dirs.length === 1) return dirs[0];
+  const sorted = dirs.sort();
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
+  let i = 0;
+  while (i < first.length && first[i] === last[i]) i++;
+  let prefix: string;
+  if (i === first.length && (i === last.length || last[i] === "/")) {
+    prefix = first;
+  } else {
+    prefix = first.substring(0, first.lastIndexOf("/", i));
+  }
+  return prefix || null;
+}
+
 /**
  * Discover music files, classify into albums/singles, and optionally validate for encoding
  */
@@ -475,26 +766,54 @@ export async function discoverMusic(
   }
 
   // Phase 2: Classify directories
-  options?.onProgress?.("classify", 0);
-  const { albums, singles } = classifyDirectories(
-    scan,
-    options?.singlePatterns,
-    debug,
-  );
-  options?.onProgress?.("classify", 1, 1);
+  let albums: Map<string, string[]>;
+  let compilations: Map<string, string[]>;
+  let singles: string[];
+  let albumGroups: AlbumGroup[] | undefined;
+
+  if (options?.useMetadataGrouping) {
+    options?.onProgress?.("metadata-grouping", 0);
+    const classified = await classifyWithMetadata(
+      scan,
+      options?.singlePatterns ?? [],
+      debug,
+      options?.onAmbiguous,
+    );
+    albums = classified.albums;
+    compilations = classified.compilations;
+    singles = classified.singles;
+    albumGroups = classified.albumGroups;
+    options?.onProgress?.(
+      "metadata-grouping",
+      scan.allFiles.length,
+      scan.allFiles.length,
+    );
+  } else {
+    options?.onProgress?.("classify", 0);
+    const classified = classifyDirectories(
+      scan,
+      options?.singlePatterns,
+      debug,
+    );
+    albums = classified.albums;
+    compilations = new Map<string, string[]>();
+    singles = classified.singles;
+    options?.onProgress?.("classify", 1, 1);
+  }
 
   if (debug) {
     console.log(
-      `[DEBUG] Classification: ${albums.size} albums, ${singles.length} singles`,
+      `[DEBUG] Classification: ${albums.size} albums, ${compilations.size} compilations, ${singles.length} singles`,
     );
   }
 
   const result: MusicDiscovery = {
     albums,
-    compilations: new Map<string, string[]>(),
+    compilations,
     singles,
     totalFiles: scan.allFiles.length,
     scan,
+    albumGroups,
   };
 
   // Phase 3: For encoding, detect compilations and validate files
@@ -503,36 +822,6 @@ export async function discoverMusic(
 
     const filePaths = scan.allFiles.map(asFilePath);
     const fileMaps = buildFileMaps({ files: filePaths, debug });
-
-    const shouldDetectCompilations = !options?.skipCompilationDetection &&
-      (fileMaps.mpeg4Files.length > 0 ||
-        (albums.size === 1 &&
-          scan.allFiles.length <= MAX_FILES_FOR_SMALL_COLLECTION));
-
-    if (shouldDetectCompilations && albums.size > 0) {
-      options?.onProgress?.("compilation-detection", 0, albums.size);
-
-      const { albums: regularAlbums, compilations } =
-        await detectCompilationsRefactored(
-          albums,
-          debug,
-        );
-      result.albums = regularAlbums;
-      result.compilations = compilations;
-
-      if (debug && compilations.size > 0) {
-        console.log(`[DEBUG] Detected ${compilations.size} compilations`);
-      }
-
-      options?.onProgress?.("compilation-detection", albums.size, albums.size);
-    } else if (debug) {
-      const reason = options?.skipCompilationDetection
-        ? "explicitly skipped"
-        : `no MPEG-4 files and ${albums.size} albums`;
-      console.log(
-        `[DEBUG] Skipping compilation detection (${reason})`,
-      );
-    }
 
     const { aacSkipped, aacFiles } = validateMpeg4Files(
       fileMaps.mpeg4Files,

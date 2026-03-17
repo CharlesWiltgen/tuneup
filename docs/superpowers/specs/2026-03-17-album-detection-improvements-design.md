@@ -36,8 +36,8 @@ Replace the current "2+ files = album" heuristic with metadata-aware grouping.
 3. Any group of 2+ tracks with matching album identity is treated as an album
 4. Tracks that don't belong to any group are treated as singles (track-only
    ReplayGain)
-5. When signals are ambiguous (e.g., same album name but different album artists,
-   no clear resolution), prompt the user rather than guess
+5. When signals are ambiguous (e.g., same album name but different album
+   artists, no clear resolution), prompt the user rather than guess
 
 ### 2. Confidence-Based Grouping
 
@@ -54,16 +54,19 @@ The intent is to be tolerant of incomplete albums (bad rips, missing tracks,
 incomplete downloads) — an album missing a couple of tracks should still be
 recognized and processed as an album.
 
-No minimum track count is enforced. Classical albums, DJ mixes, and other formats
-often have very few tracks.
+A minimum of 2 tracks is required for album grouping — single-track groups
+are treated as singles. Classical albums, DJ mixes, and other formats with
+few tracks are still supported since they typically have at least 2 tracks.
 
 ### 3. Multi-Disc Folder Merging
 
 Detect disc subfolders and merge them into the parent album **at discovery
 time**, before any processing.
 
-**Detection**: Subfolders matching `Disc`, `CD`, `Disk` (case-insensitive, with
-optional number/whitespace, e.g., `Disc 1`, `CD2`, `disk01`).
+**Detection**: Subfolders matching `Disc`, `CD`, `Disk` followed by a number
+(case-insensitive, e.g., `Disc 1`, `CD2`, `disk01`). Bare names without a number
+(e.g., just `CD` or `Disc`) are excluded to avoid false matches on thematic
+folders like CD singles collections.
 
 **Metadata validation**: After identifying disc subfolders by name, read album
 metadata from at least one file per subfolder. Only merge if album names match
@@ -71,8 +74,8 @@ across subfolders. If album names don't match or metadata is absent, prompt the
 user.
 
 **Box set handling**: Disc subfolders with different album names are treated as
-separate albums (e.g., a box set where each disc is a distinct original release).
-Each gets independent album-level ReplayGain.
+separate albums (e.g., a box set where each disc is a distinct original
+release). Each gets independent album-level ReplayGain.
 
 **Scope**: Merging applies to all operations (ReplayGain, AcoustID, SoundCheck,
 encoding), not just ReplayGain.
@@ -90,7 +93,8 @@ require per-group invocation:
 
 ### 5. Filename Parsing (Last Resort)
 
-Port the beets `fromfilename` approach to TypeScript as a utility. The algorithm:
+Port the beets `fromfilename` approach to TypeScript as a utility. The
+algorithm:
 
 1. Strip file extension and path
 2. Try regex patterns from most to least specific against all files in a batch
