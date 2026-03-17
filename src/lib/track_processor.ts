@@ -21,6 +21,7 @@ export interface TrackProcessingOptions {
 
   // ReplayGain options
   calculateGain?: boolean;
+  forceReplayGain?: boolean;
   albumGainData?: Map<string, { albumGain: number; albumPeak: number }>;
 
   // AcoustID options
@@ -279,24 +280,46 @@ export async function processAlbum(
 
   // Calculate ReplayGain for the entire album first
   if (options.calculateGain) {
-    if (!options.quiet) {
-      console.log(`📊 Calculating ReplayGain for album: ${albumPath}`);
+    let shouldCalculate = options.forceReplayGain || false;
+
+    if (!shouldCalculate) {
+      const tagChecks = await Promise.all(
+        files.map((f) => getReplayGainTags(f)),
+      );
+      const allHaveGain = tagChecks.every(
+        (tags) => tags?.trackGain != null && tags?.albumGain != null,
+      );
+
+      if (allHaveGain) {
+        if (!options.quiet) {
+          console.log(
+            `⏭️  Skipping ReplayGain for album (all tracks have tags): ${albumPath}`,
+          );
+        }
+      } else {
+        shouldCalculate = true;
+      }
     }
 
-    const gainResult = await calculateReplayGain(
-      albumPath,
-      options.quiet || false,
-      true, // returnData
-    );
+    if (shouldCalculate) {
+      if (!options.quiet) {
+        console.log(`📊 Calculating ReplayGain for album: ${albumPath}`);
+      }
 
-    if (gainResult.success && gainResult.data) {
-      // Store album gain data for each file
-      for (const [filePath, data] of Object.entries(gainResult.data)) {
-        if (data.albumGain !== undefined && data.albumPeak !== undefined) {
-          albumGainData.set(filePath, {
-            albumGain: data.albumGain,
-            albumPeak: data.albumPeak,
-          });
+      const gainResult = await calculateReplayGain(
+        albumPath,
+        options.quiet || false,
+        true, // returnData
+      );
+
+      if (gainResult.success && gainResult.data) {
+        for (const [filePath, data] of Object.entries(gainResult.data)) {
+          if (data.albumGain !== undefined && data.albumPeak !== undefined) {
+            albumGainData.set(filePath, {
+              albumGain: data.albumGain,
+              albumPeak: data.albumPeak,
+            });
+          }
         }
       }
     }

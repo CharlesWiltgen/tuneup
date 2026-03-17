@@ -54,7 +54,7 @@ export async function calculateReplayGain(
   }
 
   const rsgainPath = getVendorBinaryPath("rsgain");
-  const args = [mode];
+  const args = [mode, "-e"];
 
   // Add output option if we want to return data
   if (returnData && outputFile) {

@@ -71,6 +71,7 @@ export async function easyCommand(
     // Use unified track processor for album
     const results = await processAlbum(albumDir, files, {
       calculateGain: true, // Always calculate ReplayGain in easy mode
+      forceReplayGain: options.force,
       processAcoustID: true, // Always process AcoustID in easy mode
       acoustIDApiKey: options.apiKey,
       forceAcoustID: options.force,

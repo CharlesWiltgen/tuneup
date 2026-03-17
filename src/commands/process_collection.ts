@@ -60,6 +60,7 @@ export async function processCollection({
 
       const results = await processAlbum(dir, files, {
         calculateGain: options.replayGain,
+        forceReplayGain: options.force,
         encode: options.encode,
         forceLossyTranscodes: options.forceLossyTranscodes,
         outputDirectory: options.outputDir,

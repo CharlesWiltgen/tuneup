@@ -411,6 +411,166 @@ Deno.test({
   },
 });
 
+Deno.test({
+  name:
+    "processAlbum - skips ReplayGain when all tracks have track and album gain",
+  ignore: Deno.build.os !== "darwin",
+  fn: async () => {
+    setupMocks();
+    const tempDir = await Deno.makeTempDir();
+    try {
+      const albumDir = join(tempDir, "Album");
+      await Deno.mkdir(albumDir);
+
+      const files = [];
+      for (let i = 0; i < 2; i++) {
+        const file = join(albumDir, `track${i}.flac`);
+        await Deno.copyFile("sample_audio_files/flac_sample_3mb.flac", file);
+        await writeReplayGainTags(file, {
+          trackGain: "-6.5 dB",
+          trackPeak: "0.95",
+          albumGain: "-5.0 dB",
+          albumPeak: "0.88",
+        });
+        files.push(file);
+      }
+
+      const rsgainPath = getVendorBinaryPath("rsgain");
+      let rsgainCalled = false;
+      mockCommands.set(rsgainPath, () => {
+        rsgainCalled = true;
+        return {
+          code: 0,
+          success: true,
+          stdout: new Uint8Array(),
+          stderr: new Uint8Array(),
+        };
+      });
+
+      await processAlbum(albumDir, files, {
+        calculateGain: true,
+        processAcoustID: false,
+        dryRun: true,
+        quiet: true,
+      });
+
+      assertEquals(rsgainCalled, false);
+    } finally {
+      await Deno.remove(tempDir, { recursive: true });
+      restoreMocks();
+    }
+  },
+});
+
+Deno.test({
+  name:
+    "processAlbum - recalculates ReplayGain when forceReplayGain is true even if tags exist",
+  ignore: Deno.build.os !== "darwin",
+  fn: async () => {
+    setupMocks();
+    const tempDir = await Deno.makeTempDir();
+    try {
+      const albumDir = join(tempDir, "Album");
+      await Deno.mkdir(albumDir);
+
+      const files = [];
+      for (let i = 0; i < 2; i++) {
+        const file = join(albumDir, `track${i}.flac`);
+        await Deno.copyFile("sample_audio_files/flac_sample_3mb.flac", file);
+        await writeReplayGainTags(file, {
+          trackGain: "-6.5 dB",
+          trackPeak: "0.95",
+          albumGain: "-5.0 dB",
+          albumPeak: "0.88",
+        });
+        files.push(file);
+      }
+
+      const rsgainPath = getVendorBinaryPath("rsgain");
+      let rsgainCalled = false;
+      mockCommands.set(rsgainPath, () => {
+        rsgainCalled = true;
+        return {
+          code: 0,
+          success: true,
+          stdout: new Uint8Array(),
+          stderr: new Uint8Array(),
+        };
+      });
+
+      await processAlbum(albumDir, files, {
+        calculateGain: true,
+        forceReplayGain: true,
+        processAcoustID: false,
+        dryRun: true,
+        quiet: true,
+      });
+
+      assertEquals(rsgainCalled, true);
+    } finally {
+      await Deno.remove(tempDir, { recursive: true });
+      restoreMocks();
+    }
+  },
+});
+
+Deno.test({
+  name:
+    "processAlbum - recalculates ReplayGain when any track is missing album gain",
+  ignore: Deno.build.os !== "darwin",
+  fn: async () => {
+    setupMocks();
+    const tempDir = await Deno.makeTempDir();
+    try {
+      const albumDir = join(tempDir, "Album");
+      await Deno.mkdir(albumDir);
+
+      const file1 = join(albumDir, "track0.flac");
+      await Deno.copyFile("sample_audio_files/flac_sample_3mb.flac", file1);
+      await writeReplayGainTags(file1, {
+        trackGain: "-6.5 dB",
+        trackPeak: "0.95",
+        albumGain: "-5.0 dB",
+        albumPeak: "0.88",
+      });
+
+      const file2 = join(albumDir, "track1.flac");
+      await Deno.copyFile("sample_audio_files/flac_sample_3mb.flac", file2);
+      // Only track gain, no album gain
+      await writeReplayGainTags(file2, {
+        trackGain: "-4.0 dB",
+        trackPeak: "0.90",
+      });
+
+      const files = [file1, file2];
+
+      const rsgainPath = getVendorBinaryPath("rsgain");
+      let rsgainCalled = false;
+      mockCommands.set(rsgainPath, () => {
+        rsgainCalled = true;
+        return {
+          code: 0,
+          success: true,
+          stdout: new Uint8Array(),
+          stderr: new Uint8Array(),
+        };
+      });
+
+      await processAlbum(albumDir, files, {
+        calculateGain: true,
+        processAcoustID: false,
+        dryRun: true,
+        quiet: true,
+      });
+
+      assertEquals(rsgainCalled, true);
+    } finally {
+      await Deno.remove(tempDir, { recursive: true });
+      restoreMocks();
+    }
+  },
+});
+
 Deno.test("processTrack - preserves directory structure in output", async () => {
   const tempDir = await Deno.makeTempDir();
   try {

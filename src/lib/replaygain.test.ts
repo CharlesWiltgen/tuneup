@@ -109,6 +109,7 @@ describe("calculateReplayGain", () => {
       assertEquals(result, { success: true });
       const args = MockDenoCommand.getLastArgs("rsgain");
       assertEquals(args?.[0], "easy");
+      assertEquals(args?.[1], "-e");
     } finally {
       consoleStub.restore();
       MockDenoCommand.restore();
@@ -132,6 +133,7 @@ describe("calculateReplayGain", () => {
       assertEquals(result, { success: true });
       const args = MockDenoCommand.getLastArgs("rsgain");
       assertEquals(args?.[0], "custom");
+      assertEquals(args?.[1], "-e");
     } finally {
       consoleStub.restore();
       MockDenoCommand.restore();
@@ -197,6 +199,7 @@ describe("calculateReplayGain", () => {
       assertEquals(result, { success: true });
       const args = MockDenoCommand.getLastArgs("rsgain");
       assertEquals(args?.[0], "custom");
+      assertEquals(args?.[1], "-e");
     } finally {
       consoleStub.restore();
       MockDenoCommand.restore();
