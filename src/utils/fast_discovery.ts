@@ -3,7 +3,6 @@ import {
   AUDIO_EXTENSIONS,
   listAudioFilesRecursive,
 } from "../lib/fastest_audio_scan_recursive.ts";
-import { detectCompilationsRefactored } from "./detect_compilations_refactored.ts";
 import { normalizeForMatching } from "./normalize.ts";
 import {
   type AlbumGroup,
@@ -50,7 +49,6 @@ export interface DiscoveryOptions {
       | "scan"
       | "classify"
       | "validate"
-      | "compilation-detection"
       | "metadata-grouping",
     current: number,
     total?: number,
@@ -65,8 +63,6 @@ export interface DiscoveryOptions {
   parallelism?: number;
   /** Enable debug output */
   debug?: boolean;
-  /** Skip compilation detection (for performance when not needed) */
-  skipCompilationDetection?: boolean;
   /** Use metadata-based album grouping instead of directory-structure heuristics */
   useMetadataGrouping?: boolean;
 }
@@ -217,11 +213,6 @@ function matchesSinglePattern(dir: string, patterns: string[]): boolean {
 
   return false;
 }
-
-/**
- * Performance optimization constants for compilation detection
- */
-const MAX_FILES_FOR_SMALL_COLLECTION = 10;
 
 /**
  * Brand type for file paths to ensure type safety
@@ -747,43 +738,6 @@ export async function discoverMusic(
 
     const filePaths = scan.allFiles.map(asFilePath);
     const fileMaps = buildFileMaps({ files: filePaths, debug });
-
-    // Only run legacy compilation detection when not using metadata grouping
-    if (!options?.useMetadataGrouping) {
-      const shouldDetectCompilations = !options?.skipCompilationDetection &&
-        (fileMaps.mpeg4Files.length > 0 ||
-          (albums.size === 1 &&
-            scan.allFiles.length <= MAX_FILES_FOR_SMALL_COLLECTION));
-
-      if (shouldDetectCompilations && albums.size > 0) {
-        options?.onProgress?.("compilation-detection", 0, albums.size);
-
-        const { albums: regularAlbums, compilations } =
-          await detectCompilationsRefactored(
-            albums,
-            debug,
-          );
-        result.albums = regularAlbums;
-        result.compilations = compilations;
-
-        if (debug && compilations.size > 0) {
-          console.log(`[DEBUG] Detected ${compilations.size} compilations`);
-        }
-
-        options?.onProgress?.(
-          "compilation-detection",
-          albums.size,
-          albums.size,
-        );
-      } else if (debug) {
-        const reason = options?.skipCompilationDetection
-          ? "explicitly skipped"
-          : `no MPEG-4 files and ${albums.size} albums`;
-        console.log(
-          `[DEBUG] Skipping compilation detection (${reason})`,
-        );
-      }
-    }
 
     const { aacSkipped, aacFiles } = validateMpeg4Files(
       fileMaps.mpeg4Files,
