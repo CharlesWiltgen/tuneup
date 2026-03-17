@@ -3,6 +3,7 @@ import type { CommandOptions } from "../types/command.ts";
 import { ensureCommandExists } from "../utils/command.ts";
 import { EASY_MODE_SUMMARY, OperationStats } from "../utils/operation_stats.ts";
 import { exitWithError } from "../utils/console_output.ts";
+import type { AmbiguousContext } from "../utils/album_grouping.ts";
 import { discoverMusic } from "../utils/fast_discovery.ts";
 import { processAlbum } from "../lib/track_processor.ts";
 
@@ -34,6 +35,19 @@ export async function easyCommand(
   // Use metadata-based grouping for accurate album detection
   const discovery = await discoverMusic([library], {
     useMetadataGrouping: true,
+    onAmbiguous: (context: AmbiguousContext) => {
+      if (options.quiet) return Promise.resolve(context.options[0].value);
+      console.log(`\n\u26a0\ufe0f  ${context.description}`);
+      for (let i = 0; i < context.options.length; i++) {
+        console.log(`  ${i + 1}. ${context.options[i].label}`);
+      }
+      const answer = prompt(`Choose (1-${context.options.length}):`) ?? "1";
+      const idx = parseInt(answer) - 1;
+      return Promise.resolve(
+        context.options[Math.max(0, Math.min(idx, context.options.length - 1))]
+          .value,
+      );
+    },
     onProgress: (phase, current) => {
       if (!options.quiet) {
         Deno.stdout.writeSync(

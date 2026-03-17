@@ -7,6 +7,7 @@ import { normalizeForMatching } from "./normalize.ts";
 import {
   type AlbumGroup,
   groupTracksByAlbum,
+  type OnAmbiguousCallback,
   readTrackMetadata,
 } from "./album_grouping.ts";
 
@@ -65,6 +66,8 @@ export interface DiscoveryOptions {
   debug?: boolean;
   /** Use metadata-based album grouping instead of directory-structure heuristics */
   useMetadataGrouping?: boolean;
+  /** Callback for ambiguous album grouping decisions (e.g. disc merge with absent metadata) */
+  onAmbiguous?: OnAmbiguousCallback;
 }
 
 /**
@@ -520,6 +523,7 @@ async function classifyWithMetadata(
   scan: ScanResult,
   singlePatterns: string[],
   debug?: boolean,
+  onAmbiguous?: OnAmbiguousCallback,
 ): Promise<{
   albums: Map<string, string[]>;
   compilations: Map<string, string[]>;
@@ -527,6 +531,7 @@ async function classifyWithMetadata(
   albumGroups: AlbumGroup[];
 }> {
   let filesByDir = new Map(scan.filesByDir);
+  const albumNameOverrides = new Map<string, string>();
 
   // Step 1: Identify disc subfolders
   const discDirs = new Map<string, string[]>();
@@ -542,10 +547,78 @@ async function classifyWithMetadata(
   // Step 2: Validate disc merges using album metadata
   if (discDirs.size > 0) {
     const discGroupInput: DiscGroupInput = new Map();
+    const dirsWithAbsentMetadata = new Set<string>();
+
     for (const [dir, files] of discDirs) {
       const sampleMetadata = await readTrackMetadata([files[0]]);
-      const albumName = sampleMetadata[0]?.albumName ?? basename(dir);
+      const tagAlbumName = sampleMetadata[0]?.albumName;
+      const dirBaseName = basename(dir);
+      const metadataIsAbsent = !tagAlbumName || tagAlbumName === dirBaseName;
+      const albumName = tagAlbumName ?? dirBaseName;
+      if (metadataIsAbsent) {
+        dirsWithAbsentMetadata.add(dir);
+      }
       discGroupInput.set(dir, { albumName, files });
+    }
+
+    // Prompt for disc groups where ALL discs under a parent have absent metadata
+    if (onAmbiguous && dirsWithAbsentMetadata.size > 0) {
+      const byParent = new Map<string, string[]>();
+      for (const dir of dirsWithAbsentMetadata) {
+        const parent = dirname(dir);
+        const existing = byParent.get(parent) ?? [];
+        existing.push(dir);
+        byParent.set(parent, existing);
+      }
+
+      for (const [parent, _dirs] of byParent) {
+        const allDiscsUnderParent = [...discDirs.keys()].filter((d) =>
+          dirname(d) === parent
+        );
+        const allAbsent = allDiscsUnderParent.every((d) =>
+          dirsWithAbsentMetadata.has(d)
+        );
+        if (!allAbsent) continue;
+
+        const discPaths = allDiscsUnderParent.flatMap((d) =>
+          discDirs.get(d) ?? []
+        );
+        const answer = await onAmbiguous({
+          type: "disc-merge-unknown",
+          description: `Disc subfolders found under "${
+            basename(parent)
+          }" but album metadata is missing. Should they be merged as one album?`,
+          paths: discPaths,
+          options: [
+            { label: "Merge as one album", value: "merge" },
+            { label: "Keep as separate albums", value: "separate" },
+          ],
+        });
+
+        if (answer === "merge") {
+          const mergedAlbumName = basename(parent);
+          for (const dir of allDiscsUnderParent) {
+            const entry = discGroupInput.get(dir);
+            if (entry) {
+              discGroupInput.set(dir, {
+                ...entry,
+                albumName: mergedAlbumName,
+              });
+              for (const file of entry.files) {
+                albumNameOverrides.set(file, mergedAlbumName);
+              }
+            }
+          }
+        } else {
+          for (const dir of allDiscsUnderParent) {
+            const entry = discGroupInput.get(dir);
+            if (entry) {
+              discGroupInput.delete(dir);
+              nonDiscDirs.set(dir, entry.files);
+            }
+          }
+        }
+      }
     }
 
     const { merged, separate } = validateDiscMerge(discGroupInput);
@@ -585,6 +658,14 @@ async function classifyWithMetadata(
   // Step 4: Read metadata for all remaining files
   const allFilesToRead = [...dirsToRead.values()].flat();
   const trackMetadata = await readTrackMetadata(allFilesToRead);
+
+  // Apply album name overrides from user-confirmed disc merges
+  for (const track of trackMetadata) {
+    const override = albumNameOverrides.get(track.path);
+    if (override) {
+      track.albumName = override;
+    }
+  }
 
   // Step 5: Group tracks by album metadata
   const { albums: albumGroups, singles: metadataSingles } = groupTracksByAlbum(
@@ -694,6 +775,7 @@ export async function discoverMusic(
       scan,
       options?.singlePatterns ?? [],
       debug,
+      options?.onAmbiguous,
     );
     albums = classified.albums;
     compilations = classified.compilations;

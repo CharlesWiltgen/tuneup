@@ -24,6 +24,17 @@ export type GroupingResult = {
   singles: string[];
 };
 
+export type AmbiguousContext = {
+  type: "disc-merge-unknown" | "album-artist-conflict";
+  description: string;
+  paths: string[];
+  options: Array<{ label: string; value: string }>;
+};
+
+export type OnAmbiguousCallback = (
+  context: AmbiguousContext,
+) => Promise<string>;
+
 function isGenericAlbumArtist(albumArtist: string | undefined): boolean {
   if (!albumArtist || albumArtist.trim() === "") return true;
   const normalized = normalizeForMatching(albumArtist);

@@ -1,5 +1,6 @@
 import { assertEquals, assertExists } from "@std/assert";
 import { describe, it } from "@std/testing/bdd";
+import type { AmbiguousContext } from "./album_grouping.ts";
 import {
   asDirectoryPath,
   asFilePath,
@@ -655,6 +656,106 @@ Deno.test({
 
       assertEquals(discovery.albums.size, 1);
       assertEquals(discovery.albumGroups, undefined);
+    } finally {
+      await Deno.remove(tempDir, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
+  name:
+    "discoverMusic - calls onAmbiguous for disc subfolders with absent metadata",
+  ignore: Deno.build.os !== "darwin",
+  fn: async () => {
+    const sampleFile = "sample_audio_files/flac_sample_3mb.flac";
+    const { ensureTagLib } = await import("../lib/taglib_init.ts");
+    const tempDir = await Deno.makeTempDir();
+
+    try {
+      const albumDir = `${tempDir}/MyAlbum`;
+      const disc1 = `${albumDir}/Disc 1`;
+      const disc2 = `${albumDir}/Disc 2`;
+      await Deno.mkdir(disc1, { recursive: true });
+      await Deno.mkdir(disc2, { recursive: true });
+
+      const taglib = await ensureTagLib();
+
+      for (
+        const [dir, name] of [
+          [disc1, "track1.flac"],
+          [disc2, "track2.flac"],
+        ] as const
+      ) {
+        const dest = `${dir}/${name}`;
+        await Deno.copyFile(sampleFile, dest);
+        using audioFile = await taglib.open(dest);
+        audioFile.setProperty("ALBUM", "");
+        audioFile.save();
+        await Deno.writeFile(dest, audioFile.getFileBuffer());
+      }
+
+      const calls: AmbiguousContext[] = [];
+      const discovery = await discoverMusic([tempDir], {
+        useMetadataGrouping: true,
+        onAmbiguous: (context) => {
+          calls.push(context);
+          return Promise.resolve("merge");
+        },
+      });
+
+      assertEquals(calls.length, 1);
+      assertEquals(calls[0].type, "disc-merge-unknown");
+      assertEquals(calls[0].options.length, 2);
+      assertEquals(calls[0].options[0].value, "merge");
+      assertEquals(calls[0].options[1].value, "separate");
+      assertEquals(discovery.albums.size + discovery.compilations.size, 1);
+    } finally {
+      await Deno.remove(tempDir, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
+  name:
+    "discoverMusic - onAmbiguous 'separate' keeps disc folders as individual albums",
+  ignore: Deno.build.os !== "darwin",
+  fn: async () => {
+    const sampleFile = "sample_audio_files/flac_sample_3mb.flac";
+    const { ensureTagLib } = await import("../lib/taglib_init.ts");
+    const tempDir = await Deno.makeTempDir();
+
+    try {
+      const albumDir = `${tempDir}/MyAlbum`;
+      const disc1 = `${albumDir}/Disc 1`;
+      const disc2 = `${albumDir}/Disc 2`;
+      await Deno.mkdir(disc1, { recursive: true });
+      await Deno.mkdir(disc2, { recursive: true });
+
+      const taglib = await ensureTagLib();
+
+      for (
+        const [dir, names] of [
+          [disc1, ["track1.flac", "track2.flac"]],
+          [disc2, ["track3.flac", "track4.flac"]],
+        ] as const
+      ) {
+        for (const name of names) {
+          const dest = `${dir}/${name}`;
+          await Deno.copyFile(sampleFile, dest);
+          using audioFile = await taglib.open(dest);
+          audioFile.setProperty("ALBUM", "");
+          audioFile.save();
+          await Deno.writeFile(dest, audioFile.getFileBuffer());
+        }
+      }
+
+      const discovery = await discoverMusic([tempDir], {
+        useMetadataGrouping: true,
+        onAmbiguous: () => Promise.resolve("separate"),
+      });
+
+      const totalAlbums = discovery.albums.size + discovery.compilations.size;
+      assertEquals(totalAlbums, 2);
     } finally {
       await Deno.remove(tempDir, { recursive: true });
     }
