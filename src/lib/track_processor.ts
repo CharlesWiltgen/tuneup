@@ -4,7 +4,7 @@ import {
   generateOutputPath,
   isLosslessFormat,
 } from "./encoding.ts";
-import { calculateReplayGain } from "./replaygain.ts";
+import { calculateReplayGainForGroup } from "./replaygain.ts";
 import { processAcoustIDTagging } from "./acoustid.ts";
 import { processSoundCheck } from "./soundcheck.ts";
 import { getReplayGainTags, writeReplayGainTags } from "./tagging.ts";
@@ -306,8 +306,8 @@ export async function processAlbum(
         console.log(`📊 Calculating ReplayGain for album: ${albumPath}`);
       }
 
-      const gainResult = await calculateReplayGain(
-        albumPath,
+      const gainResult = await calculateReplayGainForGroup(
+        files,
         options.quiet || false,
         true, // returnData
       );

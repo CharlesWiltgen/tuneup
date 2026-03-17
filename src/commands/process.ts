@@ -42,6 +42,7 @@ export async function processCommand(
     }
 
     const discovery = await discoverMusic(paths, {
+      useMetadataGrouping: true,
       singlePatterns: options.singles?.flat() || [],
       forEncoding: options.encode, // Validate MPEG-4 codecs if encoding
       onProgress: (phase, current) => {
