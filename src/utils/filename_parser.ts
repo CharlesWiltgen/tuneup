@@ -1,15 +1,15 @@
 import { basename, extname } from "@std/path";
 
-export interface ParsedFilename {
+export type ParsedFilename = {
   track?: number;
   artist?: string;
   title?: string;
-}
+};
 
-interface Pattern {
+type Pattern = {
   regex: RegExp;
   extract: (match: RegExpMatchArray) => ParsedFilename;
-}
+};
 
 const PATTERNS: Pattern[] = [
   {
@@ -20,6 +20,11 @@ const PATTERNS: Pattern[] = [
       artist: m[2].trim(),
       title: m[3].trim(),
     }),
+  },
+  {
+    // ## - Title (track number + dash + title, no artist)
+    regex: /^(\d{1,3})\s*-\s*(.+)$/,
+    extract: (m) => ({ track: parseInt(m[1]), title: m[2].trim() }),
   },
   {
     // Artist - Title

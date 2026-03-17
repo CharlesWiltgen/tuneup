@@ -17,6 +17,18 @@ describe("parseFilenames", () => {
     ]);
   });
 
+  it("should parse '## - Title' pattern (no artist)", () => {
+    const filenames = [
+      "01 - Blue In Green.mp3",
+      "02 - Freddie Freeloader.mp3",
+    ];
+    const results = parseFilenames(filenames);
+    assertEquals(results, [
+      { track: 1, title: "Blue In Green" },
+      { track: 2, title: "Freddie Freeloader" },
+    ]);
+  });
+
   it("should parse 'Artist - Title' pattern", () => {
     const filenames = [
       "Miles Davis - So What.mp3",
@@ -84,8 +96,10 @@ describe("parseFilenames", () => {
       "2 - Artist - Other.mp3",
     ];
     const results = parseFilenames(filenames);
-    assertEquals(results[0].track, 1);
-    assertEquals(results[1].track, 2);
+    assertEquals(results, [
+      { track: 1, artist: "Artist", title: "Title" },
+      { track: 2, artist: "Artist", title: "Other" },
+    ]);
   });
 
   it("should return empty array for empty input", () => {
