@@ -29,6 +29,7 @@ function isGenericAlbumArtist(albumArtist: string | undefined): boolean {
 function groupingKey(track: TrackMetadata): string | null {
   if (!track.albumName) return null;
   const normalizedAlbum = normalizeForMatching(track.albumName);
+  if (!normalizedAlbum) return null;
   if (isGenericAlbumArtist(track.albumArtist)) {
     return normalizedAlbum;
   }

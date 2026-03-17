@@ -112,6 +112,16 @@ describe("groupTracksByAlbum", () => {
     assertEquals(albums[0].isCompilation, false);
   });
 
+  it("should treat whitespace-only album names as singles", () => {
+    const tracks: TrackMetadata[] = [
+      { path: "t1.mp3", albumName: "   " },
+      { path: "t2.mp3", albumName: "---" },
+    ];
+    const { albums, singles } = groupTracksByAlbum(tracks);
+    assertEquals(albums, []);
+    assertEquals(singles, ["t1.mp3", "t2.mp3"]);
+  });
+
   it("should return empty results for empty input", () => {
     const { albums, singles } = groupTracksByAlbum([]);
     assertEquals(albums, []);
