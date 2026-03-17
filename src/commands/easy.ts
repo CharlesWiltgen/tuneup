@@ -31,8 +31,9 @@ export async function easyCommand(
     console.log("🎵 Analyzing music library structure...\n");
   }
 
-  // Use fast discovery with folder-based grouping
+  // Use metadata-based grouping for accurate album detection
   const discovery = await discoverMusic([library], {
+    useMetadataGrouping: true,
     onProgress: (phase, current) => {
       if (!options.quiet) {
         Deno.stdout.writeSync(

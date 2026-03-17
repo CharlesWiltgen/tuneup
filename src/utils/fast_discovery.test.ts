@@ -7,6 +7,7 @@ import {
   buildScanResult,
   classifyDirectories,
   detectAlreadyEncodedFiles,
+  discoverMusic,
   type FilePath,
   mergeDiscSubfolders,
   type ScanResult,
@@ -532,4 +533,130 @@ describe("branded types", () => {
     assertExists(path);
     assertEquals(typeof path, "string");
   });
+});
+
+Deno.test({
+  name: "discoverMusic - uses metadata-based grouping for album detection",
+  ignore: Deno.build.os !== "darwin",
+  fn: async () => {
+    const sampleFile = "sample_audio_files/flac_sample_3mb.flac";
+    const { ensureTagLib } = await import("../lib/taglib_init.ts");
+    const tempDir = await Deno.makeTempDir();
+
+    try {
+      const albumDir = `${tempDir}/Album1`;
+      const singlesDir = `${tempDir}/Singles`;
+      await Deno.mkdir(albumDir);
+      await Deno.mkdir(singlesDir);
+
+      const albumTag = "Test Album";
+      const albumArtist = "Test Artist";
+      const taglib = await ensureTagLib();
+
+      for (const name of ["track1.flac", "track2.flac"]) {
+        const dest = `${albumDir}/${name}`;
+        await Deno.copyFile(sampleFile, dest);
+        using audioFile = await taglib.open(dest);
+        audioFile.setProperty("ALBUM", albumTag);
+        audioFile.setProperty("ALBUMARTIST", albumArtist);
+        audioFile.save();
+        await Deno.writeFile(dest, audioFile.getFileBuffer());
+      }
+
+      const singleFile = `${singlesDir}/random.flac`;
+      await Deno.copyFile(sampleFile, singleFile);
+      {
+        using audioFile = await taglib.open(singleFile);
+        audioFile.setProperty("ALBUM", "");
+        audioFile.save();
+        await Deno.writeFile(singleFile, audioFile.getFileBuffer());
+      }
+
+      const discovery = await discoverMusic([tempDir], {
+        useMetadataGrouping: true,
+      });
+
+      assertEquals(discovery.albums.size, 1);
+      const albumFiles = [...discovery.albums.values()][0];
+      assertEquals(albumFiles.length, 2);
+
+      assertEquals(discovery.singles.length, 1);
+      assertEquals(discovery.singles[0], singleFile);
+
+      assertExists(discovery.albumGroups);
+      assertEquals(discovery.albumGroups.length, 1);
+      assertEquals(discovery.albumGroups[0].albumName, albumTag);
+      assertEquals(discovery.albumGroups[0].isCompilation, false);
+    } finally {
+      await Deno.remove(tempDir, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
+  name:
+    "discoverMusic - metadata grouping detects compilations via distinct artists",
+  ignore: Deno.build.os !== "darwin",
+  fn: async () => {
+    const sampleFile = "sample_audio_files/flac_sample_3mb.flac";
+    const { ensureTagLib } = await import("../lib/taglib_init.ts");
+    const tempDir = await Deno.makeTempDir();
+
+    try {
+      const compDir = `${tempDir}/Compilation`;
+      await Deno.mkdir(compDir);
+
+      const albumTag = "Various Hits";
+      const artists = ["Artist A", "Artist B", "Artist C"];
+      const taglib = await ensureTagLib();
+
+      for (let i = 0; i < artists.length; i++) {
+        const dest = `${compDir}/track${i + 1}.flac`;
+        await Deno.copyFile(sampleFile, dest);
+        using audioFile = await taglib.open(dest);
+        audioFile.setProperty("ALBUM", albumTag);
+        audioFile.setProperty("ARTIST", artists[i]);
+        audioFile.save();
+        await Deno.writeFile(dest, audioFile.getFileBuffer());
+      }
+
+      const discovery = await discoverMusic([tempDir], {
+        useMetadataGrouping: true,
+      });
+
+      assertEquals(discovery.compilations.size, 1);
+      const compFiles = [...discovery.compilations.values()][0];
+      assertEquals(compFiles.length, 3);
+
+      assertExists(discovery.albumGroups);
+      assertEquals(discovery.albumGroups.length, 1);
+      assertEquals(discovery.albumGroups[0].isCompilation, true);
+    } finally {
+      await Deno.remove(tempDir, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
+  name:
+    "discoverMusic - without useMetadataGrouping uses directory-based classification",
+  fn: async () => {
+    const tempDir = await Deno.makeTempDir();
+
+    try {
+      const albumDir = `${tempDir}/Album1`;
+      await Deno.mkdir(albumDir);
+
+      for (const name of ["track1.flac", "track2.flac"]) {
+        await Deno.writeFile(`${albumDir}/${name}`, new Uint8Array(100));
+      }
+
+      const discovery = await discoverMusic([tempDir]);
+
+      assertEquals(discovery.albums.size, 1);
+      assertEquals(discovery.albumGroups, undefined);
+    } finally {
+      await Deno.remove(tempDir, { recursive: true });
+    }
+  },
 });
