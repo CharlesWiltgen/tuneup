@@ -635,7 +635,9 @@ function findCommonDirectory(files: string[]): string | null {
   const last = sorted[sorted.length - 1];
   let i = 0;
   while (i < first.length && first[i] === last[i]) i++;
-  const prefix = first.substring(0, first.lastIndexOf("/", i));
+  const prefix = i === first.length
+    ? first
+    : first.substring(0, first.lastIndexOf("/", i));
   return prefix || null;
 }
 
