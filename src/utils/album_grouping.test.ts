@@ -150,15 +150,26 @@ Deno.test({
     "readTrackMetadata - falls back to directory name when album tag is missing",
   ignore: Deno.build.os !== "darwin",
   fn: async () => {
+    const { ensureTagLib } = await import("../lib/taglib_init.ts");
     const tempDir = await Deno.makeTempDir();
     const albumDir = `${tempDir}/My Album`;
     await Deno.mkdir(albumDir);
     const file = `${albumDir}/track.flac`;
     await Deno.copyFile("sample_audio_files/flac_sample_3mb.flac", file);
 
+    // Strip album tag so dirname fallback triggers
+    const taglib = await ensureTagLib();
+    {
+      using audioFile = await taglib.open(file);
+      audioFile.setProperty("ALBUM", "");
+      audioFile.save();
+      const buf = audioFile.getFileBuffer();
+      await Deno.writeFile(file, buf);
+    }
+
     const metadata = await readTrackMetadata([file]);
     assertEquals(metadata.length, 1);
-    assertExists(metadata[0].albumName);
+    assertEquals(metadata[0].albumName, "My Album");
 
     await Deno.remove(tempDir, { recursive: true });
   },
