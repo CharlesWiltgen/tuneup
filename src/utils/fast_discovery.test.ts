@@ -509,6 +509,15 @@ describe("validateDiscMerge", () => {
     assertEquals(result.merged[0].parent, "/album");
     assertEquals(result.separate.length, 2);
   });
+
+  it("should merge a single disc subfolder into parent", () => {
+    const discGroups = new Map([
+      ["/album/Disc 1", { albumName: "The Wall", files: ["t1.mp3"] }],
+    ]);
+    const result = validateDiscMerge(discGroups);
+    assertEquals(result.merged, [{ parent: "/album", files: ["t1.mp3"] }]);
+    assertEquals(result.separate, []);
+  });
 });
 
 describe("branded types", () => {

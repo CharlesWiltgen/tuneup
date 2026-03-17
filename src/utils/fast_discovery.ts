@@ -458,9 +458,9 @@ export function mergeDiscSubfolders(
   return merged;
 }
 
-type DiscGroupInput = Map<string, { albumName: string; files: string[] }>;
+export type DiscGroupInput = Map<string, { albumName: string; files: string[] }>;
 
-type ValidateDiscMergeResult = {
+export type ValidateDiscMergeResult = {
   merged: Array<{ parent: string; files: string[] }>;
   separate: Array<{ path: string; files: string[] }>;
 };
