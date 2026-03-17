@@ -16,7 +16,8 @@ invocation for mixed folders.
 
 **Tech Stack:** Deno, taglib-wasm, @std/testing/bdd, @std/path
 
-**Spec:** `docs/superpowers/specs/2026-03-17-album-detection-improvements-design.md`
+**Spec:**
+`docs/superpowers/specs/2026-03-17-album-detection-improvements-design.md`
 
 ---
 
@@ -39,7 +40,7 @@ In `src/utils/filename_parser.test.ts`:
 ```ts
 import { assertEquals } from "@std/assert";
 import { describe, it } from "@std/testing/bdd";
-import { parseFilenames, type ParsedFilename } from "./filename_parser.ts";
+import { type ParsedFilename, parseFilenames } from "./filename_parser.ts";
 
 describe("parseFilenames", () => {
   it("should parse '## - Artist - Title' pattern", () => {
@@ -161,7 +162,11 @@ const PATTERNS: Pattern[] = [
   {
     // ## - Artist - Title
     regex: /^(\d{1,3})\s*-\s*(.+?)\s*-\s*(.+)$/,
-    extract: (m) => ({ track: parseInt(m[1]), artist: m[2].trim(), title: m[3].trim() }),
+    extract: (m) => ({
+      track: parseInt(m[1]),
+      artist: m[2].trim(),
+      title: m[3].trim(),
+    }),
   },
   {
     // Artist - Title
@@ -214,7 +219,8 @@ Expected: PASS
 
 - [ ] **Step 5: Run formatter and linter**
 
-Run: `deno fmt src/utils/filename_parser.ts src/utils/filename_parser.test.ts && deno lint src/utils/filename_parser.ts src/utils/filename_parser.test.ts`
+Run:
+`deno fmt src/utils/filename_parser.ts src/utils/filename_parser.test.ts && deno lint src/utils/filename_parser.ts src/utils/filename_parser.test.ts`
 
 - [ ] **Step 6: Commit**
 
@@ -227,8 +233,8 @@ git commit -m "feat: add beets-style filename parser for metadata extraction"
 
 ## Chunk 2: Multi-Disc Folder Merging
 
-Adds disc subfolder detection and merging to the discovery phase. Independent
-of the metadata grouping work.
+Adds disc subfolder detection and merging to the discovery phase. Independent of
+the metadata grouping work.
 
 ### Task 2: Disc subfolder detection and merging
 
@@ -250,7 +256,10 @@ describe("mergeDiscSubfolders", () => {
     ]);
     const result = mergeDiscSubfolders(filesByDir);
     assertEquals(result.get("/music/Album"), [
-      "track1.mp3", "track2.mp3", "track3.mp3", "track4.mp3",
+      "track1.mp3",
+      "track2.mp3",
+      "track3.mp3",
+      "track4.mp3",
     ]);
     assertEquals(result.has("/music/Album/Disc 1"), false);
     assertEquals(result.has("/music/Album/Disc 2"), false);
@@ -300,7 +309,9 @@ describe("mergeDiscSubfolders", () => {
     ]);
     const result = mergeDiscSubfolders(filesByDir);
     assertEquals(result.get("/music/Album"), [
-      "booklet.mp3", "track1.mp3", "track2.mp3",
+      "booklet.mp3",
+      "track1.mp3",
+      "track2.mp3",
     ]);
   });
 });
@@ -308,7 +319,8 @@ describe("mergeDiscSubfolders", () => {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `deno test --allow-read --allow-run --allow-write --allow-env src/utils/fast_discovery.test.ts --filter "mergeDiscSubfolders"`
+Run:
+`deno test --allow-read --allow-run --allow-write --allow-env src/utils/fast_discovery.test.ts --filter "mergeDiscSubfolders"`
 Expected: FAIL — function not exported
 
 - [ ] **Step 3: Implement `mergeDiscSubfolders`**
@@ -350,7 +362,8 @@ export function mergeDiscSubfolders(
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `deno test --allow-read --allow-run --allow-write --allow-env src/utils/fast_discovery.test.ts --filter "mergeDiscSubfolders"`
+Run:
+`deno test --allow-read --allow-run --allow-write --allow-env src/utils/fast_discovery.test.ts --filter "mergeDiscSubfolders"`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -362,9 +375,9 @@ git commit -m "feat: add disc subfolder merging for multi-disc albums"
 
 ### Task 3: Validate disc merges with album metadata
 
-Disc subfolders are only merged if album names match across subfolders. If
-they don't match (box set with distinct albums per disc), each disc is treated
-as a separate album. If metadata is absent, prompt the user.
+Disc subfolders are only merged if album names match across subfolders. If they
+don't match (box set with distinct albums per disc), each disc is treated as a
+separate album. If metadata is absent, prompt the user.
 
 **Files:**
 
@@ -417,18 +430,19 @@ describe("validateDiscMerge", () => {
 
 - [ ] **Step 3: Implement `validateDiscMerge`**
 
-This function takes grouped disc subfolders (with album name read from at
-least one file per subfolder) and returns which should be merged vs. kept
-separate. Uses `normalizeForMatching` for album name comparison.
+This function takes grouped disc subfolders (with album name read from at least
+one file per subfolder) and returns which should be merged vs. kept separate.
+Uses `normalizeForMatching` for album name comparison.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
 - [ ] **Step 5: Wire into `discoverMusic` — call `mergeDiscSubfolders` on the
-  scan result, then `validateDiscMerge` on identified disc groups**
+      scan result, then `validateDiscMerge` on identified disc groups**
 
 - [ ] **Step 6: Run full fast_discovery test suite**
 
-Run: `deno test --allow-read --allow-run --allow-write --allow-env --allow-net src/utils/fast_discovery.test.ts`
+Run:
+`deno test --allow-read --allow-run --allow-write --allow-env --allow-net src/utils/fast_discovery.test.ts`
 Expected: PASS
 
 - [ ] **Step 7: Commit**
@@ -460,9 +474,9 @@ In `src/utils/album_grouping.test.ts`:
 import { assertEquals } from "@std/assert";
 import { describe, it } from "@std/testing/bdd";
 import {
+  type AlbumGroup,
   groupTracksByAlbum,
   type TrackMetadata,
-  type AlbumGroup,
 } from "./album_grouping.ts";
 
 describe("groupTracksByAlbum", () => {
@@ -533,8 +547,16 @@ describe("groupTracksByAlbum", () => {
 
   it("should use normalized album names for grouping", () => {
     const tracks: TrackMetadata[] = [
-      { path: "t1.mp3", albumName: "The Köln Concert", albumArtist: "Keith Jarrett" },
-      { path: "t2.mp3", albumName: "the koln concert", albumArtist: "Keith Jarrett" },
+      {
+        path: "t1.mp3",
+        albumName: "The Köln Concert",
+        albumArtist: "Keith Jarrett",
+      },
+      {
+        path: "t2.mp3",
+        albumName: "the koln concert",
+        albumArtist: "Keith Jarrett",
+      },
     ];
     const { albums } = groupTracksByAlbum(tracks);
     assertEquals(albums.length, 1);
@@ -759,7 +781,8 @@ export async function readTrackMetadata(
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `deno test --allow-read --allow-env --allow-net src/utils/album_grouping.test.ts`
+Run:
+`deno test --allow-read --allow-env --allow-net src/utils/album_grouping.test.ts`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -798,12 +821,13 @@ In `src/utils/fast_discovery.ts`, after the FS scan phase:
 2. For each directory group, call `readTrackMetadata` to get per-file metadata
 3. Call `groupTracksByAlbum` to classify into albums/compilations/singles
 4. Replace the current `classifyDirectories` call with this new pipeline
-5. Keep `classifyDirectories` as a fast path for when metadata reading is
-   not needed (e.g., when only doing encoding validation)
+5. Keep `classifyDirectories` as a fast path for when metadata reading is not
+   needed (e.g., when only doing encoding validation)
 
 - [ ] **Step 4: Run full discovery test suite**
 
-Run: `deno test --allow-read --allow-run --allow-write --allow-env --allow-net src/utils/fast_discovery.test.ts`
+Run:
+`deno test --allow-read --allow-run --allow-write --allow-env --allow-net src/utils/fast_discovery.test.ts`
 Expected: PASS
 
 - [ ] **Step 5: Run existing command tests to verify nothing breaks**
@@ -893,12 +917,12 @@ export async function calculateReplayGainForGroup(
 - [ ] **Step 4: Run tests to verify they pass**
 
 - [ ] **Step 5: Update `processAlbum` in `track_processor.ts` to accept
-  `AlbumGroup` instead of a directory path**
+      `AlbumGroup` instead of a directory path**
 
 The current `processAlbum` takes `albumPath: string` and passes it to
-`calculateReplayGain`. Update it to use `calculateReplayGainForGroup` with
-the group's file list instead, so it works for groups that span directories
-or are subsets of a directory.
+`calculateReplayGain`. Update it to use `calculateReplayGainForGroup` with the
+group's file list instead, so it works for groups that span directories or are
+subsets of a directory.
 
 - [ ] **Step 6: Run full test suite**
 
@@ -930,14 +954,15 @@ commands. Remove the old 3-file sampling compilation detection.
 
 The `easy` command currently iterates `discovery.albums` as
 `Map<dirPath, files>`. Update it to work with the new `AlbumGroup` structure
-from metadata-based grouping. Compilations and albums are both processed
-with album-level ReplayGain. Singles get track-only.
+from metadata-based grouping. Compilations and albums are both processed with
+album-level ReplayGain. Singles get track-only.
 
 - [ ] **Step 2: Update `process` command similarly**
 
 - [ ] **Step 3: Run E2E tests**
 
-Run: `deno test --allow-read --allow-run --allow-write --allow-env --allow-net src/amusic.test.ts`
+Run:
+`deno test --allow-read --allow-run --allow-write --allow-env --allow-net src/amusic.test.ts`
 Expected: PASS
 
 - [ ] **Step 4: Commit**
@@ -953,17 +978,17 @@ git commit -m "feat: update commands to use metadata-based album grouping"
 
 - Modify: `src/utils/fast_discovery.ts` — remove import and call to
   `detectCompilationsRefactored`
-- Delete: `src/utils/detect_compilations_refactored.ts` (functionality
-  replaced by `groupTracksByAlbum`)
+- Delete: `src/utils/detect_compilations_refactored.ts` (functionality replaced
+  by `groupTracksByAlbum`)
 - Keep: `src/utils/compilation_detection.ts` — the pure functions
   `isCompilationAlbum` and `aggregateAlbumMetadata` may still be useful,
   evaluate whether they're still referenced
 
 - [ ] **Step 1: Remove `detectCompilationsRefactored` import and usage from
-  `fast_discovery.ts`**
+      `fast_discovery.ts`**
 
-- [ ] **Step 2: Delete `detect_compilations_refactored.ts` if no longer
-  imported anywhere**
+- [ ] **Step 2: Delete `detect_compilations_refactored.ts` if no longer imported
+      anywhere**
 
 - [ ] **Step 3: Run full test suite to verify nothing breaks**
 
@@ -1000,15 +1025,17 @@ Add interactive prompting when metadata signals are ambiguous.
 
 ```ts
 export interface GroupingOptions {
-  onAmbiguous?: (context: AmbiguousContext) => Promise<"merge" | "separate" | "singles">;
+  onAmbiguous?: (
+    context: AmbiguousContext,
+  ) => Promise<"merge" | "separate" | "singles">;
 }
 ```
 
-This keeps the grouping logic pure — the callback is injected by the caller
-(the CLI command) and handles the actual user interaction.
+This keeps the grouping logic pure — the callback is injected by the caller (the
+CLI command) and handles the actual user interaction.
 
-- [ ] **Step 3: Wire prompting into `easy` and `process` commands using
-  Cliffy's `prompt` or `confirm`**
+- [ ] **Step 3: Wire prompting into `easy` and `process` commands using Cliffy's
+      `prompt` or `confirm`**
 
 - [ ] **Step 4: Add tests verifying that ambiguous cases trigger the callback**
 
