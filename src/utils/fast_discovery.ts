@@ -4,6 +4,7 @@ import {
   listAudioFilesRecursive,
 } from "../lib/fastest_audio_scan_recursive.ts";
 import { detectCompilationsRefactored } from "./detect_compilations_refactored.ts";
+import { normalizeForMatching } from "./normalize.ts";
 
 /**
  * Result of music discovery
@@ -455,6 +456,53 @@ export function mergeDiscSubfolders(
   }
 
   return merged;
+}
+
+type DiscGroupInput = Map<string, { albumName: string; files: string[] }>;
+
+type ValidateDiscMergeResult = {
+  merged: Array<{ parent: string; files: string[] }>;
+  separate: Array<{ path: string; files: string[] }>;
+};
+
+/**
+ * Validate disc subfolders by checking album metadata before merging.
+ * Discs that share the same normalized album name are merged into their parent;
+ * discs with differing album names (box sets) are kept separate.
+ */
+export function validateDiscMerge(
+  discGroups: DiscGroupInput,
+): ValidateDiscMergeResult {
+  const byParent = new Map<
+    string,
+    Array<{ path: string; albumName: string; files: string[] }>
+  >();
+
+  for (const [path, { albumName, files }] of discGroups) {
+    const parent = dirname(path);
+    const existing = byParent.get(parent) ?? [];
+    existing.push({ path, albumName, files });
+    byParent.set(parent, existing);
+  }
+
+  const merged: Array<{ parent: string; files: string[] }> = [];
+  const separate: Array<{ path: string; files: string[] }> = [];
+
+  for (const [parent, discs] of byParent) {
+    const normalizedNames = new Set(
+      discs.map((d) => normalizeForMatching(d.albumName)),
+    );
+
+    if (normalizedNames.size === 1) {
+      merged.push({ parent, files: discs.flatMap((d) => d.files) });
+    } else {
+      for (const disc of discs) {
+        separate.push({ path: disc.path, files: disc.files });
+      }
+    }
+  }
+
+  return { merged, separate };
 }
 
 /**

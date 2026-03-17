@@ -11,6 +11,7 @@ import {
   mergeDiscSubfolders,
   type ScanResult,
   type SkippedFile as _SkippedFile,
+  validateDiscMerge,
   validateMpeg4Files,
 } from "./fast_discovery.ts";
 
@@ -445,6 +446,68 @@ describe("mergeDiscSubfolders", () => {
       "track1.mp3",
       "track2.mp3",
     ]);
+  });
+});
+
+describe("validateDiscMerge", () => {
+  it("should confirm merge when album names match across discs", () => {
+    const discGroups = new Map([
+      ["/album/Disc 1", { albumName: "The Wall", files: ["t1.mp3"] }],
+      ["/album/Disc 2", { albumName: "The Wall", files: ["t2.mp3"] }],
+    ]);
+    const result = validateDiscMerge(discGroups);
+    assertEquals(result.merged, [
+      { parent: "/album", files: ["t1.mp3", "t2.mp3"] },
+    ]);
+    assertEquals(result.separate, []);
+  });
+
+  it("should keep discs separate when album names differ (box set)", () => {
+    const discGroups = new Map([
+      ["/box/Disc 1", { albumName: "Kind of Blue", files: ["t1.mp3"] }],
+      ["/box/Disc 2", { albumName: "Bitches Brew", files: ["t2.mp3"] }],
+    ]);
+    const result = validateDiscMerge(discGroups);
+    assertEquals(result.merged, []);
+    assertEquals(result.separate, [
+      { path: "/box/Disc 1", files: ["t1.mp3"] },
+      { path: "/box/Disc 2", files: ["t2.mp3"] },
+    ]);
+  });
+
+  it("should use normalized album names for comparison", () => {
+    const discGroups = new Map([
+      ["/album/Disc 1", { albumName: "The Wall", files: ["t1.mp3"] }],
+      ["/album/Disc 2", { albumName: "the wall", files: ["t2.mp3"] }],
+    ]);
+    const result = validateDiscMerge(discGroups);
+    assertEquals(result.merged.length, 1);
+    assertEquals(result.merged[0].files, ["t1.mp3", "t2.mp3"]);
+  });
+
+  it("should handle multiple separate parents", () => {
+    const discGroups = new Map([
+      ["/albumA/Disc 1", { albumName: "Album A", files: ["a1.mp3"] }],
+      ["/albumA/Disc 2", { albumName: "Album A", files: ["a2.mp3"] }],
+      ["/albumB/CD1", { albumName: "Album B", files: ["b1.mp3"] }],
+      ["/albumB/CD2", { albumName: "Album B", files: ["b2.mp3"] }],
+    ]);
+    const result = validateDiscMerge(discGroups);
+    assertEquals(result.merged.length, 2);
+    assertEquals(result.separate, []);
+  });
+
+  it("should handle mix of matching and non-matching parents", () => {
+    const discGroups = new Map([
+      ["/album/Disc 1", { albumName: "Same", files: ["a1.mp3"] }],
+      ["/album/Disc 2", { albumName: "Same", files: ["a2.mp3"] }],
+      ["/box/Disc 1", { albumName: "Different A", files: ["b1.mp3"] }],
+      ["/box/Disc 2", { albumName: "Different B", files: ["b2.mp3"] }],
+    ]);
+    const result = validateDiscMerge(discGroups);
+    assertEquals(result.merged.length, 1);
+    assertEquals(result.merged[0].parent, "/album");
+    assertEquals(result.separate.length, 2);
   });
 });
 
