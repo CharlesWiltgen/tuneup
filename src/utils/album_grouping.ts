@@ -1,4 +1,8 @@
+import { basename, dirname } from "@std/path";
+import { PROPERTIES } from "@charlesw/taglib-wasm";
+import { ensureTagLib } from "../lib/taglib_init.ts";
 import { normalizeForMatching } from "./normalize.ts";
+import { parseFilenames } from "./filename_parser.ts";
 
 export type TrackMetadata = {
   path: string;
@@ -86,4 +90,54 @@ export function groupTracksByAlbum(tracks: TrackMetadata[]): GroupingResult {
   }
 
   return { albums, singles };
+}
+
+export async function readTrackMetadata(
+  files: string[],
+): Promise<TrackMetadata[]> {
+  const taglib = await ensureTagLib();
+  const results: TrackMetadata[] = [];
+
+  for (const file of files) {
+    const metadata: TrackMetadata = { path: file };
+
+    try {
+      using audioFile = await taglib.open(file);
+      const tag = audioFile.tag();
+
+      metadata.albumName = tag.album || undefined;
+      metadata.albumArtist =
+        audioFile.getProperty(PROPERTIES.albumArtist.key) || undefined;
+      metadata.artist = tag.artist || undefined;
+      metadata.trackNumber = tag.track || undefined;
+    } catch {
+      // Tags unreadable — will fall through to fallbacks
+    }
+
+    // Fallback: directory name as album name
+    if (!metadata.albumName) {
+      metadata.albumName = basename(dirname(file));
+    }
+
+    results.push(metadata);
+  }
+
+  // Fallback: filename parsing for tracks missing metadata
+  const missingData = results.filter(
+    (r) => r.trackNumber == null || !r.artist,
+  );
+  if (missingData.length > 0) {
+    const parsed = parseFilenames(missingData.map((r) => r.path));
+    for (let i = 0; i < missingData.length; i++) {
+      const p = parsed[i];
+      if (p.track != null && missingData[i].trackNumber == null) {
+        missingData[i].trackNumber = p.track;
+      }
+      if (p.artist && !missingData[i].artist) {
+        missingData[i].artist = p.artist;
+      }
+    }
+  }
+
+  return results;
 }

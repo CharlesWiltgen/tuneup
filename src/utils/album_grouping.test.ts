@@ -1,6 +1,10 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertExists } from "@std/assert";
 import { describe, it } from "@std/testing/bdd";
-import { groupTracksByAlbum, type TrackMetadata } from "./album_grouping.ts";
+import {
+  groupTracksByAlbum,
+  readTrackMetadata,
+  type TrackMetadata,
+} from "./album_grouping.ts";
 
 describe("groupTracksByAlbum", () => {
   it("should group tracks with same album name and album artist", () => {
@@ -127,4 +131,35 @@ describe("groupTracksByAlbum", () => {
     assertEquals(albums, []);
     assertEquals(singles, []);
   });
+});
+
+Deno.test({
+  name: "readTrackMetadata - reads album metadata from real audio files",
+  ignore: Deno.build.os !== "darwin",
+  fn: async () => {
+    const sampleFile = "sample_audio_files/flac_sample_3mb.flac";
+    const metadata = await readTrackMetadata([sampleFile]);
+    assertEquals(metadata.length, 1);
+    assertEquals(metadata[0].path, sampleFile);
+    assertExists(metadata[0].albumName);
+  },
+});
+
+Deno.test({
+  name:
+    "readTrackMetadata - falls back to directory name when album tag is missing",
+  ignore: Deno.build.os !== "darwin",
+  fn: async () => {
+    const tempDir = await Deno.makeTempDir();
+    const albumDir = `${tempDir}/My Album`;
+    await Deno.mkdir(albumDir);
+    const file = `${albumDir}/track.flac`;
+    await Deno.copyFile("sample_audio_files/flac_sample_3mb.flac", file);
+
+    const metadata = await readTrackMetadata([file]);
+    assertEquals(metadata.length, 1);
+    assertExists(metadata[0].albumName);
+
+    await Deno.remove(tempDir, { recursive: true });
+  },
 });
