@@ -1,4 +1,4 @@
-import { extname } from "@std/path";
+import { basename, dirname, extname } from "@std/path";
 import {
   AUDIO_EXTENSIONS,
   listAudioFilesRecursive,
@@ -424,7 +424,7 @@ export function validateMpeg4Files(
   return { aacSkipped, aacFiles };
 }
 
-const DISC_PATTERN = /^(?:disc|cd|disk)\s*\d*$/i;
+const DISC_PATTERN = /^(?:disc|cd|disk)\s*\d+$/i;
 
 /**
  * Merge disc subfolders (Disc 1, CD2, disk 3, etc.) into their parent directories.
@@ -437,7 +437,7 @@ export function mergeDiscSubfolders(
   const discDirs = new Set<string>();
 
   for (const dir of filesByDir.keys()) {
-    const folderName = dir.substring(dir.lastIndexOf("/") + 1);
+    const folderName = basename(dir);
     if (DISC_PATTERN.test(folderName)) {
       discDirs.add(dir);
     }
@@ -445,7 +445,7 @@ export function mergeDiscSubfolders(
 
   for (const [dir, files] of filesByDir) {
     if (discDirs.has(dir)) {
-      const parent = dir.substring(0, dir.lastIndexOf("/"));
+      const parent = dirname(dir);
       const existing = merged.get(parent) ?? [];
       merged.set(parent, [...existing, ...files]);
     } else {
