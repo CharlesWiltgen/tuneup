@@ -35,6 +35,24 @@ export type OnAmbiguousCallback = (
   context: AmbiguousContext,
 ) => Promise<string>;
 
+export function createInteractivePrompt(
+  quiet: boolean,
+): OnAmbiguousCallback {
+  return (context) => {
+    if (quiet) return Promise.resolve(context.options[0].value);
+    console.log(`\n\u26a0\ufe0f  ${context.description}`);
+    for (let i = 0; i < context.options.length; i++) {
+      console.log(`  ${i + 1}. ${context.options[i].label}`);
+    }
+    const answer = prompt(`Choose (1-${context.options.length}):`) ?? "1";
+    const idx = parseInt(answer, 10) - 1;
+    return Promise.resolve(
+      context.options[Math.max(0, Math.min(idx, context.options.length - 1))]
+        .value,
+    );
+  };
+}
+
 function isGenericAlbumArtist(albumArtist: string | undefined): boolean {
   if (!albumArtist || albumArtist.trim() === "") return true;
   const normalized = normalizeForMatching(albumArtist);

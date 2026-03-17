@@ -1,5 +1,5 @@
 import { getVendorBinaryPath } from "./vendor_tools.ts";
-import { basename, join } from "@std/path";
+import { basename, extname, join } from "@std/path";
 
 export interface ReplayGainResult {
   success: boolean;
@@ -123,8 +123,16 @@ export async function calculateReplayGainForGroup(
   const tempDir = await Deno.makeTempDir({ prefix: "amusic-rg-" });
   try {
     const symlinkMap = new Map<string, string>();
+    const usedNames = new Map<string, number>();
     for (const file of files) {
-      const linkName = basename(file);
+      let linkName = basename(file);
+      const count = usedNames.get(linkName) ?? 0;
+      if (count > 0) {
+        const ext = extname(linkName);
+        const stem = ext ? linkName.slice(0, -ext.length) : linkName;
+        linkName = `${stem}_${count}${ext}`;
+      }
+      usedNames.set(basename(file), count + 1);
       const linkPath = join(tempDir, linkName);
       await Deno.symlink(file, linkPath);
       symlinkMap.set(linkPath, file);

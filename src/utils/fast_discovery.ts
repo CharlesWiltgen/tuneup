@@ -699,17 +699,19 @@ async function classifyWithMetadata(
 
 function findCommonDirectory(files: string[]): string | null {
   if (files.length === 0) return null;
-  const dirs = new Set(files.map((f) => dirname(f)));
-  if (dirs.size === 1) return [...dirs][0];
-  // Multiple directories — find longest common prefix
-  const sorted = [...dirs].sort();
+  const dirs = [...new Set(files.map((f) => dirname(f)))];
+  if (dirs.length === 1) return dirs[0];
+  const sorted = dirs.sort();
   const first = sorted[0];
   const last = sorted[sorted.length - 1];
   let i = 0;
   while (i < first.length && first[i] === last[i]) i++;
-  const prefix = i === first.length
-    ? first
-    : first.substring(0, first.lastIndexOf("/", i));
+  let prefix: string;
+  if (i === first.length && (i === last.length || last[i] === "/")) {
+    prefix = first;
+  } else {
+    prefix = first.substring(0, first.lastIndexOf("/", i));
+  }
   return prefix || null;
 }
 

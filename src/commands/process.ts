@@ -2,7 +2,7 @@ import {
   OperationStats,
   PROCESSING_SUMMARY,
 } from "../utils/operation_stats.ts";
-import type { AmbiguousContext } from "../utils/album_grouping.ts";
+import { createInteractivePrompt } from "../utils/album_grouping.ts";
 import { discoverMusic } from "../utils/fast_discovery.ts";
 import type { CommandOptions } from "../types/command.ts";
 import { processCollection } from "./process_collection.ts";
@@ -46,20 +46,7 @@ export async function processCommand(
       useMetadataGrouping: true,
       singlePatterns: options.singles?.flat() || [],
       forEncoding: options.encode,
-      onAmbiguous: (context: AmbiguousContext) => {
-        if (options.quiet) return Promise.resolve(context.options[0].value);
-        console.log(`\n\u26a0\ufe0f  ${context.description}`);
-        for (let i = 0; i < context.options.length; i++) {
-          console.log(`  ${i + 1}. ${context.options[i].label}`);
-        }
-        const answer = prompt(`Choose (1-${context.options.length}):`) ?? "1";
-        const idx = parseInt(answer) - 1;
-        return Promise.resolve(
-          context
-            .options[Math.max(0, Math.min(idx, context.options.length - 1))]
-            .value,
-        );
-      },
+      onAmbiguous: createInteractivePrompt(options.quiet || false),
       onProgress: (phase, current) => {
         if (!options.quiet) {
           Deno.stdout.writeSync(
