@@ -31,10 +31,11 @@ Ctrl+C or Escape at any prompt exits cleanly with a brief message (e.g.,
 
 - Prompt type: `Input`
 - Message: "Path to music folder"
-- Validation: path exists and is a directory. If the directory contains no audio
-  files, show an error and re-prompt.
+- Validation: path exists and is a directory (scanning for audio files in the
+  validator would be slow for large libraries — `processCommand` handles empty
+  directories gracefully)
 - Only directories are accepted (not individual files or globs — use subcommands
-  for those).
+  for those)
 
 ### Step 2: Operation Selection
 
@@ -61,7 +62,8 @@ Only shown for checked operations:
 **If AcoustID selected:**
 
 - Skip prompt entirely if `$ACOUSTID_API_KEY` env var is set
-- Otherwise, `Input` for API key (required — validation rejects empty input)
+- Otherwise, `Secret` for API key (masked input, required — validation rejects
+  empty input)
 
 ### Step 4: Common Options
 
