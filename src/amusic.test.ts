@@ -48,7 +48,7 @@ Deno.test("amusic.ts Integration Tests", async (t) => {
     // 2. Run amusic.ts on the file
     // Pass only the basename as CWD is currentTestDir
     const result = await runAmusicScript(
-      [...forceFlag, mp3BaseName],
+      ["process", "--acoust-id", ...forceFlag, mp3BaseName],
       currentTestDir,
     );
 
@@ -93,7 +93,10 @@ Deno.test("amusic.ts Integration Tests", async (t) => {
     const mp3BaseName = basename(mp3ToTest);
 
     // 1. Add an initial fingerprint
-    let runResult = await runAmusicScript([mp3BaseName], currentTestDir);
+    let runResult = await runAmusicScript(
+      ["process", "--acoust-id", mp3BaseName],
+      currentTestDir,
+    );
     assertEquals(runResult.code, 0, "Initial processing failed.");
     const firstFingerprint = await getAcousticIDFingerprintTag(mp3ToTest);
     assertExists(
@@ -102,7 +105,10 @@ Deno.test("amusic.ts Integration Tests", async (t) => {
     );
 
     // 2. Run amusic.ts again without --force
-    runResult = await runAmusicScript([mp3BaseName], currentTestDir);
+    runResult = await runAmusicScript(
+      ["process", "--acoust-id", mp3BaseName],
+      currentTestDir,
+    );
 
     // 3. Assertions
     assertEquals(
@@ -138,7 +144,10 @@ Deno.test("amusic.ts Integration Tests", async (t) => {
       const flacBaseName = basename(flacToTest);
 
       // 1. Add an initial fingerprint
-      let runResult = await runAmusicScript([flacBaseName], currentTestDir);
+      let runResult = await runAmusicScript(
+        ["process", "--acoust-id", flacBaseName],
+        currentTestDir,
+      );
       assertEquals(
         runResult.code,
         0,
@@ -155,7 +164,7 @@ Deno.test("amusic.ts Integration Tests", async (t) => {
       // If it does, this test won't strictly prove an "overwrite" vs. "idempotent operation".
       // However, it proves the "--force" path is taken.
       runResult = await runAmusicScript(
-        ["--force", flacBaseName],
+        ["process", "--acoust-id", "--force", flacBaseName],
         currentTestDir,
       );
 
@@ -244,7 +253,7 @@ Deno.test("amusic.ts Integration Tests", async (t) => {
 
       // 3. Run amusic.ts on both files with --force on MP3
       const mainResult = await runAmusicScript(
-        ["--force", mp3BaseName, flacBaseName],
+        ["process", "--acoust-id", "--force", mp3BaseName, flacBaseName],
         currentTestDir,
       );
       assertEquals(
@@ -384,7 +393,15 @@ Deno.test("--show-tags and --dry-run Functionality", async (t) => {
 
       // Run with --dry-run and dummy API key
       const result = await runAmusicScript(
-        ["--dry-run", ...forceFlag, "--api-key", dummyApiKey, mp3BaseName],
+        [
+          "process",
+          "--acoust-id",
+          "--dry-run",
+          ...forceFlag,
+          "--api-key",
+          dummyApiKey,
+          mp3BaseName,
+        ],
         currentTestDir,
       );
 
@@ -430,7 +447,15 @@ Deno.test("--show-tags and --dry-run Functionality", async (t) => {
 
       // Run with --dry-run and --force
       const result = await runAmusicScript(
-        ["--dry-run", "--force", "--api-key", dummyApiKey, baseName],
+        [
+          "process",
+          "--acoust-id",
+          "--dry-run",
+          "--force",
+          "--api-key",
+          dummyApiKey,
+          baseName,
+        ],
         currentTestDir,
       );
 
@@ -462,7 +487,10 @@ Deno.test("Error Handling Edge Cases", async (t) => {
     const subDir = join(currentTestDir, "subdir");
     await ensureDir(subDir);
 
-    const result = await runAmusicScript(["subdir"], currentTestDir);
+    const result = await runAmusicScript(
+      ["process", "--acoust-id", "subdir"],
+      currentTestDir,
+    );
 
     const combinedOutput = result.stdout + result.stderr;
     // When processing a directory with no audio files, amusic says "No supported audio files found"
@@ -479,7 +507,10 @@ Deno.test("Error Handling Edge Cases", async (t) => {
     const txtFile = join(currentTestDir, "readme.txt");
     await Deno.writeTextFile(txtFile, "This is not an audio file");
 
-    const result = await runAmusicScript(["readme.txt"], currentTestDir);
+    const result = await runAmusicScript(
+      ["process", "--acoust-id", "readme.txt"],
+      currentTestDir,
+    );
 
     // The discovery system silently ignores unsupported files and reports no audio files found
     const combinedOutput = result.stdout + result.stderr;
@@ -515,8 +546,8 @@ Deno.test("API Key Integration", async (t) => {
       // Run without API key (use --force if file already has tags)
       const existingTag = await getAcousticIDFingerprintTag(mp3File);
       const args = existingTag
-        ? ["--force", basename(mp3File)]
-        : [basename(mp3File)];
+        ? ["process", "--acoust-id", "--force", basename(mp3File)]
+        : ["process", "--acoust-id", basename(mp3File)];
 
       // Create a clean environment without ACOUSTID_API_KEY
       const cleanEnv = { ...Deno.env.toObject() };
@@ -555,8 +586,8 @@ Deno.test("API Key Integration", async (t) => {
       // Run without --api-key flag (should use env var)
       const existingTag = await getAcousticIDFingerprintTag(mp3File);
       const args = existingTag
-        ? ["--force", basename(mp3File)]
-        : [basename(mp3File)];
+        ? ["process", "--acoust-id", "--force", basename(mp3File)]
+        : ["process", "--acoust-id", basename(mp3File)];
       const result = await runAmusicScript(args, currentTestDir);
 
       assertEquals(result.code, 0);
