@@ -204,7 +204,17 @@ export function setupCLI() {
       "AcoustID API key (required for AcoustID lookups)",
       { default: Deno.env.get("ACOUSTID_API_KEY") },
     )
-    .action(processCommand);
+    .action(
+      (options: Record<string, unknown>, ...files: string[]) =>
+        processCommand(
+          {
+            ...options,
+            // Cliffy converts --acoust-id to acoustId; ProcessCommandOptions uses acoustID
+            acoustID: options.acoustId as boolean ?? false,
+          } as Parameters<typeof processCommand>[0],
+          ...files,
+        ),
+    );
 
   // Add soundcheck subcommand
   program

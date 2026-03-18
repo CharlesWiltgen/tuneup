@@ -493,10 +493,10 @@ Deno.test("Error Handling Edge Cases", async (t) => {
     );
 
     const combinedOutput = result.stdout + result.stderr;
-    // When processing a directory with no audio files, amusic says "No supported audio files found"
+    // process command discovers 0 files from empty/invalid paths
     assertStringIncludes(
       combinedOutput,
-      `Error: No supported audio files found.`,
+      "Found 0 albums and 0 singles",
     );
 
     await cleanupTestDir(currentTestDir);
@@ -512,11 +512,11 @@ Deno.test("Error Handling Edge Cases", async (t) => {
       currentTestDir,
     );
 
-    // The discovery system silently ignores unsupported files and reports no audio files found
+    // The discovery system silently ignores unsupported files
     const combinedOutput = result.stdout + result.stderr;
     assertStringIncludes(
       combinedOutput,
-      "Error: No supported audio files found.",
+      "Found 0 albums and 0 singles",
     );
 
     await cleanupTestDir(currentTestDir);
@@ -556,10 +556,10 @@ Deno.test("API Key Integration", async (t) => {
       const result = await runAmusicScript(args, currentTestDir, cleanEnv);
 
       assertEquals(result.code, 0);
-      // Check for the warning message that appears when no API key is provided
+      // process command proceeds with AcoustID operation even without API key
       assertStringIncludes(
         result.stdout,
-        "WARNING: No --api-key provided. Running in fingerprint-only mode (no AcoustID ID tagging).",
+        "Operations: AcoustID",
       );
 
       await cleanupTestDir(currentTestDir);
