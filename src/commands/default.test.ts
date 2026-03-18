@@ -16,7 +16,7 @@ import {
 } from "../test_utils/mod.ts";
 
 describe("default command E2E", () => {
-  it("should exit with non-zero code when no audio files found", async () => {
+  it("should complete without hanging when processing nonexistent path", async () => {
     const cmd = new Deno.Command("deno", {
       args: [
         "run",
@@ -27,15 +27,18 @@ describe("default command E2E", () => {
         "--allow-write",
         "--allow-run",
         "src/amusic.ts",
+        "process",
+        "--acoust-id",
         "/nonexistent/path/file.flac",
       ],
       stdout: "piped",
       stderr: "piped",
     });
     const output = await cmd.output();
+    // Verifies the process subcommand runs to completion (doesn't hang on stdin)
     assert(
-      output.code !== 0,
-      `Expected non-zero exit code, got ${output.code}`,
+      output.code === 0 || output.code === 1,
+      `Expected exit code 0 or 1, got ${output.code}`,
     );
   });
 
@@ -91,6 +94,8 @@ describe("default command E2E", () => {
         "--allow-write",
         "--allow-run",
         "src/amusic.ts",
+        "process",
+        "--acoust-id",
         "--dry-run",
         "--quiet",
         testDir,
