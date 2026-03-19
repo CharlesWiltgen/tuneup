@@ -1,5 +1,6 @@
 import { Command } from "@cliffy/command";
 import { defaultCommand } from "../commands/default.ts";
+import { interactiveCommand } from "../commands/interactive.ts";
 import { easyCommand } from "../commands/easy.ts";
 import { encodeCommand } from "../commands/encode.ts";
 import { enrichCommand } from "../commands/enrich.ts";
@@ -27,15 +28,11 @@ export function setupCLI() {
     .description(
       "A music library toolkit powered by taglib-wasm.\n\n" +
         "Supports MP3, M4A/MP4, FLAC, OGG, and WAV files.\n\n" +
-        "Without a subcommand, generates and embeds AcoustID fingerprints and IDs.",
+        "Run without a subcommand for interactive mode.",
     )
     .example(
       "Show tags",
-      "amusic --show-tags *.mp3",
-    )
-    .example(
-      "AcoustID lookup",
-      "amusic --api-key $ACOUSTID_API_KEY song.mp3",
+      "amusic --show-tags /path/to/album/",
     )
     .example(
       "Process album",
@@ -53,33 +50,41 @@ export function setupCLI() {
       "Lint library",
       "amusic lint /path/to/music/",
     )
-    // Default command options
-    .option("-f, --force", "Force reprocessing even if tags exist")
+    // Interactive mode as default action
+    .option(
+      "--show-tags",
+      "Display existing tags (AcoustID, ReplayGain, MusicBrainz, and more)",
+    )
     .option(
       "-q, --quiet",
       "Suppress informational output (errors still shown)",
       { default: false },
     )
     .option(
-      "--show-tags",
-      "Display existing tags (AcoustID, ReplayGain, MusicBrainz, and more)",
-    )
-    .option(
-      "--dry-run",
-      "Simulate processing without writing tags",
+      "--debug",
+      "Enable debug output for troubleshooting",
+      { default: false },
     )
     .option(
       "--api-key <key:string>",
       "AcoustID API key (required for lookups)",
       { default: Deno.env.get("ACOUSTID_API_KEY") },
     )
-    .option(
-      "--debug",
-      "Enable debug output for troubleshooting",
-      { default: false },
-    )
-    .arguments("<...files:string>")
-    .action(defaultCommand);
+    .arguments("[path:string]")
+    .action(async (options: Record<string, unknown>, path?: string) => {
+      if (options.showTags && path) {
+        await defaultCommand(
+          {
+            quiet: options.quiet as boolean,
+            showTags: true,
+            debug: options.debug as boolean,
+          },
+          path,
+        );
+        return;
+      }
+      await interactiveCommand(path);
+    });
 
   // Add easy subcommand
   program
@@ -199,7 +204,17 @@ export function setupCLI() {
       "AcoustID API key (required for AcoustID lookups)",
       { default: Deno.env.get("ACOUSTID_API_KEY") },
     )
-    .action(processCommand);
+    .action(
+      (options: Record<string, unknown>, ...files: string[]) =>
+        processCommand(
+          {
+            ...options,
+            // Cliffy converts --acoust-id to acoustId; ProcessCommandOptions uses acoustID
+            acoustID: options.acoustId as boolean ?? false,
+          } as Parameters<typeof processCommand>[0],
+          ...files,
+        ),
+    );
 
   // Add soundcheck subcommand
   program
