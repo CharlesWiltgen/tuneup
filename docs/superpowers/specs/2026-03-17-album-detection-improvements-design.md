@@ -54,9 +54,9 @@ The intent is to be tolerant of incomplete albums (bad rips, missing tracks,
 incomplete downloads) — an album missing a couple of tracks should still be
 recognized and processed as an album.
 
-A minimum of 2 tracks is required for album grouping — single-track groups
-are treated as singles. Classical albums, DJ mixes, and other formats with
-few tracks are still supported since they typically have at least 2 tracks.
+A minimum of 2 tracks is required for album grouping — single-track groups are
+treated as singles. Classical albums, DJ mixes, and other formats with few
+tracks are still supported since they typically have at least 2 tracks.
 
 ### 3. Multi-Disc Folder Merging
 

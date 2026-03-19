@@ -88,12 +88,12 @@ logic — interactive mode is purely a prompt-based frontend to the existing
 
 ## Files Changed
 
-| File | Change |
-| --- | --- |
-| `src/commands/interactive.ts` | New — prompt flow and option assembly |
+| File                               | Change                                                   |
+| ---------------------------------- | -------------------------------------------------------- |
+| `src/commands/interactive.ts`      | New — prompt flow and option assembly                    |
 | `src/commands/interactive.test.ts` | New — tests using `inject()` for non-interactive testing |
-| `src/cli/cli.ts` | Replace default command action with interactive handler |
-| `import_map.json` | Add `@cliffy/prompt` dependency |
+| `src/cli/cli.ts`                   | Replace default command action with interactive handler  |
+| `import_map.json`                  | Add `@cliffy/prompt` dependency                          |
 
 ## Files NOT Changed
 

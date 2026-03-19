@@ -1,16 +1,16 @@
 # Interactive Mode Implementation Plan
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development
-> (if subagents available) or superpowers:executing-plans to implement this plan.
-> Steps use checkbox (`- [ ]`) syntax for tracking.
+> (if subagents available) or superpowers:executing-plans to implement this
+> plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the default CLI command with an interactive prompt flow that
 guides users through selecting operations and options, then delegates to the
 existing `processCommand`.
 
 **Architecture:** A new `interactiveCommand` function in
-`src/commands/interactive.ts` uses `@cliffy/prompt` to collect user input
-(path, operations, operation-specific options, common flags), assembles a
+`src/commands/interactive.ts` uses `@cliffy/prompt` to collect user input (path,
+operations, operation-specific options, common flags), assembles a
 `ProcessCommandOptions` object, and calls `processCommand`. The function accepts
 an optional `processCommandFn` parameter for dependency injection (used by
 tests). The CLI's default action in `src/cli/cli.ts` is rewired to this new
@@ -63,10 +63,10 @@ git commit -m "chore: add @cliffy/prompt dependency for interactive mode"
 
 - Create: `src/commands/interactive.test.ts`
 
-Tests use Cliffy's static `inject()` method to pre-populate prompt responses,
-so no stdin mocking is needed. Each test injects values, calls
-`interactiveCommand` with an injected `processCommandFn`, and asserts that the
-correct options object is passed through.
+Tests use Cliffy's static `inject()` method to pre-populate prompt responses, so
+no stdin mocking is needed. Each test injects values, calls `interactiveCommand`
+with an injected `processCommandFn`, and asserts that the correct options object
+is passed through.
 
 - [ ] **Step 1: Write the test file with todo stubs**
 
@@ -505,41 +505,41 @@ Replace the current default command configuration (the options block from
 `--force` through `.action(defaultCommand)`, lines 56–82) with:
 
 ```ts
-    // Interactive mode as default action
-    .option(
-      "--show-tags",
-      "Display existing tags (AcoustID, ReplayGain, MusicBrainz, and more)",
-    )
-    .option(
-      "-q, --quiet",
-      "Suppress informational output (errors still shown)",
-      { default: false },
-    )
-    .option(
-      "--debug",
-      "Enable debug output for troubleshooting",
-      { default: false },
-    )
-    .option(
-      "--api-key <key:string>",
-      "AcoustID API key (required for lookups)",
-      { default: Deno.env.get("ACOUSTID_API_KEY") },
-    )
-    .arguments("[path:string]")
-    .action(async (options: Record<string, unknown>, path?: string) => {
-      if (options.showTags && path) {
-        await defaultCommand(
-          {
-            quiet: options.quiet as boolean,
-            showTags: true,
-            debug: options.debug as boolean,
-          },
-          path,
-        );
-        return;
-      }
-      await interactiveCommand(path);
-    });
+// Interactive mode as default action
+.option(
+  "--show-tags",
+  "Display existing tags (AcoustID, ReplayGain, MusicBrainz, and more)",
+)
+.option(
+  "-q, --quiet",
+  "Suppress informational output (errors still shown)",
+  { default: false },
+)
+.option(
+  "--debug",
+  "Enable debug output for troubleshooting",
+  { default: false },
+)
+.option(
+  "--api-key <key:string>",
+  "AcoustID API key (required for lookups)",
+  { default: Deno.env.get("ACOUSTID_API_KEY") },
+)
+.arguments("[path:string]")
+.action(async (options: Record<string, unknown>, path?: string) => {
+  if (options.showTags && path) {
+    await defaultCommand(
+      {
+        quiet: options.quiet as boolean,
+        showTags: true,
+        debug: options.debug as boolean,
+      },
+      path,
+    );
+    return;
+  }
+  await interactiveCommand(path);
+});
 ```
 
 Also add the import at the top of the file:
@@ -561,19 +561,19 @@ Key changes:
 Change the `.description(...)` to:
 
 ```ts
-    .description(
-      "A music library toolkit powered by taglib-wasm.\n\n" +
-        "Supports MP3, M4A/MP4, FLAC, OGG, and WAV files.\n\n" +
-        "Run without a subcommand for interactive mode.",
-    )
+.description(
+  "A music library toolkit powered by taglib-wasm.\n\n" +
+    "Supports MP3, M4A/MP4, FLAC, OGG, and WAV files.\n\n" +
+    "Run without a subcommand for interactive mode.",
+)
 ```
 
 - [ ] **Step 3: Run all tests to verify nothing is broken**
 
 Run: `deno test --allow-read --allow-run --allow-write --allow-env --allow-net`
 
-Expected: interactive.test.ts passes. Some E2E tests in default.test.ts may
-fail — that's expected and fixed in Task 5.
+Expected: interactive.test.ts passes. Some E2E tests in default.test.ts may fail
+— that's expected and fixed in Task 5.
 
 - [ ] **Step 4: Run format and lint**
 
