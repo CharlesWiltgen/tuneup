@@ -1,5 +1,6 @@
 // src/lib/pipeline.ts
 
+import { dirname, extname } from "@std/path";
 import type { ConfidenceCategory } from "./confidence.ts";
 import { categorizeConfidence } from "./confidence.ts";
 import { discoverMusic } from "../utils/fast_discovery.ts";
@@ -20,6 +21,11 @@ import {
 } from "./musicbrainz.ts";
 import { ensureTagLib } from "./taglib_init.ts";
 import { fetchCoverArt } from "./cover_art.ts";
+import type { FileQualityInfo } from "./duplicate_detection.ts";
+import { detectDuplicates } from "./duplicate_detection.ts";
+import type { ReviewItem } from "./review.ts";
+import { runBatchReview } from "./review.ts";
+import { buildOrganizedPath, cleanEmptyDirs, moveFile } from "./organizer.ts";
 
 // --- Enrichment Diff ---
 
@@ -325,6 +331,13 @@ export async function runPipeline(
   }
   const taglib = await ensureTagLib();
 
+  const reviewItems: ReviewItem[] = [];
+  const pendingReviewData = new Map<string, {
+    diff: EnrichmentDiff[];
+    coverArtData: Uint8Array | undefined;
+    fileResult: PipelineFileResult;
+  }>();
+
   for (const group of matchedGroups) {
     const release = group.bestRelease.release;
     const confidence = categorizeConfidence(group.bestRelease.score);
@@ -404,12 +417,188 @@ export async function runPipeline(
         report.enriched++;
       }
 
+      // Queue medium-confidence matches for review
+      if (confidence === "medium" && diff.length > 0) {
+        reviewItems.push({
+          sourcePath: fileInfo.path,
+          proposedTitle: track?.title,
+          proposedArtist: releaseArtist,
+          proposedAlbum: release.title,
+          proposedYear: releaseYear,
+          confidence: group.bestRelease.score,
+          confidenceReason: buildConfidenceReason(
+            group.bestRelease,
+            group.albumFiles,
+          ),
+          diffs: diff.map((d) => ({
+            field: d.field,
+            current: d.current,
+            proposed: d.proposed,
+          })),
+        });
+        pendingReviewData.set(fileInfo.path, {
+          diff,
+          coverArtData,
+          fileResult,
+        });
+      }
+
       report.files.push(fileResult);
     }
   }
 
-  // Stages 7-9 will be added in Task 11
+  // Stage 7: Review (medium-confidence items)
+  if (reviewItems.length > 0) {
+    if (!options.quiet) {
+      console.log(
+        `\nStage 7: ${reviewItems.length} item(s) need review...`,
+      );
+    }
+    const decisions = await runBatchReview(reviewItems);
+
+    for (const [path, decision] of decisions) {
+      if (decision !== "accept") continue;
+      const pending = pendingReviewData.get(path);
+      if (!pending || options.dryRun) continue;
+
+      const audioFile = await taglib.open(path);
+      for (const d of pending.diff) {
+        applyTagDiff(audioFile, d);
+      }
+      if (pending.coverArtData && audioFile.getPictures().length === 0) {
+        audioFile.setPictures([{
+          data: pending.coverArtData,
+          mimeType: "image/jpeg",
+          type: "FrontCover",
+          description: "",
+        }]);
+        pending.fileResult.artAdded = true;
+        report.artAdded++;
+      }
+      await audioFile.saveToFile();
+      audioFile.dispose();
+      pending.fileResult.enriched = true;
+      report.enriched++;
+    }
+  }
+
+  // Stage 8: Duplicate Detection
+  if (!options.quiet) console.log("\nStage 8: Checking for duplicates...");
+
+  const qualityInfos: FileQualityInfo[] = [];
+  for (const fileResult of report.files) {
+    const meta = await getComprehensiveMetadata(fileResult.path);
+    qualityInfos.push({
+      path: fileResult.path,
+      acoustIdId: fileAcoustIdMap.get(fileResult.path),
+      recordingId: fileRecordingMap.get(fileResult.path),
+      format: extname(fileResult.path).slice(1).toLowerCase(),
+      bitrate: meta?.bitrate ?? 0,
+      tagCount: Object.values(meta ?? {}).filter(Boolean).length,
+      title: meta?.title,
+      artist: meta?.artist,
+    });
+  }
+
+  const duplicateGroups = detectDuplicates(qualityInfos);
+  report.duplicatesFound = duplicateGroups.length;
+
+  if (duplicateGroups.length > 0 && !options.quiet) {
+    console.log(`\nDuplicates found:`);
+    for (const group of duplicateGroups) {
+      const title = group.title ?? "Unknown";
+      const artist = group.artist ?? "Unknown";
+      console.log(`  "${title}" by ${artist}`);
+      console.log(
+        `    KEEP:  ${group.files[0].path} (${
+          group.files[0].format.toUpperCase()
+        }, ${group.files[0].bitrate}kbps)`,
+      );
+      for (let i = 1; i < group.files.length; i++) {
+        console.log(
+          `    EXTRA: ${group.files[i].path} (${
+            group.files[i].format.toUpperCase()
+          }, ${group.files[i].bitrate}kbps)`,
+        );
+      }
+    }
+  }
+
+  // Stage 9: Organize (optional)
+  if (options.organize) {
+    if (!options.quiet) console.log("\nStage 9: Organizing files...");
+
+    for (const group of matchedGroups) {
+      const release = group.bestRelease.release;
+      const tracks = (release.media ?? []).flatMap((m) => m.tracks ?? []);
+      const trackById = new Map(tracks.map((t) => [t.recording.id, t]));
+      const releaseArtist = release["artist-credit"]
+        ? joinArtistCredits(release["artist-credit"])
+        : "Unknown Artist";
+      const releaseYear = release.date
+        ? parseInt(release.date.substring(0, 4), 10)
+        : undefined;
+      const isCompilation = group.albumFiles.length > 2 &&
+        new Set(group.albumFiles.map((f) => f.existingArtist)).size >= 3;
+
+      for (const fileInfo of group.albumFiles) {
+        const track = trackById.get(fileInfo.recordingId);
+        const destination = buildOrganizedPath({
+          libraryRoot: options.libraryRoot,
+          artist: isCompilation ? "Various Artists" : releaseArtist,
+          album: release.title,
+          year: releaseYear,
+          trackNumber: track?.position,
+          title: track?.title ?? fileInfo.existingTitle ?? "Unknown",
+          extension: extname(fileInfo.path),
+          isCompilation,
+          totalTracks: tracks.length,
+        });
+
+        if (destination === fileInfo.path) continue;
+
+        const result = await moveFile(
+          fileInfo.path,
+          destination,
+          options.dryRun,
+        );
+        if (result.status === "moved") {
+          report.organized++;
+          if (!options.quiet) {
+            console.log(`  ${fileInfo.path} -> ${destination}`);
+          }
+          await cleanEmptyDirs(dirname(fileInfo.path));
+        } else if (result.status === "conflict") {
+          report.conflicts++;
+          if (!options.quiet) {
+            console.log(`  CONFLICT: ${destination} already exists`);
+          }
+        } else if (result.status === "dry-run" && !options.quiet) {
+          console.log(`  [dry-run] ${fileInfo.path} -> ${destination}`);
+        }
+      }
+    }
+  }
+
   return report;
+}
+
+function buildConfidenceReason(
+  scored: ScoredRelease,
+  files: AlbumFileInfo[],
+): string {
+  const release = scored.release;
+  const trackCount = (release.media ?? []).reduce(
+    (sum, m) => sum + m.track_count,
+    0,
+  );
+  if (files.length !== trackCount) {
+    return `fingerprint matched but track count mismatch (${files.length} files, ${trackCount}-track release)`;
+  }
+  if (scored.matchedRecordings < files.length) {
+    return `${scored.matchedRecordings}/${files.length} tracks matched`;
+  }
+  return "fingerprint matched, limited tag corroboration";
 }
 
 // deno-lint-ignore no-explicit-any
