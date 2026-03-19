@@ -1,14 +1,25 @@
 // src/lib/pipeline.ts
 
 import type { ConfidenceCategory } from "./confidence.ts";
+import { categorizeConfidence } from "./confidence.ts";
 import { discoverMusic } from "../utils/fast_discovery.ts";
 import {
   extractMusicBrainzIds,
   generateFingerprint,
   lookupFingerprint,
 } from "./acoustid.ts";
-import { getAudioDuration } from "./tagging.ts";
-import { RateLimiter } from "./musicbrainz.ts";
+import { getAudioDuration, getComprehensiveMetadata } from "./tagging.ts";
+import {
+  type AlbumFileInfo,
+  fetchRecording,
+  joinArtistCredits,
+  type MBRecordingResponse,
+  RateLimiter,
+  type ScoredRelease,
+  selectBestRelease,
+} from "./musicbrainz.ts";
+import { ensureTagLib } from "./taglib_init.ts";
+import { fetchCoverArt } from "./cover_art.ts";
 
 // --- Enrichment Diff ---
 
@@ -214,6 +225,217 @@ export async function runPipeline(
     );
   }
 
-  // Stages 4+ will be added in Task 10
+  // Stage 4: Match Releases
+  if (!options.quiet) console.log("\nStage 4: Matching releases...");
+  const mbRateLimiter = new RateLimiter();
+
+  const recordingCache = new Map<string, MBRecordingResponse>();
+  const uniqueRecordingIds = new Set(fileRecordingMap.values());
+  for (const recId of uniqueRecordingIds) {
+    const recording = await fetchRecording(recId, mbRateLimiter);
+    if (recording) recordingCache.set(recId, recording);
+  }
+
+  type MatchedGroup = {
+    files: string[];
+    bestRelease: ScoredRelease;
+    albumFiles: AlbumFileInfo[];
+  };
+  const matchedGroups: MatchedGroup[] = [];
+  const unmatchedFiles: string[] = [];
+
+  const albumGroups = discovery.albumGroups ?? [];
+  for (const group of albumGroups) {
+    const albumFiles: AlbumFileInfo[] = [];
+    for (const filePath of group.files) {
+      const recordingId = fileRecordingMap.get(filePath);
+      if (!recordingId) continue;
+      const meta = await getComprehensiveMetadata(filePath);
+      albumFiles.push({
+        path: filePath,
+        recordingId,
+        duration: meta?.duration ?? 0,
+        trackNumber: meta?.track,
+        existingTitle: meta?.title ?? undefined,
+        existingArtist: meta?.artist ?? undefined,
+        existingAlbum: meta?.album ?? undefined,
+        existingYear: meta?.year ?? undefined,
+        existingGenre: meta?.genre ?? undefined,
+      });
+    }
+
+    if (albumFiles.length === 0) {
+      unmatchedFiles.push(...group.files);
+      continue;
+    }
+
+    const best = selectBestRelease(albumFiles, recordingCache);
+    if (best) {
+      matchedGroups.push({
+        files: group.files,
+        bestRelease: best,
+        albumFiles,
+      });
+      report.matched += albumFiles.length;
+    } else {
+      unmatchedFiles.push(...group.files);
+    }
+  }
+
+  // Handle singles
+  for (const filePath of discovery.singles) {
+    const recordingId = fileRecordingMap.get(filePath);
+    if (!recordingId) {
+      unmatchedFiles.push(filePath);
+      continue;
+    }
+    const meta = await getComprehensiveMetadata(filePath);
+    const albumFiles: AlbumFileInfo[] = [{
+      path: filePath,
+      recordingId,
+      duration: meta?.duration ?? 0,
+      existingTitle: meta?.title ?? undefined,
+      existingArtist: meta?.artist ?? undefined,
+    }];
+    const best = selectBestRelease(albumFiles, recordingCache, {
+      isSingle: true,
+    });
+    if (best) {
+      matchedGroups.push({
+        files: [filePath],
+        bestRelease: best,
+        albumFiles,
+      });
+      report.matched++;
+    } else {
+      unmatchedFiles.push(filePath);
+    }
+  }
+
+  report.unresolved = unmatchedFiles.length;
+  if (!options.quiet) {
+    console.log(
+      `  Matched ${matchedGroups.length} group(s), ${unmatchedFiles.length} unresolved.`,
+    );
+  }
+
+  // Stage 5-6: Enrich + Cover Art
+  if (!options.quiet) {
+    console.log("\nStage 5-6: Enriching and fetching cover art...");
+  }
+  const taglib = await ensureTagLib();
+
+  for (const group of matchedGroups) {
+    const release = group.bestRelease.release;
+    const confidence = categorizeConfidence(group.bestRelease.score);
+    const tracks = (release.media ?? []).flatMap((m) => m.tracks ?? []);
+    const trackById = new Map(tracks.map((t) => [t.recording.id, t]));
+    const recording = recordingCache.get(
+      group.albumFiles[0]?.recordingId ?? "",
+    );
+    const genres = recording?.genres
+      ? [...recording.genres].sort((a, b) => b.count - a.count)
+      : [];
+    const primaryGenre = genres[0]?.name;
+    const releaseArtist = release["artist-credit"]
+      ? joinArtistCredits(release["artist-credit"])
+      : undefined;
+    const releaseYear = release.date
+      ? parseInt(release.date.substring(0, 4), 10)
+      : undefined;
+
+    // Cover art (once per group/release)
+    let coverArtData: Uint8Array | undefined;
+    if (!options.noArt && confidence !== "low") {
+      const art = await fetchCoverArt(release.id);
+      if (art) coverArtData = art.data;
+    }
+
+    for (const fileInfo of group.albumFiles) {
+      const track = trackById.get(fileInfo.recordingId);
+      const proposed: ProposedTags = {
+        title: track?.title,
+        artist: releaseArtist,
+        album: release.title,
+        albumArtist: releaseArtist,
+        year: releaseYear,
+        genre: primaryGenre,
+        trackNumber: track?.position,
+      };
+
+      const existing: ExistingTags = {
+        title: fileInfo.existingTitle,
+        artist: fileInfo.existingArtist,
+        album: fileInfo.existingAlbum,
+        year: fileInfo.existingYear,
+        genre: fileInfo.existingGenre,
+        trackNumber: fileInfo.trackNumber,
+      };
+
+      const diff = buildEnrichmentDiff(existing, proposed, options.overwrite);
+      const fileResult: PipelineFileResult = {
+        path: fileInfo.path,
+        confidence,
+        score: group.bestRelease.score,
+        matchedRelease: release.title,
+        enriched: false,
+        artAdded: false,
+      };
+
+      // Auto-apply high-confidence matches
+      if (confidence === "high" && diff.length > 0 && !options.dryRun) {
+        const audioFile = await taglib.open(fileInfo.path);
+        for (const d of diff) {
+          applyTagDiff(audioFile, d);
+        }
+        if (coverArtData && audioFile.getPictures().length === 0) {
+          audioFile.setPictures([{
+            data: coverArtData,
+            mimeType: "image/jpeg",
+            type: "FrontCover",
+            description: "",
+          }]);
+          fileResult.artAdded = true;
+          report.artAdded++;
+        }
+        await audioFile.saveToFile();
+        audioFile.dispose();
+        fileResult.enriched = true;
+        report.enriched++;
+      }
+
+      report.files.push(fileResult);
+    }
+  }
+
+  // Stages 7-9 will be added in Task 11
   return report;
+}
+
+// deno-lint-ignore no-explicit-any
+function applyTagDiff(audioFile: any, diff: EnrichmentDiff): void {
+  const tag = audioFile.tag();
+  switch (diff.field) {
+    case "Title":
+      tag.setTitle(diff.proposed);
+      break;
+    case "Artist":
+      tag.setArtist(diff.proposed);
+      break;
+    case "Album":
+      tag.setAlbum(diff.proposed);
+      break;
+    case "AlbumArtist":
+      audioFile.setProperty("ALBUMARTIST", diff.proposed);
+      break;
+    case "Year":
+      tag.setYear(parseInt(diff.proposed, 10));
+      break;
+    case "Genre":
+      tag.setGenre(diff.proposed);
+      break;
+    case "TrackNumber":
+      tag.setTrack(parseInt(diff.proposed, 10));
+      break;
+  }
 }

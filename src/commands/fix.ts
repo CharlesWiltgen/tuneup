@@ -1,4 +1,5 @@
 import { resolve } from "@std/path";
+import { runPipeline } from "../lib/pipeline.ts";
 
 export async function fixCommand(
   options: {
@@ -42,8 +43,28 @@ export async function fixCommand(
     }
   }
 
-  // Pipeline execution will be wired in Task 10
+  const report = await runPipeline({
+    apiKey,
+    dryRun: options.dryRun,
+    overwrite: options.overwrite,
+    organize: options.organize,
+    noArt: !options.art,
+    quiet: options.quiet,
+    force: options.force,
+    libraryRoot: resolvedPath,
+  });
+
   if (!options.quiet) {
-    console.log("\n[fix pipeline not yet wired — coming in subsequent tasks]");
+    console.log("\n--- Fix Summary ---");
+    console.log(`  Files found:    ${report.totalFiles}`);
+    console.log(`  Matched:        ${report.matched}`);
+    console.log(`  Enriched:       ${report.enriched}`);
+    console.log(`  Art added:      ${report.artAdded}`);
+    console.log(`  Duplicates:     ${report.duplicatesFound}`);
+    console.log(`  Unresolved:     ${report.unresolved}`);
+    if (options.organize) {
+      console.log(`  Organized:      ${report.organized}`);
+      console.log(`  Conflicts:      ${report.conflicts}`);
+    }
   }
 }
