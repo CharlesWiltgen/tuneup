@@ -8,6 +8,7 @@ import { lintCommand } from "../commands/lint.ts";
 import { processCommand } from "../commands/process.ts";
 import { soundcheckCommand } from "../commands/soundcheck.ts";
 import { xRayCommand } from "../commands/x-ray.ts";
+import { fixCommand } from "../commands/fix.ts";
 import { VERSION } from "../version.ts";
 import { dirname, fromFileUrl, join } from "@std/path";
 import { loadSync } from "@std/dotenv";
@@ -317,6 +318,41 @@ export function setupCLI() {
       { default: false },
     )
     .action(xRayCommand);
+
+  // Add fix subcommand
+  program
+    .command(
+      "fix <path:string>",
+      "Identify, tag, and enrich music files using AcoustID + MusicBrainz",
+    )
+    .option("--dry-run", "Preview everything, write nothing", {
+      default: false,
+    })
+    .option(
+      "--overwrite",
+      "Allow replacing existing tags when the match is better",
+      { default: false },
+    )
+    .option(
+      "--organize",
+      "Rename/move files into Artist/Album (Year)/NN Title.ext",
+      { default: false },
+    )
+    .option("--no-art", "Skip cover art fetching", { default: false })
+    .option(
+      "-q, --quiet",
+      "Suppress progress output (errors still shown)",
+      { default: false },
+    )
+    .option("-f, --force", "Reprocess even if previously processed", {
+      default: false,
+    })
+    .option(
+      "--api-key <key:string>",
+      "AcoustID API key (required for lookups)",
+      { default: Deno.env.get("ACOUSTID_API_KEY") },
+    )
+    .action(fixCommand);
 
   return program;
 }
