@@ -338,7 +338,7 @@ export function setupCLI() {
       "Rename/move files into Artist/Album (Year)/NN Title.ext",
       { default: false },
     )
-    .option("--no-art", "Skip cover art fetching", { default: false })
+    .option("--no-art", "Skip cover art fetching")
     .option(
       "-q, --quiet",
       "Suppress progress output (errors still shown)",

@@ -1,10 +1,7 @@
 // src/lib/confidence.test.ts
 import { describe, it } from "@std/testing/bdd";
 import { assertEquals } from "@std/assert";
-import {
-  categorizeConfidence,
-  type ConfidenceCategory as _ConfidenceCategory,
-} from "./confidence.ts";
+import { categorizeConfidence } from "./confidence.ts";
 
 describe("categorizeConfidence", () => {
   it("should return 'high' for scores >= 0.9", () => {

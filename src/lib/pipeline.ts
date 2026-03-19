@@ -29,7 +29,7 @@ import { buildOrganizedPath, cleanEmptyDirs, moveFile } from "./organizer.ts";
 
 // --- Enrichment Diff ---
 
-export type ExistingTags = {
+export type TagSet = {
   title?: string;
   artist?: string;
   album?: string;
@@ -39,15 +39,8 @@ export type ExistingTags = {
   trackNumber?: number | string;
 };
 
-export type ProposedTags = {
-  title?: string;
-  artist?: string;
-  album?: string;
-  albumArtist?: string;
-  year?: number | string;
-  genre?: string;
-  trackNumber?: number | string;
-};
+export type ExistingTags = TagSet;
+export type ProposedTags = TagSet;
 
 export type EnrichmentDiff = {
   field: string;
@@ -199,7 +192,12 @@ export async function runPipeline(
   const fileRecordingMap = new Map<string, string>(); // path -> recordingId
   const fileAcoustIdMap = new Map<string, string>(); // path -> acoustId
 
+  let fingerprintCount = 0;
   for (const filePath of allFiles) {
+    fingerprintCount++;
+    if (!options.quiet && fingerprintCount % 10 === 0) {
+      console.log(`  Processing ${fingerprintCount}/${allFiles.length}...`);
+    }
     const fingerprint = await generateFingerprint(filePath);
     if (!fingerprint) {
       if (!options.quiet) {
@@ -237,9 +235,27 @@ export async function runPipeline(
 
   const recordingCache = new Map<string, MBRecordingResponse>();
   const uniqueRecordingIds = new Set(fileRecordingMap.values());
+  let recFetchCount = 0;
   for (const recId of uniqueRecordingIds) {
+    recFetchCount++;
+    if (!options.quiet && recFetchCount % 5 === 0) {
+      console.log(
+        `  Fetching recording ${recFetchCount}/${uniqueRecordingIds.size}...`,
+      );
+    }
     const recording = await fetchRecording(recId, mbRateLimiter);
     if (recording) recordingCache.set(recId, recording);
+  }
+
+  // Cache metadata to avoid redundant file reads
+  type CachedMeta = Awaited<ReturnType<typeof getComprehensiveMetadata>>;
+  const metadataCache = new Map<string, CachedMeta>();
+  async function getCachedMetadata(filePath: string): Promise<CachedMeta> {
+    const cached = metadataCache.get(filePath);
+    if (cached !== undefined) return cached;
+    const meta = await getComprehensiveMetadata(filePath);
+    metadataCache.set(filePath, meta);
+    return meta;
   }
 
   type MatchedGroup = {
@@ -256,7 +272,7 @@ export async function runPipeline(
     for (const filePath of group.files) {
       const recordingId = fileRecordingMap.get(filePath);
       if (!recordingId) continue;
-      const meta = await getComprehensiveMetadata(filePath);
+      const meta = await getCachedMetadata(filePath);
       albumFiles.push({
         path: filePath,
         recordingId,
@@ -295,7 +311,7 @@ export async function runPipeline(
       unmatchedFiles.push(filePath);
       continue;
     }
-    const meta = await getComprehensiveMetadata(filePath);
+    const meta = await getCachedMetadata(filePath);
     const albumFiles: AlbumFileInfo[] = [{
       path: filePath,
       recordingId,
@@ -343,13 +359,17 @@ export async function runPipeline(
     const confidence = categorizeConfidence(group.bestRelease.score);
     const tracks = (release.media ?? []).flatMap((m) => m.tracks ?? []);
     const trackById = new Map(tracks.map((t) => [t.recording.id, t]));
-    const recording = recordingCache.get(
-      group.albumFiles[0]?.recordingId ?? "",
-    );
-    const genres = recording?.genres
-      ? [...recording.genres].sort((a, b) => b.count - a.count)
-      : [];
-    const primaryGenre = genres[0]?.name;
+    // Aggregate genres across all recordings in the group
+    const genreCounts = new Map<string, number>();
+    for (const f of group.albumFiles) {
+      const rec = recordingCache.get(f.recordingId);
+      for (const g of rec?.genres ?? []) {
+        genreCounts.set(g.name, (genreCounts.get(g.name) ?? 0) + g.count);
+      }
+    }
+    const primaryGenre = genreCounts.size > 0
+      ? [...genreCounts.entries()].sort((a, b) => b[1] - a[1])[0][0]
+      : undefined;
     const releaseArtist = release["artist-credit"]
       ? joinArtistCredits(release["artist-credit"])
       : undefined;
@@ -398,23 +418,28 @@ export async function runPipeline(
       // Auto-apply high-confidence matches
       if (confidence === "high" && diff.length > 0 && !options.dryRun) {
         const audioFile = await taglib.open(fileInfo.path);
-        for (const d of diff) {
-          applyTagDiff(audioFile, d);
+        if (audioFile) {
+          try {
+            for (const d of diff) {
+              applyTagDiff(audioFile, d);
+            }
+            if (coverArtData && audioFile.getPictures().length === 0) {
+              audioFile.setPictures([{
+                data: coverArtData,
+                mimeType: "image/jpeg",
+                type: "FrontCover",
+                description: "",
+              }]);
+              fileResult.artAdded = true;
+              report.artAdded++;
+            }
+            await audioFile.saveToFile();
+            fileResult.enriched = true;
+            report.enriched++;
+          } finally {
+            audioFile.dispose();
+          }
         }
-        if (coverArtData && audioFile.getPictures().length === 0) {
-          audioFile.setPictures([{
-            data: coverArtData,
-            mimeType: "image/jpeg",
-            type: "FrontCover",
-            description: "",
-          }]);
-          fileResult.artAdded = true;
-          report.artAdded++;
-        }
-        await audioFile.saveToFile();
-        audioFile.dispose();
-        fileResult.enriched = true;
-        report.enriched++;
       }
 
       // Queue medium-confidence matches for review
@@ -462,23 +487,28 @@ export async function runPipeline(
       if (!pending || options.dryRun) continue;
 
       const audioFile = await taglib.open(path);
-      for (const d of pending.diff) {
-        applyTagDiff(audioFile, d);
+      if (audioFile) {
+        try {
+          for (const d of pending.diff) {
+            applyTagDiff(audioFile, d);
+          }
+          if (pending.coverArtData && audioFile.getPictures().length === 0) {
+            audioFile.setPictures([{
+              data: pending.coverArtData,
+              mimeType: "image/jpeg",
+              type: "FrontCover",
+              description: "",
+            }]);
+            pending.fileResult.artAdded = true;
+            report.artAdded++;
+          }
+          await audioFile.saveToFile();
+          pending.fileResult.enriched = true;
+          report.enriched++;
+        } finally {
+          audioFile.dispose();
+        }
       }
-      if (pending.coverArtData && audioFile.getPictures().length === 0) {
-        audioFile.setPictures([{
-          data: pending.coverArtData,
-          mimeType: "image/jpeg",
-          type: "FrontCover",
-          description: "",
-        }]);
-        pending.fileResult.artAdded = true;
-        report.artAdded++;
-      }
-      await audioFile.saveToFile();
-      audioFile.dispose();
-      pending.fileResult.enriched = true;
-      report.enriched++;
     }
   }
 
@@ -487,7 +517,7 @@ export async function runPipeline(
 
   const qualityInfos: FileQualityInfo[] = [];
   for (const fileResult of report.files) {
-    const meta = await getComprehensiveMetadata(fileResult.path);
+    const meta = await getCachedMetadata(fileResult.path);
     qualityInfos.push({
       path: fileResult.path,
       acoustIdId: fileAcoustIdMap.get(fileResult.path),

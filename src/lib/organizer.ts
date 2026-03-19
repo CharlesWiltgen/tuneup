@@ -73,7 +73,17 @@ export async function moveFile(
   }
 
   await Deno.mkdir(dirname(destination), { recursive: true });
-  await Deno.rename(source, destination);
+  try {
+    await Deno.rename(source, destination);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotSupported) {
+      // Cross-filesystem move: copy + delete
+      await Deno.copyFile(source, destination);
+      await Deno.remove(source);
+    } else {
+      throw error;
+    }
+  }
   return { source, destination, status: "moved" };
 }
 

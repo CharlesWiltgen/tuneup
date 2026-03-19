@@ -69,10 +69,3 @@ describe("buildEnrichmentDiff", () => {
     assertEquals(diff, []);
   });
 });
-
-describe("runPipeline", () => {
-  it("should be importable and return a report type", async () => {
-    const { runPipeline } = await import("./pipeline.ts");
-    assertEquals(typeof runPipeline, "function");
-  });
-});

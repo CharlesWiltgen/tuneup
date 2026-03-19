@@ -2,7 +2,6 @@ import { describe, it } from "@std/testing/bdd";
 import { assertEquals } from "@std/assert";
 import {
   detectDuplicates,
-  type DuplicateGroup as _DuplicateGroup,
   type FileQualityInfo,
   rankDuplicates,
 } from "./duplicate_detection.ts";
