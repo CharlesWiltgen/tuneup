@@ -41,6 +41,7 @@ export type MBRelease = {
   "release-group"?: {
     id: string;
     "primary-type"?: string;
+    "secondary-types"?: string[];
   };
   "artist-credit"?: MBArtistCredit[];
   media?: MBMedium[];
@@ -326,7 +327,7 @@ export function scoreRelease(
     ? tagScores.reduce((a, b) => a + b, 0) / tagScores.length
     : 0.5;
 
-  // 6. Release quality signals (weight: 10)
+  // 6. Release quality signals (weight: 5 for status/type/format)
   const statusScores: Record<string, number> = {
     "Official": 1.0,
     "Promotion": 0.3,
@@ -347,13 +348,25 @@ export function scoreRelease(
   const formatScore = formatScores[format] ?? 0.5;
   const qualityScore = (statusScore + typeScore + formatScore) / 3;
 
+  // 7. Original vs. reissue (weight: 2.5)
+  const secondaryTypes = release["release-group"]?.["secondary-types"] ?? [];
+  const isReissue = secondaryTypes.some((t) =>
+    ["Remaster", "Remix", "Compilation"].includes(t)
+  );
+  const originalScore = isReissue ? 0.3 : 1.0;
+
+  // 8. Country/region preference (weight: 2.5)
+  const countryScore = release.country ? 0.8 : 0.5;
+
   // Weighted sum (weights sum to 100)
   const score = (trackCountScore * 30 +
     coverageScore * 25 +
     durationScore * 15 +
     orderScore * 10 +
     tagScore * 10 +
-    qualityScore * 10) / 100;
+    qualityScore * 5 +
+    originalScore * 2.5 +
+    countryScore * 2.5) / 100;
 
   return score;
 }

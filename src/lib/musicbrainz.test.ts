@@ -181,6 +181,71 @@ describe("scoreRelease", () => {
   });
 });
 
+describe("scoreRelease — country/region and original vs reissue", () => {
+  const baseFiles: AlbumFileInfo[] = [
+    {
+      path: "/a/01.mp3",
+      recordingId: "rec-1",
+      duration: 200,
+    },
+  ];
+
+  const baseRelease: MBRelease = {
+    id: "rel-1",
+    title: "Test Album",
+    status: "Official",
+    date: "2020-01-01",
+    country: "US",
+    "release-group": { id: "rg-1", "primary-type": "Album" },
+    media: [{
+      position: 1,
+      format: "Digital Media",
+      track_count: 1,
+      tracks: [{
+        id: "t1",
+        number: "1",
+        title: "Song",
+        length: 200000,
+        position: 1,
+        recording: { id: "rec-1" },
+      }],
+    }],
+  };
+
+  it("should score original release higher than reissue", () => {
+    const original = { ...baseRelease, date: "2000-01-01" };
+    const reissue = {
+      ...baseRelease,
+      id: "rel-2",
+      date: "2020-01-01",
+      "release-group": {
+        id: "rg-1",
+        "primary-type": "Album",
+        "secondary-types": ["Remaster"],
+      },
+    };
+
+    const scoreOrig = scoreRelease(baseFiles, original);
+    const scoreReissue = scoreRelease(baseFiles, reissue as MBRelease);
+    assert(
+      scoreOrig >= scoreReissue,
+      `Original (${scoreOrig}) should score >= reissue (${scoreReissue})`,
+    );
+  });
+
+  it("should give slight bonus to releases with country info", () => {
+    const withCountry = { ...baseRelease, country: "US" };
+    const withoutCountry = { ...baseRelease, id: "rel-3", country: undefined };
+
+    const scoreWith = scoreRelease(baseFiles, withCountry);
+    const scoreWithout = scoreRelease(baseFiles, withoutCountry as MBRelease);
+    assert(
+      scoreWith >= scoreWithout,
+      `With country (${scoreWith}) should score >= without (${scoreWithout})`,
+    );
+  });
+});
+
 describe("selectBestRelease", () => {
   it("should return null when no files", () => {
     const result = selectBestRelease([], new Map());
