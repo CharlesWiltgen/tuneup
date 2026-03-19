@@ -1,6 +1,14 @@
 // src/lib/pipeline.ts
 
 import type { ConfidenceCategory } from "./confidence.ts";
+import { discoverMusic } from "../utils/fast_discovery.ts";
+import {
+  extractMusicBrainzIds,
+  generateFingerprint,
+  lookupFingerprint,
+} from "./acoustid.ts";
+import { getAudioDuration } from "./tagging.ts";
+import { RateLimiter } from "./musicbrainz.ts";
 
 // --- Enrichment Diff ---
 
@@ -128,3 +136,84 @@ export type PipelineReport = {
   conflicts: number;
   files: PipelineFileResult[];
 };
+
+const ACOUSTID_RATE_LIMIT_MS = 334; // 3 requests/second
+
+export async function runPipeline(
+  options: PipelineOptions,
+): Promise<PipelineReport> {
+  const report: PipelineReport = {
+    totalFiles: 0,
+    matched: 0,
+    enriched: 0,
+    artAdded: 0,
+    duplicatesFound: 0,
+    unresolved: 0,
+    organized: 0,
+    conflicts: 0,
+    files: [],
+  };
+
+  // Stage 1: Discover
+  if (!options.quiet) console.log("\nStage 1: Discovering audio files...");
+  const discovery = await discoverMusic([options.libraryRoot], {
+    useMetadataGrouping: true,
+  });
+
+  const allFiles: string[] = [
+    ...(discovery.albumGroups?.flatMap((g) => g.files) ?? []),
+    ...discovery.singles,
+  ];
+  report.totalFiles = allFiles.length;
+
+  if (allFiles.length === 0) {
+    if (!options.quiet) console.log("  No audio files found.");
+    return report;
+  }
+
+  if (!options.quiet) console.log(`  Found ${allFiles.length} audio files.`);
+
+  // Stage 2-3: Fingerprint + Identify
+  if (!options.quiet) {
+    console.log("\nStage 2-3: Fingerprinting and identifying...");
+  }
+  const acoustIdRateLimiter = new RateLimiter(ACOUSTID_RATE_LIMIT_MS);
+
+  const fileRecordingMap = new Map<string, string>(); // path -> recordingId
+  const fileAcoustIdMap = new Map<string, string>(); // path -> acoustId
+
+  for (const filePath of allFiles) {
+    const fingerprint = await generateFingerprint(filePath);
+    if (!fingerprint) {
+      if (!options.quiet) {
+        console.log(`  Skipped (no fingerprint): ${filePath}`);
+      }
+      continue;
+    }
+
+    const duration = await getAudioDuration(filePath);
+    await acoustIdRateLimiter.acquire();
+    const lookup = await lookupFingerprint(
+      fingerprint,
+      duration,
+      options.apiKey,
+    );
+    const mbIds = extractMusicBrainzIds(lookup);
+
+    if (mbIds.trackId) {
+      fileRecordingMap.set(filePath, mbIds.trackId);
+    }
+    if (lookup?.results?.[0]?.id) {
+      fileAcoustIdMap.set(filePath, lookup.results[0].id);
+    }
+  }
+
+  if (!options.quiet) {
+    console.log(
+      `  Identified ${fileRecordingMap.size}/${allFiles.length} files.`,
+    );
+  }
+
+  // Stages 4+ will be added in Task 10
+  return report;
+}
