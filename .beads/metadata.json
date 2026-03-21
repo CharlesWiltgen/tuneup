@@ -2,6 +2,6 @@
   "database": "dolt",
   "backend": "dolt",
   "dolt_mode": "server",
-  "dolt_database": "beads_amusic",
+  "dolt_database": "beads_tuneup",
   "project_id": "a73430c0-c17b-40a8-8d7e-5f45953b86d5"
 }

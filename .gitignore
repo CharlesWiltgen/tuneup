@@ -133,7 +133,7 @@ taglib.wasm
 .yarn/install-state.gz
 .pnp.*
 
-# Temporary files from amusic.ts integration tests
+# Temporary files from tuneup.ts integration tests
 .test_run_files/
 tests/test_run_files/
 tests/test_audio/
@@ -151,7 +151,7 @@ TASKS.md
 mise.toml
 
 # VSCode workspace
-amusic.code-workspace
+tuneup.code-workspace
 
 # Linter configuration
 .markdownlint.json

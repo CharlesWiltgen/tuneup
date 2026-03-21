@@ -1,10 +1,10 @@
 {
-  "name": "amusic",
+  "name": "tuneup",
   "version": "0.8.0",
   "exports": {},
   "tasks": {
-    "start": "deno run --allow-read --allow-run --allow-write --allow-env --allow-net src/amusic.ts",
-    "build": "deno run --allow-read --allow-write scripts/generate_version.ts && deno compile --no-check --allow-read --allow-run --allow-write --allow-env --allow-net --include=src/vendor --include=src/workers -o dist/amusic src/amusic.ts && deno run --allow-run --allow-read --allow-write scripts/sign_macos.ts",
+    "start": "deno run --allow-read --allow-run --allow-write --allow-env --allow-net src/tuneup.ts",
+    "build": "deno run --allow-read --allow-write scripts/generate_version.ts && deno compile --no-check --allow-read --allow-run --allow-write --allow-env --allow-net --include=src/vendor --include=src/workers -o dist/tuneup src/tuneup.ts && deno run --allow-run --allow-read --allow-write scripts/sign_macos.ts",
     "check": "deno fmt --check && deno lint",
     "fix": "deno fmt && deno lint",
     "test": "deno test --allow-read --allow-run --allow-write --allow-env --allow-net",
@@ -18,12 +18,12 @@
   },
   "exclude": [
     "dist/",
-    "amusic"
+    "tuneup"
   ],
   "fmt": {
     "exclude": [
       "dist/",
-      "amusic",
+      "tuneup",
       ".beads/",
       "AGENTS.md"
     ]
@@ -31,7 +31,7 @@
   "lint": {
     "exclude": [
       "dist/",
-      "amusic"
+      "tuneup"
     ]
   },
   "importMap": "import_map.json"
