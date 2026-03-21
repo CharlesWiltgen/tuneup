@@ -15,16 +15,16 @@ jobs:
         include:
           - os: macos-latest
             target: aarch64-apple-darwin
-            name: amusic-macos-arm64
+            name: tuneup-macos-arm64
           - os: macos-latest
             target: x86_64-apple-darwin
-            name: amusic-macos-x86_64
+            name: tuneup-macos-x86_64
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            name: amusic-linux-x86_64
+            name: tuneup-linux-x86_64
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            name: amusic-windows-x86_64
+            name: tuneup-windows-x86_64
 
     runs-on: ${{ matrix.os }}
 
@@ -51,7 +51,7 @@ jobs:
             --target ${{ matrix.target }} \
             --include src/vendor \
             --output dist/${{ matrix.name }} \
-            src/amusic.ts
+            src/tuneup.ts
 
       - name: Create archive (Unix)
         if: runner.os != 'Windows'

@@ -47,7 +47,7 @@ jobs:
       - name: Run Deno Tests
         run: deno test --import-map=import_map.json --no-check --allow-net --allow-read --allow-run --allow-write --allow-env
         # Note: --allow-net might be needed if any test makes network requests.
-        # The current tests for amusic.ts do not seem to require network access.
+        # The current tests for tuneup.ts do not seem to require network access.
         # --allow-env is needed for Deno.makeTempDir and other environment interactions.
         # --allow-write is needed for ffmpeg/fpcalc creating temp files and for tests creating test_run_files
         # --allow-read is needed for reading script files and audio samples

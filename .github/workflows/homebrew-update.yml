@@ -33,9 +33,9 @@ jobs:
           gh release download "$TAG" -p "*.sha256" -D /tmp/checksums
 
           # Extract SHA256 values
-          SHA256_MACOS_ARM64=$(cat /tmp/checksums/amusic-macos-arm64.tar.gz.sha256 | awk '{print $1}')
-          SHA256_MACOS_X86_64=$(cat /tmp/checksums/amusic-macos-x86_64.tar.gz.sha256 | awk '{print $1}')
-          SHA256_LINUX_X86_64=$(cat /tmp/checksums/amusic-linux-x86_64.tar.gz.sha256 | awk '{print $1}')
+          SHA256_MACOS_ARM64=$(cat /tmp/checksums/tuneup-macos-arm64.tar.gz.sha256 | awk '{print $1}')
+          SHA256_MACOS_X86_64=$(cat /tmp/checksums/tuneup-macos-x86_64.tar.gz.sha256 | awk '{print $1}')
+          SHA256_LINUX_X86_64=$(cat /tmp/checksums/tuneup-linux-x86_64.tar.gz.sha256 | awk '{print $1}')
 
           echo "sha256_macos_arm64=$SHA256_MACOS_ARM64" >> $GITHUB_OUTPUT
           echo "sha256_macos_x86_64=$SHA256_MACOS_X86_64" >> $GITHUB_OUTPUT
@@ -55,7 +55,7 @@ jobs:
               -e "s/{{SHA256_MACOS_ARM64}}/$SHA256_MACOS_ARM64/g" \
               -e "s/{{SHA256_MACOS_X86_64}}/$SHA256_MACOS_X86_64/g" \
               -e "s/{{SHA256_LINUX_X86_64}}/$SHA256_LINUX_X86_64/g" \
-              homebrew/amusic.rb.template > amusic.rb
+              homebrew/tuneup.rb.template > tuneup.rb
 
       - name: Create Pull Request to homebrew-tap
         env:
@@ -76,20 +76,20 @@ jobs:
           cd /tmp/homebrew-tap
 
           # Create a new branch
-          BRANCH="update-amusic-${{ steps.release_info.outputs.version }}"
+          BRANCH="update-tuneup-${{ steps.release_info.outputs.version }}"
           git checkout -b "$BRANCH"
 
           # Copy the updated formula
-          cp "${{ github.workspace }}/amusic.rb" Formula/amusic.rb
+          cp "${{ github.workspace }}/tuneup.rb" Formula/tuneup.rb
 
           # Commit and push
-          git add Formula/amusic.rb
-          git commit -m "Update amusic to version ${{ steps.release_info.outputs.version }}"
+          git add Formula/tuneup.rb
+          git commit -m "Update tuneup to version ${{ steps.release_info.outputs.version }}"
           git push origin "$BRANCH"
 
           # Create pull request
           gh pr create \
-            --title "Update amusic to version ${{ steps.release_info.outputs.version }}" \
-            --body "Automated update of amusic formula to version ${{ steps.release_info.outputs.version }}" \
+            --title "Update tuneup to version ${{ steps.release_info.outputs.version }}" \
+            --body "Automated update of tuneup formula to version ${{ steps.release_info.outputs.version }}" \
             --base main \
             --head "$BRANCH"
