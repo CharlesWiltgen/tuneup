@@ -1,4 +1,4 @@
-// Helpers specific to testing the amusic CLI
+// Helpers specific to testing the tuneup CLI
 import { resolve } from "@std/path";
 import { getAcoustIDTags, writeAcoustIDTags } from "../lib/tagging.ts";
 
@@ -8,17 +8,17 @@ export interface AmusicRunResult {
   stderr: string;
 }
 
-const AMUSIC_SCRIPT_PATH = "./src/amusic.ts";
+const TUNEUP_SCRIPT_PATH = "./src/tuneup.ts";
 
 /**
- * Runs the amusic.ts script with the specified arguments
+ * Runs the tuneup.ts script with the specified arguments
  */
 export async function runAmusicScript(
   args: string[],
   cwd: string,
   env?: Record<string, string>,
 ): Promise<AmusicRunResult> {
-  const scriptPath = resolve(AMUSIC_SCRIPT_PATH);
+  const scriptPath = resolve(TUNEUP_SCRIPT_PATH);
   const importMapPath = resolve("import_map.json");
   const command = new Deno.Command(Deno.execPath(), {
     args: [
