@@ -13,7 +13,7 @@ describe("fix command registration", () => {
 
 describe("fix command E2E", () => {
   it("should run fix --dry-run on an empty folder without errors", async () => {
-    const testDir = await Deno.makeTempDir({ prefix: "amusic-fix-test-" });
+    const testDir = await Deno.makeTempDir({ prefix: "tuneup-fix-test-" });
     try {
       const cmd = new Deno.Command("deno", {
         args: [
@@ -23,7 +23,7 @@ describe("fix command E2E", () => {
           "--allow-write",
           "--allow-env",
           "--allow-net",
-          "src/amusic.ts",
+          "src/tuneup.ts",
           "fix",
           testDir,
           "--dry-run",

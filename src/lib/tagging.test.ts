@@ -11,7 +11,7 @@ import { ensureTagLib } from "./taglib_init.ts";
 import { createSilentAudioFile } from "../test_utils/file_helpers.ts";
 
 async function withTempAudioFile(fn: (tmpFile: string) => Promise<void>) {
-  const tmpDir = await Deno.makeTempDir({ prefix: "amusic-test-mb-" });
+  const tmpDir = await Deno.makeTempDir({ prefix: "tuneup-test-mb-" });
   try {
     const tmpFile = join(tmpDir, "test.wav");
     await createSilentAudioFile(tmpFile);

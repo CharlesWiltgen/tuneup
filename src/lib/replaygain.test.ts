@@ -261,7 +261,7 @@ describe("calculateReplayGainForGroup", () => {
       Deno,
       "makeTempDir",
       returnsNext([
-        Promise.resolve("/tmp/amusic-rg-test"),
+        Promise.resolve("/tmp/tuneup-rg-test"),
       ]),
     );
     const symlinkStub = stub(
@@ -289,7 +289,7 @@ describe("calculateReplayGainForGroup", () => {
       );
       assertEquals(result, { success: true });
       const args = MockDenoCommand.getLastArgs("rsgain");
-      assertEquals(args?.includes("/tmp/amusic-rg-test"), true);
+      assertEquals(args?.includes("/tmp/tuneup-rg-test"), true);
     } finally {
       consoleStub.restore();
       MockDenoCommand.restore();
@@ -312,7 +312,7 @@ describe("calculateReplayGainForGroup", () => {
       Deno,
       "makeTempDir",
       returnsNext([
-        Promise.resolve("/tmp/amusic-rg-fail"),
+        Promise.resolve("/tmp/tuneup-rg-fail"),
       ]),
     );
     const symlinkStub = stub(

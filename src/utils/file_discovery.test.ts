@@ -7,7 +7,7 @@ import { listAudioFilesRecursive as collectAudioFiles } from "../lib/fastest_aud
 
 // Test helpers
 async function createTempDir(): Promise<string> {
-  const tempDir = await Deno.makeTempDir({ prefix: "amusic-test-" });
+  const tempDir = await Deno.makeTempDir({ prefix: "tuneup-test-" });
   return tempDir;
 }
 

@@ -23,7 +23,7 @@ import {
 const ORIGINAL_SAMPLE_FILES_DIR = resolve("sample_audio_files");
 
 // --- Test Suite ---
-Deno.test("amusic.ts Integration Tests", async (t) => {
+Deno.test("tuneup.ts Integration Tests", async (t) => {
   let currentTestDir: string;
 
   await t.step("Basic Fingerprinting: Process a clean MP3 file", async () => {
@@ -45,7 +45,7 @@ Deno.test("amusic.ts Integration Tests", async (t) => {
       forceFlag = ["--force"];
     }
 
-    // 2. Run amusic.ts on the file
+    // 2. Run tuneup.ts on the file
     // Pass only the basename as CWD is currentTestDir
     const result = await runAmusicScript(
       ["process", "--acoust-id", ...forceFlag, mp3BaseName],
@@ -104,7 +104,7 @@ Deno.test("amusic.ts Integration Tests", async (t) => {
       "Fingerprint not added after initial processing.",
     );
 
-    // 2. Run amusic.ts again without --force
+    // 2. Run tuneup.ts again without --force
     runResult = await runAmusicScript(
       ["process", "--acoust-id", mp3BaseName],
       currentTestDir,
@@ -159,7 +159,7 @@ Deno.test("amusic.ts Integration Tests", async (t) => {
         "Fingerprint not added after initial processing for force test.",
       );
 
-      // 2. Run amusic.ts again with --force
+      // 2. Run tuneup.ts again with --force
       // Note: fpcalc should ideally generate the same fingerprint for the same file.
       // If it does, this test won't strictly prove an "overwrite" vs. "idempotent operation".
       // However, it proves the "--force" path is taken.
@@ -213,14 +213,14 @@ Deno.test("amusic.ts Integration Tests", async (t) => {
     currentTestDir = await createTestRunDir("file_not_found");
     const nonExistentFileName = "non_existent_file.mp3";
 
-    // Run amusic.ts, expecting it to handle the non-existent file path
+    // Run tuneup.ts, expecting it to handle the non-existent file path
     // CWD is currentTestDir, so nonExistentFileName is relative to it.
     const result = await runAmusicScript([nonExistentFileName], currentTestDir);
 
     // Assertions
     // The script currently logs an error per file and doesn't set a non-zero exit code overall
     // if other files (if any) were processed successfully.
-    // For a single non-existent file, the behavior of amusic.ts might be to still exit 0.
+    // For a single non-existent file, the behavior of tuneup.ts might be to still exit 0.
     // We primarily care that the error is logged.
     // Check either stdout or stderr for the error message
     const combinedOutput = result.stdout + result.stderr;
@@ -251,7 +251,7 @@ Deno.test("amusic.ts Integration Tests", async (t) => {
       // Both files probably have tags already, so we'll test with that reality
       // We'll use --force on one file to show processing
 
-      // 3. Run amusic.ts on both files with --force on MP3
+      // 3. Run tuneup.ts on both files with --force on MP3
       const mainResult = await runAmusicScript(
         ["process", "--acoust-id", "--force", mp3BaseName, flacBaseName],
         currentTestDir,
@@ -311,7 +311,7 @@ Deno.test("--show-tags and --dry-run Functionality", async (t) => {
       MOCK_ACOUSTID.FINGERPRINT,
     );
 
-    // Run amusic.ts with --show-tags
+    // Run tuneup.ts with --show-tags
     const result = await runAmusicScript(
       ["--show-tags", basename(audioFile)],
       currentTestDir,
