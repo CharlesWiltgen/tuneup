@@ -8,4 +8,5 @@
 {"key":"compact_tier2_dep_levels","value":"5"}
 {"key":"compaction_enabled","value":"false"}
 {"key":"issue_prefix","value":"amusic"}
-{"key":"schema_version","value":"6"}
+{"key":"kv.memory.interactive-mode-added-as-default-cli-experience-2026","value":"Interactive mode added as default CLI experience (2026-03-18). Running 'amusic' or 'amusic /path' enters interactive prompts via @cliffy/prompt. Old default AcoustID behavior moved to 'process --acoust-id'. --show-tags preserved as non-interactive flag. Uses Prompter DI interface for testability. Also fixed pre-existing acoustId/acoustID casing bug in process subcommand CLI mapping."}
+{"key":"schema_version","value":"7"}
