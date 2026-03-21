@@ -151,7 +151,7 @@ export async function enrichCommand(
 
   if (skippedNoMbId > 0 && !options.quiet) {
     writeStderr(
-      `Skipped ${skippedNoMbId} files without MusicBrainz recording ID. Run 'amusic process --acoust-id' first.\n`,
+      `Skipped ${skippedNoMbId} files without MusicBrainz recording ID. Run 'tuneup process --acoust-id' first.\n`,
     );
   }
 

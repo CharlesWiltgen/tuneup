@@ -120,7 +120,7 @@ export async function calculateReplayGainForGroup(
     return calculateReplayGain(files[0], quiet, returnData);
   }
 
-  const tempDir = await Deno.makeTempDir({ prefix: "amusic-rg-" });
+  const tempDir = await Deno.makeTempDir({ prefix: "tuneup-rg-" });
   try {
     const symlinkMap = new Map<string, string>();
     const usedNames = new Map<string, number>();

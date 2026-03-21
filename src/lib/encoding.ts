@@ -346,7 +346,7 @@ async function copyMetadata(
 
     const coverArtWarning = copyCoverArtSafe(pictures, destFile);
 
-    const encoderInfo = `Encoded with amusic v${VERSION} (taglib-wasm)`;
+    const encoderInfo = `Encoded with tuneup v${VERSION} (taglib-wasm)`;
     const existingComment = destTag.comment;
     destTag.setComment(
       existingComment ? `${existingComment}\n${encoderInfo}` : encoderInfo,

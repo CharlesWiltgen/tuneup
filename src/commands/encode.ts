@@ -166,12 +166,12 @@ function showEncodingFeedback(
 ): void {
   if (folderArray.length === 1) {
     console.log(
-      `\n🗜️ amusic has started to encode 📁 \x1b[1m\x1b[94m${
+      `\n🗜️ tuneup has started to encode 📁 \x1b[1m\x1b[94m${
         folderArray[0]
       }\x1b[0m`,
     );
   } else {
-    console.log(`\n🗜️ amusic has started to encode:`);
+    console.log(`\n🗜️ tuneup has started to encode:`);
     for (const folder of folderArray) {
       const line = `  📁 \x1b[1m\x1b[94m${folder}\x1b[0m`;
       console.log(wrapEncodingLine(line, maxWidth));

@@ -31,7 +31,7 @@ export async function fixCommand(
   }
 
   if (!options.quiet) {
-    console.log(`\namusic fix: processing ${resolvedPath}`);
+    console.log(`\ntuneup fix: processing ${resolvedPath}`);
     if (options.dryRun) {
       console.log("  (dry run — no changes will be written)");
     }

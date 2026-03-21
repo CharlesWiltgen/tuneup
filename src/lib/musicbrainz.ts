@@ -3,7 +3,7 @@ import { normalizeForMatching } from "../utils/normalize.ts";
 
 const MUSICBRAINZ_API_BASE = "https://musicbrainz.org/ws/2";
 const USER_AGENT =
-  `amusic/${VERSION} (https://github.com/CharlesWiltgen/amusic)`;
+  `tuneup/${VERSION} (https://github.com/CharlesWiltgen/tuneup)`;
 const RATE_LIMIT_MS = 1100;
 const RETRY_DELAY_MS = 5000;
 const REQUEST_TIMEOUT_MS = 10000;

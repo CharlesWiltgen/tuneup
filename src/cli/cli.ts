@@ -24,7 +24,7 @@ export function setupCLI() {
   }
 
   const program = new Command()
-    .name("amusic")
+    .name("tuneup")
     .version(VERSION)
     .description(
       "A music library toolkit powered by taglib-wasm.\n\n" +
@@ -33,23 +33,23 @@ export function setupCLI() {
     )
     .example(
       "Show tags",
-      "amusic --show-tags /path/to/album/",
+      "tuneup --show-tags /path/to/album/",
     )
     .example(
       "Process album",
-      "amusic process --encode --replay-gain --acoust-id --soundcheck /path/to/album/",
+      "tuneup process --encode --replay-gain --acoust-id --soundcheck /path/to/album/",
     )
     .example(
       "Process library",
-      "amusic easy /path/to/music/ --api-key $ACOUSTID_API_KEY",
+      "tuneup easy /path/to/music/ --api-key $ACOUSTID_API_KEY",
     )
     .example(
       "Encode to M4A",
-      "amusic encode --output-dir ./encoded *.flac",
+      "tuneup encode --output-dir ./encoded *.flac",
     )
     .example(
       "Lint library",
-      "amusic lint /path/to/music/",
+      "tuneup lint /path/to/music/",
     )
     // Interactive mode as default action
     .option(
