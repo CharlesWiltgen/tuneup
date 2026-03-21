@@ -13,7 +13,7 @@ import {
   createTestRunDir,
   getAcousticIDFingerprintTag,
   MOCK_ACOUSTID,
-  runAmusicScript,
+  runTuneupScript,
   SAMPLE_FILES,
   setAcousticIDTags,
   setupTestFiles,
@@ -47,7 +47,7 @@ Deno.test("tuneup.ts Integration Tests", async (t) => {
 
     // 2. Run tuneup.ts on the file
     // Pass only the basename as CWD is currentTestDir
-    const result = await runAmusicScript(
+    const result = await runTuneupScript(
       ["process", "--acoust-id", ...forceFlag, mp3BaseName],
       currentTestDir,
     );
@@ -93,7 +93,7 @@ Deno.test("tuneup.ts Integration Tests", async (t) => {
     const mp3BaseName = basename(mp3ToTest);
 
     // 1. Add an initial fingerprint
-    let runResult = await runAmusicScript(
+    let runResult = await runTuneupScript(
       ["process", "--acoust-id", mp3BaseName],
       currentTestDir,
     );
@@ -105,7 +105,7 @@ Deno.test("tuneup.ts Integration Tests", async (t) => {
     );
 
     // 2. Run tuneup.ts again without --force
-    runResult = await runAmusicScript(
+    runResult = await runTuneupScript(
       ["process", "--acoust-id", mp3BaseName],
       currentTestDir,
     );
@@ -144,7 +144,7 @@ Deno.test("tuneup.ts Integration Tests", async (t) => {
       const flacBaseName = basename(flacToTest);
 
       // 1. Add an initial fingerprint
-      let runResult = await runAmusicScript(
+      let runResult = await runTuneupScript(
         ["process", "--acoust-id", flacBaseName],
         currentTestDir,
       );
@@ -163,7 +163,7 @@ Deno.test("tuneup.ts Integration Tests", async (t) => {
       // Note: fpcalc should ideally generate the same fingerprint for the same file.
       // If it does, this test won't strictly prove an "overwrite" vs. "idempotent operation".
       // However, it proves the "--force" path is taken.
-      runResult = await runAmusicScript(
+      runResult = await runTuneupScript(
         ["process", "--acoust-id", "--force", flacBaseName],
         currentTestDir,
       );
@@ -215,7 +215,7 @@ Deno.test("tuneup.ts Integration Tests", async (t) => {
 
     // Run tuneup.ts, expecting it to handle the non-existent file path
     // CWD is currentTestDir, so nonExistentFileName is relative to it.
-    const result = await runAmusicScript([nonExistentFileName], currentTestDir);
+    const result = await runTuneupScript([nonExistentFileName], currentTestDir);
 
     // Assertions
     // The script currently logs an error per file and doesn't set a non-zero exit code overall
@@ -252,7 +252,7 @@ Deno.test("tuneup.ts Integration Tests", async (t) => {
       // We'll use --force on one file to show processing
 
       // 3. Run tuneup.ts on both files with --force on MP3
-      const mainResult = await runAmusicScript(
+      const mainResult = await runTuneupScript(
         ["process", "--acoust-id", "--force", mp3BaseName, flacBaseName],
         currentTestDir,
       );
@@ -312,7 +312,7 @@ Deno.test("--show-tags and --dry-run Functionality", async (t) => {
     );
 
     // Run tuneup.ts with --show-tags
-    const result = await runAmusicScript(
+    const result = await runTuneupScript(
       ["--show-tags", basename(audioFile)],
       currentTestDir,
     );
@@ -348,7 +348,7 @@ Deno.test("--show-tags and --dry-run Functionality", async (t) => {
 
     await createSilentAudioFile(audioFile);
 
-    const result = await runAmusicScript(
+    const result = await runTuneupScript(
       ["--show-tags", basename(audioFile)],
       currentTestDir,
     );
@@ -392,7 +392,7 @@ Deno.test("--show-tags and --dry-run Functionality", async (t) => {
       }
 
       // Run with --dry-run and dummy API key
-      const result = await runAmusicScript(
+      const result = await runTuneupScript(
         [
           "process",
           "--acoust-id",
@@ -446,7 +446,7 @@ Deno.test("--show-tags and --dry-run Functionality", async (t) => {
       assertExists(initialFingerprint, "Sample file should have existing tags");
 
       // Run with --dry-run and --force
-      const result = await runAmusicScript(
+      const result = await runTuneupScript(
         [
           "process",
           "--acoust-id",
@@ -487,7 +487,7 @@ Deno.test("Error Handling Edge Cases", async (t) => {
     const subDir = join(currentTestDir, "subdir");
     await ensureDir(subDir);
 
-    const result = await runAmusicScript(
+    const result = await runTuneupScript(
       ["process", "--acoust-id", "subdir"],
       currentTestDir,
     );
@@ -507,7 +507,7 @@ Deno.test("Error Handling Edge Cases", async (t) => {
     const txtFile = join(currentTestDir, "readme.txt");
     await Deno.writeTextFile(txtFile, "This is not an audio file");
 
-    const result = await runAmusicScript(
+    const result = await runTuneupScript(
       ["process", "--acoust-id", "readme.txt"],
       currentTestDir,
     );
@@ -553,7 +553,7 @@ Deno.test("API Key Integration", async (t) => {
       const cleanEnv = { ...Deno.env.toObject() };
       delete cleanEnv.ACOUSTID_API_KEY;
 
-      const result = await runAmusicScript(args, currentTestDir, cleanEnv);
+      const result = await runTuneupScript(args, currentTestDir, cleanEnv);
 
       assertEquals(result.code, 0);
       // process command proceeds with AcoustID operation even without API key
@@ -588,7 +588,7 @@ Deno.test("API Key Integration", async (t) => {
       const args = existingTag
         ? ["process", "--acoust-id", "--force", basename(mp3File)]
         : ["process", "--acoust-id", basename(mp3File)];
-      const result = await runAmusicScript(args, currentTestDir);
+      const result = await runTuneupScript(args, currentTestDir);
 
       assertEquals(result.code, 0);
       // Should attempt API lookup (will fail with mock key, but that's expected)

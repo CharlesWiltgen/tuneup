@@ -89,7 +89,7 @@ export async function enrichCommand(
   const taglib = await ensureTagLib();
   const albumGroups = new Map<string, AlbumFileInfo[]>();
   let skippedNoMbId = 0;
-  let skippedPreviouslyEnriched = 0;
+  let skippedAlreadyEnriched = 0;
 
   for (const item of batchResult.items) {
     if (item.status === "error") continue;
@@ -107,10 +107,11 @@ export async function enrichCommand(
         continue;
       }
 
-      // Check enrichment marker (skip if previously enriched unless --force)
-      const enrichedMarker = audioFile.getProperty("AMUSIC_ENRICHED");
-      if (enrichedMarker && !options.force) {
-        skippedPreviouslyEnriched++;
+      const existingReleaseId = audioFile.getProperty(
+        PROPERTIES.musicbrainzReleaseId.key,
+      );
+      if (existingReleaseId && !options.force) {
+        skippedAlreadyEnriched++;
         continue;
       }
 
@@ -155,9 +156,9 @@ export async function enrichCommand(
     );
   }
 
-  if (skippedPreviouslyEnriched > 0 && !options.quiet) {
+  if (skippedAlreadyEnriched > 0 && !options.quiet) {
     writeStderr(
-      `Skipped ${skippedPreviouslyEnriched} previously enriched files. Use --force to re-enrich.\n`,
+      `Skipped ${skippedAlreadyEnriched} already-enriched files. Use --force to re-enrich.\n`,
     );
   }
 
@@ -460,8 +461,6 @@ async function applyFileDiff(fileDiff: FileDiff): Promise<boolean> {
           break;
       }
     }
-    // Write AMUSIC_ENRICHED marker
-    audioFile.setProperty("AMUSIC_ENRICHED", "1");
     await audioFile.saveToFile();
     return true;
   } catch (error) {

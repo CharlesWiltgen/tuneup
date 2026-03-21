@@ -2,7 +2,7 @@
 import { resolve } from "@std/path";
 import { getAcoustIDTags, writeAcoustIDTags } from "../lib/tagging.ts";
 
-export interface AmusicRunResult {
+export interface TuneupRunResult {
   code: number;
   stdout: string;
   stderr: string;
@@ -13,11 +13,11 @@ const TUNEUP_SCRIPT_PATH = "./src/tuneup.ts";
 /**
  * Runs the tuneup.ts script with the specified arguments
  */
-export async function runAmusicScript(
+export async function runTuneupScript(
   args: string[],
   cwd: string,
   env?: Record<string, string>,
-): Promise<AmusicRunResult> {
+): Promise<TuneupRunResult> {
   const scriptPath = resolve(TUNEUP_SCRIPT_PATH);
   const importMapPath = resolve("import_map.json");
   const command = new Deno.Command(Deno.execPath(), {
