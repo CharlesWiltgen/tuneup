@@ -1,4 +1,4 @@
-# Requirements for amusic CLI
+# Requirements for tuneup CLI
 
 - **No fallback to system binaries for `rsgain` and `fpcalc`.**\
   The code must always use the vendored `rsgain` and `fpcalc` binaries included

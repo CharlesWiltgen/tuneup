@@ -1,6 +1,6 @@
-# amusic
+# tuneup
 
-`amusic` is a command-line music utility for the care and feeding of local music
+`tuneup` is a command-line music utility for the care and feeding of local music
 libraries. It handles the full lifecycle of music metadata: fingerprinting,
 identification, enrichment, volume normalization, encoding, and quality checks.
 
@@ -8,13 +8,13 @@ identification, enrichment, volume normalization, encoding, and quality checks.
 
 ```bash
 brew tap CharlesWiltgen/tap
-brew install amusic
+brew install tuneup
 ```
 
 To update to the latest version:
 
 ```bash
-brew upgrade amusic
+brew upgrade tuneup
 ```
 
 See [Installation](#installation) for other options including pre-built binaries
@@ -57,22 +57,22 @@ option or by setting the `ACOUSTID_API_KEY` environment variable:
 export ACOUSTID_API_KEY=your_api_key_here
 
 # Then run without repeating the flag:
-amusic <file1> [file2 ...]
+tuneup <file1> [file2 ...]
 ```
 
 Alternatively, you can pass the key directly:
 
 ```bash
-amusic --api-key $ACOUSTID_API_KEY <file1> [file2 ...]
+tuneup --api-key $ACOUSTID_API_KEY <file1> [file2 ...]
 ```
 
 It retrieves and embeds the `ACOUSTID_ID` (the UUID from the AcoustID database)
 and MusicBrainz recording IDs. To enrich tags with full metadata (title, artist,
-album, etc.), run `amusic enrich` after AcoustID processing.
+album, etc.), run `tuneup enrich` after AcoustID processing.
 
 ## Dependencies
 
-`amusic` requires only Deno to run. All audio metadata operations are handled by
+`tuneup` requires only Deno to run. All audio metadata operations are handled by
 the built-in taglib-wasm library, and the required external tools are included
 as vendor binaries:
 
@@ -93,24 +93,24 @@ project.
 
 ### Option 1: Homebrew (macOS and Linux)
 
-Once the Homebrew tap is set up, you can install amusic with:
+Once the Homebrew tap is set up, you can install tuneup with:
 
 ```bash
 brew tap CharlesWiltgen/tap
-brew install amusic
+brew install tuneup
 ```
 
 To update to the latest version:
 
 ```bash
 brew update
-brew upgrade amusic
+brew upgrade tuneup
 ```
 
 ### Option 2: Download Pre-built Binary
 
 Download the latest release for your platform from the
-[Releases](https://github.com/CharlesWiltgen/amusic/releases) page. Pre-built
+[Releases](https://github.com/CharlesWiltgen/tuneup/releases) page. Pre-built
 binaries are available for:
 
 - macOS (Apple Silicon M1/M2/M3 and Intel)
@@ -124,8 +124,8 @@ Extract the archive and optionally move the binary to a location in your PATH.
 1. Ensure Deno is installed.
 2. Clone this repository:
    ```bash
-   git clone https://github.com/CharlesWiltgen/amusic.git
-   cd amusic
+   git clone https://github.com/CharlesWiltgen/tuneup.git
+   cd tuneup
    ```
 3. (Optional) Build a standalone executable (includes the platform-specific
    vendor binaries):
@@ -136,27 +136,27 @@ Extract the archive and optionally move the binary to a location in your PATH.
 
 > **Note (macOS)**\
 > The build task will automatically remove any quarantine attributes and perform
-> an ad-hoc code signing of the generated `dist/amusic` binary so that the
+> an ad-hoc code signing of the generated `dist/tuneup` binary so that the
 > embedded vendor tools (`fpcalc`/`rsgain`) can be executed without encountering
 > "No such file or directory (os error 2)".
 
 ## Usage
 
 > **Note:** If you've built a standalone executable using `deno task build`, you
-> can run it directly from `dist/amusic`:
+> can run it directly from `dist/tuneup`:
 
 ```bash
-./dist/amusic [options] <file1> [file2 ...]
+./dist/tuneup [options] <file1> [file2 ...]
 ```
 
-To use `amusic`, navigate to the directory containing `amusic.ts` and run the
+To use `tuneup`, navigate to the directory containing `tuneup.ts` and run the
 script using `deno run`. Provide the paths to the audio files you want to
 process as arguments.
 
 **Syntax:**
 
 ```bash
-deno run --allow-read --allow-run --allow-write --allow-env --allow-net amusic.ts [options] <file1> [file2 ...]
+deno run --allow-read --allow-run --allow-write --allow-env --allow-net tuneup.ts [options] <file1> [file2 ...]
 ```
 
 - `--allow-read`: Required to read audio files.
@@ -193,7 +193,7 @@ files successfully processed, skipped, and failed.
 Process files to generate and embed AcoustID fingerprints:
 
 ```bash
-amusic [options] <files...>
+tuneup [options] <files...>
 ```
 
 ### Easy Mode: Process Music Library
@@ -202,7 +202,7 @@ Process a music library organized by album folders. Calculates ReplayGain for
 each album and AcoustID for each track:
 
 ```bash
-amusic easy <library> [options]
+tuneup easy <library> [options]
 ```
 
 ### Process Command: Unified Processing
@@ -211,7 +211,7 @@ Process audio files with multiple operations in a single pass. By default,
 folders are treated as albums:
 
 ```bash
-amusic process [options] <paths...>
+tuneup process [options] <paths...>
 ```
 
 Options:
@@ -229,10 +229,10 @@ Options:
 ### Enrich Command: MusicBrainz Metadata Enrichment
 
 Enrich your music library with metadata from MusicBrainz. Requires files to
-already have MusicBrainz recording IDs (run `amusic process --acoust-id` first).
+already have MusicBrainz recording IDs (run `tuneup process --acoust-id` first).
 
 ```bash
-amusic enrich <path>
+tuneup enrich <path>
 ```
 
 **By default, `enrich` is interactive.** For each album, it shows a diff of
@@ -250,13 +250,13 @@ Options:
 
 ```bash
 # Interactive (default) — review and approve each album
-amusic enrich /path/to/music/library
+tuneup enrich /path/to/music/library
 
 # Preview changes without writing anything
-amusic enrich --dry-run /path/to/music/library
+tuneup enrich --dry-run /path/to/music/library
 
 # Unattended — overwrites all tags without prompting (use with caution)
-amusic enrich --dangerously-overwrite-tags /path/to/music/library
+tuneup enrich --dangerously-overwrite-tags /path/to/music/library
 ```
 
 ### Encode Command: High-Quality AAC Encoding
@@ -264,7 +264,7 @@ amusic enrich --dangerously-overwrite-tags /path/to/music/library
 Encode lossless audio files to M4A/AAC format (macOS only):
 
 ```bash
-amusic encode [options] <files...>
+tuneup encode [options] <files...>
 ```
 
 Options:
@@ -277,7 +277,7 @@ Options:
 Generate and embed Apple SoundCheck (ITUNNORM) metadata:
 
 ```bash
-amusic soundcheck [options] <files...>
+tuneup soundcheck [options] <files...>
 ```
 
 Options:
@@ -292,7 +292,7 @@ Scan a music library for tagging problems, inconsistencies, and file integrity
 issues:
 
 ```bash
-amusic lint [options] <path>
+tuneup lint [options] <path>
 ```
 
 Options:
@@ -315,7 +315,7 @@ Inspect the music library structure without processing files (useful for
 debugging):
 
 ```bash
-amusic x-ray [options] <files...>
+tuneup x-ray [options] <files...>
 ```
 
 Options:
@@ -326,7 +326,7 @@ Options:
 
 ## Folder Processing Behavior
 
-By default, `amusic` intelligently processes folders:
+By default, `tuneup` intelligently processes folders:
 
 - **Leaf folders** (containing audio files but no subfolders) are treated as
   **albums**
@@ -340,7 +340,7 @@ hierarchy.
 
 ### Album/Single Detection Rules
 
-`amusic` uses both directory structure and metadata to determine whether tracks
+`tuneup` uses both directory structure and metadata to determine whether tracks
 should be processed as albums or singles:
 
 **Core Principle**: An album is a group of 2+ audio files that share the same
@@ -395,20 +395,20 @@ album tag.
 1. **Generate and add fingerprint to an audio file:**
 
    ```bash
-   amusic "./path/to/your/music file.mp3"
+   tuneup "./path/to/your/music file.mp3"
    ```
 
 2. **Process an album folder:** Calculate and embed ReplayGain metadata and
    generate AcoustID fingerprints for all tracks in a single folder:
 
    ```bash
-   amusic process --replay-gain --acoust-id "/path/to/album_folder"
+   tuneup process --replay-gain --acoust-id "/path/to/album_folder"
    ```
 
 3. **Process multiple artists with some singles folders:**
 
    ```bash
-   amusic process --encode --replay-gain --acoust-id \
+   tuneup process --encode --replay-gain --acoust-id \
      --singles "Singles" --singles "Compilations" \
      "/Music/Prince" "/Music/Madonna" "/Music/Singles"
    ```
@@ -416,26 +416,26 @@ album tag.
 4. **Encode lossless files to AAC, preserving folder structure:**
 
    ```bash
-   amusic encode -o "/Music/AAC" "/Music/FLAC"
+   tuneup encode -o "/Music/AAC" "/Music/FLAC"
    ```
 
 5. **Preview encoding without writing files:**
 
    ```bash
-   amusic encode --dry-run "/Music/FLAC/Artist/Album"
+   tuneup encode --dry-run "/Music/FLAC/Artist/Album"
    ```
 
 6. **Easy Mode: Process entire music library:**
 
    ```bash
-   amusic easy /path/to/music/library --api-key $ACOUSTID_API_KEY
+   tuneup easy /path/to/music/library --api-key $ACOUSTID_API_KEY
    ```
 
 7. **Process with unified command for maximum efficiency:**
 
    ```bash
    # Process everything in one pass: encode to M4A, calculate ReplayGain, and add AcoustID
-   amusic process --encode --replay-gain --acoust-id \
+   tuneup process --encode --replay-gain --acoust-id \
      --output-dir "/Music/Encoded" \
      "/Music/Lossless/Artist1" "/Music/Lossless/Artist2"
    ```
@@ -443,31 +443,31 @@ album tag.
 8. **Enrich metadata from MusicBrainz** (interactive — review each album):
 
    ```bash
-   amusic enrich /path/to/music/library
+   tuneup enrich /path/to/music/library
    ```
 
 9. **Preview enrichment changes without writing:**
 
    ```bash
-   amusic enrich --dry-run /path/to/music/library
+   tuneup enrich --dry-run /path/to/music/library
    ```
 
 10. **Re-enrich previously enriched files:**
 
     ```bash
-    amusic enrich --force /path/to/music/library
+    tuneup enrich --force /path/to/music/library
     ```
 
 11. **Check a library for tagging problems:**
 
     ```bash
-    amusic lint /path/to/music/library
-    amusic lint --deep /path/to/music/library  # includes file integrity checks
+    tuneup lint /path/to/music/library
+    tuneup lint --deep /path/to/music/library  # includes file integrity checks
     ```
 
 ## Contributing
 
-Contributions are welcome! If you'd like to help improve `amusic` or add new
+Contributions are welcome! If you'd like to help improve `tuneup` or add new
 features, please feel free to:
 
 - Report a bug or suggest a feature by opening an issue.

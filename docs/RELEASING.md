@@ -1,6 +1,6 @@
 # Release Process
 
-This document describes how to create a new release of amusic.
+This document describes how to create a new release of tuneup.
 
 ## Prerequisites
 
@@ -71,16 +71,16 @@ Once you push the tag, GitHub Actions will automatically:
 Each release includes:
 
 - **Binary Archives**: Platform-specific compressed binaries
-  - `amusic-macos-arm64.tar.gz`
-  - `amusic-macos-x86_64.tar.gz`
-  - `amusic-linux-x86_64.tar.gz`
-  - `amusic-windows-x86_64.zip`
+  - `tuneup-macos-arm64.tar.gz`
+  - `tuneup-macos-x86_64.tar.gz`
+  - `tuneup-linux-x86_64.tar.gz`
+  - `tuneup-windows-x86_64.zip`
 
 - **Checksums**: SHA256 checksums for each archive
-  - `amusic-macos-arm64.tar.gz.sha256`
-  - `amusic-macos-x86_64.tar.gz.sha256`
-  - `amusic-linux-x86_64.tar.gz.sha256`
-  - `amusic-windows-x86_64.zip.sha256`
+  - `tuneup-macos-arm64.tar.gz.sha256`
+  - `tuneup-macos-x86_64.tar.gz.sha256`
+  - `tuneup-linux-x86_64.tar.gz.sha256`
+  - `tuneup-windows-x86_64.zip.sha256`
 
 ## Manual Release (Emergency)
 
@@ -94,18 +94,18 @@ If the automated process fails, you can create a release manually:
 2. Create archives and checksums:
    ```bash
    # macOS/Linux
-   tar -czf amusic-$PLATFORM.tar.gz dist/amusic
-   sha256sum amusic-$PLATFORM.tar.gz > amusic-$PLATFORM.tar.gz.sha256
+   tar -czf tuneup-$PLATFORM.tar.gz dist/tuneup
+   sha256sum tuneup-$PLATFORM.tar.gz > tuneup-$PLATFORM.tar.gz.sha256
 
    # Windows (PowerShell)
-   Compress-Archive -Path dist\amusic.exe -DestinationPath amusic-windows-x86_64.zip
-   Get-FileHash amusic-windows-x86_64.zip -Algorithm SHA256
+   Compress-Archive -Path dist\tuneup.exe -DestinationPath tuneup-windows-x86_64.zip
+   Get-FileHash tuneup-windows-x86_64.zip -Algorithm SHA256
    ```
 
 3. Create a release on GitHub and upload the artifacts manually.
 
 4. Update the Homebrew formula manually using the template in
-   `homebrew/amusic.rb.template`.
+   `homebrew/tuneup.rb.template`.
 
 ## Troubleshooting
 

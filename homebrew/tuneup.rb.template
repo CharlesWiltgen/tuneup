@@ -1,0 +1,33 @@
+class Tuneup < Formula
+  desc "Command-line music utility showcasing taglib-wasm capabilities"
+  homepage "https://github.com/{{GITHUB_OWNER}}/tuneup"
+  version "{{VERSION}}"
+  license "MIT"
+
+  on_macos do
+    if Hardware::CPU.arm?
+      url "https://github.com/{{GITHUB_OWNER}}/tuneup/releases/download/v{{VERSION}}/tuneup-macos-arm64.tar.gz"
+      sha256 "{{SHA256_MACOS_ARM64}}"
+    else
+      url "https://github.com/{{GITHUB_OWNER}}/tuneup/releases/download/v{{VERSION}}/tuneup-macos-x86_64.tar.gz"
+      sha256 "{{SHA256_MACOS_X86_64}}"
+    end
+  end
+
+  on_linux do
+    url "https://github.com/{{GITHUB_OWNER}}/tuneup/releases/download/v{{VERSION}}/tuneup-linux-x86_64.tar.gz"
+    sha256 "{{SHA256_LINUX_X86_64}}"
+  end
+
+  def install
+    if OS.mac?
+      bin.install Hardware::CPU.arm? ? "tuneup-macos-arm64" : "tuneup-macos-x86_64" => "tuneup"
+    else
+      bin.install "tuneup-linux-x86_64" => "tuneup"
+    end
+  end
+
+  test do
+    assert_match version.to_s, shell_output("#{bin}/tuneup --version")
+  end
+end

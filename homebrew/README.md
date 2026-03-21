@@ -5,13 +5,13 @@ automatically updated when new releases are created.
 
 ## Setup Instructions
 
-To enable Homebrew distribution for amusic:
+To enable Homebrew distribution for tuneup:
 
 1. **Create a Homebrew Tap Repository**
 
    Create a new repository named `homebrew-tap` in your GitHub account:
    ```bash
-   gh repo create homebrew-tap --public --description "Homebrew tap for amusic"
+   gh repo create homebrew-tap --public --description "Homebrew tap for tuneup"
    ```
 
 2. **Initialize the Tap Repository**
@@ -21,7 +21,7 @@ To enable Homebrew distribution for amusic:
    git clone https://github.com/YOUR_USERNAME/homebrew-tap
    cd homebrew-tap
    mkdir -p Formula
-   echo "# Homebrew Tap for amusic" > README.md
+   echo "# Homebrew Tap for tuneup" > README.md
    git add .
    git commit -m "Initial commit"
    git push origin main
@@ -40,7 +40,7 @@ To enable Homebrew distribution for amusic:
 
 4. **Add the Token to Repository Secrets**
 
-   In your amusic repository:
+   In your tuneup repository:
    - Go to Settings → Secrets and variables → Actions
    - Create a new repository secret named `HOMEBREW_TAP_TOKEN`
    - Paste the token value
@@ -74,5 +74,5 @@ sed -e "s/{{GITHUB_OWNER}}/$GITHUB_OWNER/g" \
     -e "s/{{SHA256_MACOS_ARM64}}/$SHA256_MACOS_ARM64/g" \
     -e "s/{{SHA256_MACOS_X86_64}}/$SHA256_MACOS_X86_64/g" \
     -e "s/{{SHA256_LINUX_X86_64}}/$SHA256_LINUX_X86_64/g" \
-    amusic.rb.template > amusic.rb
+    tuneup.rb.template > tuneup.rb
 ```
