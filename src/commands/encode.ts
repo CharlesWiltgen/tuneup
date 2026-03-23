@@ -5,7 +5,7 @@ import type { CommandOptions } from "../types/command.ts";
 import { ENCODING_SUMMARY, OperationStats } from "../utils/operation_stats.ts";
 import { exitWithError, validateFiles } from "../utils/console_output.ts";
 import { exitWithFormattedError, formatError } from "../utils/error_utils.ts";
-import { EncodingSpinner } from "../utils/spinner.ts";
+import { ProgressReporter } from "../utils/progress_reporter.ts";
 
 interface EncodeOptions extends CommandOptions {
   forceLossyTranscodes?: boolean;
@@ -284,25 +284,17 @@ async function prepareEncodingTask(
 async function collectAllFiles(
   files: string[],
   forceEncode?: boolean,
+  quiet?: boolean,
 ): Promise<{ filesToProcess: string[]; fileBaseMap: Map<string, string> }> {
+  const discoveryReporter = new ProgressReporter({ quiet });
   const discovery = await discoverMusic(files, {
     forEncoding: true, // This will validate MPEG-4 codecs
     forceEncode, // Pass through force encode option
     parallelism: 16, // Increase parallelism for faster metadata reading
-    onProgress: (phase, current, total) => {
-      const message = total !== undefined
-        ? `→ ${phase}: ${current}/${total}`
-        : `→ ${phase}: ${current} files`;
-      Deno.stdout.writeSync(
-        new TextEncoder().encode(
-          `\x1b[2K\r${message}`,
-        ),
-      );
-    },
+    onProgress: discoveryReporter.discoveryCallback(),
   });
 
-  // Clear progress line
-  Deno.stdout.writeSync(new TextEncoder().encode("\x1b[2K\r"));
+  discoveryReporter.dispose();
 
   const filesToProcess = discovery.filesToEncode || [];
   const fileBaseMap = new Map<string, string>();
@@ -353,7 +345,9 @@ interface WorkerContext {
   taskQueue: EncodingTask[];
   activeJobs: Map<number, EncodingTask>;
   workerLogs: Map<number, string[]>;
-  spinner: EncodingSpinner | null;
+  spinner: ProgressReporter | null;
+  completedCount: number;
+  totalCount: number;
   stats: OperationStats;
   options: EncodeOptions;
 }
@@ -422,7 +416,7 @@ function handleWorkerDone(
 ): void {
   // Stop spinner and print logs
   if (ctx.spinner) {
-    ctx.spinner.stop();
+    ctx.spinner.stopSpinner();
   }
 
   const logs = ctx.workerLogs.get(id) ?? [];
@@ -440,9 +434,11 @@ function handleWorkerDone(
   }
 
   if (ctx.spinner) {
-    ctx.spinner.incrementCompleted();
+    ctx.completedCount++;
     if (ctx.taskQueue.length > 0 || ctx.activeJobs.size > 0) {
-      ctx.spinner.start();
+      ctx.spinner.startSpinner(
+        `Encoding... (${ctx.completedCount}/${ctx.totalCount} complete)`,
+      );
     }
   }
 
@@ -460,7 +456,7 @@ function processNextTask(ctx: WorkerContext): void {
       // All done - clean up workers
       ctx.workers.forEach((w) => w.terminate());
       if (ctx.spinner) {
-        ctx.spinner.stop();
+        ctx.spinner.dispose();
       }
     }
     return;
@@ -507,6 +503,7 @@ export async function encodeCommand(
   const { filesToProcess, fileBaseMap } = await collectAllFiles(
     files,
     options.forceLossyTranscodes,
+    options.quiet,
   );
 
   if (filesToProcess.length === 0) {
@@ -575,19 +572,24 @@ async function processWithWorkers(
   }
 
   // Create context
+  const totalCount = encodingTasks.length;
   const ctx: WorkerContext = {
     workers: [],
     availableWorkers: [],
     taskQueue: [...encodingTasks],
     activeJobs: new Map<number, EncodingTask>(),
     workerLogs: new Map<number, string[]>(),
-    spinner: options.quiet ? null : new EncodingSpinner(encodingTasks.length),
+    spinner: options.quiet
+      ? null
+      : new ProgressReporter({ quiet: options.quiet }),
+    completedCount: 0,
+    totalCount,
     stats,
     options,
   };
 
   if (ctx.spinner) {
-    ctx.spinner.start();
+    ctx.spinner.startSpinner(`Encoding... (0/${totalCount} complete)`);
   }
 
   // Create worker pool
