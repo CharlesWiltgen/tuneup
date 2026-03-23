@@ -1,12 +1,15 @@
 export interface ProgressReporterOptions {
   quiet?: boolean;
+  stream?: "stdout" | "stderr";
 }
 
 export class ProgressReporter {
   private encoder = new TextEncoder();
   private cursorHidden = false;
+  private writer: { writeSync(p: Uint8Array): number };
 
   constructor(private options: ProgressReporterOptions = {}) {
+    this.writer = options.stream === "stderr" ? Deno.stderr : Deno.stdout;
     if (!options.quiet) {
       this.hideCursor();
     }
@@ -19,7 +22,7 @@ export class ProgressReporter {
     const output = `\x1b[2K\r→ ${
       message || "Processing"
     }: ${current}/${total} (${percent}%)`;
-    Deno.stdout.writeSync(this.encoder.encode(output));
+    this.writer.writeSync(this.encoder.encode(output));
   }
 
   complete(message: string): void {
@@ -41,12 +44,12 @@ export class ProgressReporter {
   }
 
   private hideCursor(): void {
-    Deno.stdout.writeSync(this.encoder.encode("\x1b[?25l"));
+    this.writer.writeSync(this.encoder.encode("\x1b[?25l"));
     this.cursorHidden = true;
   }
 
   private showCursor(): void {
-    Deno.stdout.writeSync(this.encoder.encode("\x1b[?25h"));
+    this.writer.writeSync(this.encoder.encode("\x1b[?25h"));
     this.cursorHidden = false;
   }
 }

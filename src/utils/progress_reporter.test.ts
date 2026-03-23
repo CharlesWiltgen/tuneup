@@ -124,6 +124,31 @@ describe("ProgressReporter", () => {
     }
   });
 
+  it("should write to stderr when stream is stderr", () => {
+    const chunks: Uint8Array[] = [];
+    const originalWrite = Deno.stderr.writeSync;
+    Deno.stderr.writeSync = (p: Uint8Array) => {
+      chunks.push(p.slice());
+      return p.length;
+    };
+    const originalStdout = Deno.stdout.writeSync;
+    Deno.stdout.writeSync = (p: Uint8Array) => p.length;
+
+    try {
+      const reporter = new ProgressReporter({ stream: "stderr" });
+      reporter.update(1, 10, "Scanning");
+      reporter.dispose();
+
+      const output = new TextDecoder().decode(
+        new Uint8Array(chunks.flatMap((c) => [...c])),
+      );
+      assertEquals(output.includes("1/10"), true);
+    } finally {
+      Deno.stderr.writeSync = originalWrite;
+      Deno.stdout.writeSync = originalStdout;
+    }
+  });
+
   it("should clear current line before updating", () => {
     const output = captureStdout(() => {
       const reporter = new ProgressReporter();
