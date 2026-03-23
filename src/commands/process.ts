@@ -6,6 +6,7 @@ import { createInteractivePrompt } from "../utils/album_grouping.ts";
 import { discoverMusic } from "../utils/fast_discovery.ts";
 import type { CommandOptions } from "../types/command.ts";
 import { processCollection } from "./process_collection.ts";
+import { ProgressReporter } from "../utils/progress_reporter.ts";
 
 export interface ProcessCommandOptions extends CommandOptions {
   // Encoding options
@@ -29,15 +30,11 @@ export async function processCommand(
   options: ProcessCommandOptions,
   ...paths: string[]
 ): Promise<void> {
-  // Hide cursor for progress display
-  if (!options.quiet) {
-    Deno.stdout.writeSync(new TextEncoder().encode("\x1b[?25l"));
-  }
+  const reporter = new ProgressReporter({ quiet: options.quiet ?? false });
 
   try {
     const stats = new OperationStats();
 
-    // Discover music files
     if (!options.quiet) {
       console.log("🎵 Discovering music files...\n");
     }
@@ -47,27 +44,15 @@ export async function processCommand(
       singlePatterns: options.singles?.flat() || [],
       forEncoding: options.encode,
       onAmbiguous: createInteractivePrompt(options.quiet || false),
-      onProgress: (phase, current) => {
-        if (!options.quiet) {
-          Deno.stdout.writeSync(
-            new TextEncoder().encode(
-              `\x1b[2K\r→ ${phase}: ${current} files`,
-            ),
-          );
-        }
-      },
+      onProgress: reporter.discoveryCallback(),
     });
 
     if (!options.quiet) {
-      // Clear progress line
-      Deno.stdout.writeSync(
-        new TextEncoder().encode(`\x1b[2K\r`),
-      );
+      reporter.stopSpinner();
       console.log(
         `📊 Found ${discovery.albums.size} albums and ${discovery.singles.length} singles\n`,
       );
 
-      // Report skipped files if encoding
       if (
         options.encode && discovery.skippedFiles &&
         discovery.skippedFiles.length > 0
@@ -162,9 +147,6 @@ export async function processCommand(
       options.dryRun,
     );
   } finally {
-    // Show cursor
-    if (!options.quiet) {
-      Deno.stdout.writeSync(new TextEncoder().encode("\x1b[?25h"));
-    }
+    reporter.dispose();
   }
 }
