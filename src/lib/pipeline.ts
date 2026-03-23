@@ -3,16 +3,21 @@
 import { dirname, extname } from "@std/path";
 import type { ConfidenceCategory } from "./confidence.ts";
 import { categorizeConfidence } from "./confidence.ts";
-import { discoverMusic } from "../utils/fast_discovery.ts";
+import { discoverMusic as realDiscoverMusic } from "../utils/fast_discovery.ts";
+import type { MusicDiscovery } from "../utils/fast_discovery.ts";
 import {
   extractMusicBrainzIds,
-  generateFingerprint,
-  lookupFingerprint,
+  generateFingerprint as realGenerateFingerprint,
+  lookupFingerprint as realLookupFingerprint,
+  type LookupResult,
 } from "./acoustid.ts";
-import { getAudioDuration, getComprehensiveMetadata } from "./tagging.ts";
+import {
+  getAudioDuration as realGetAudioDuration,
+  getComprehensiveMetadata as realGetComprehensiveMetadata,
+} from "./tagging.ts";
 import {
   type AlbumFileInfo,
-  fetchRecording,
+  fetchRecording as realFetchRecording,
   joinArtistCredits,
   type MBRecordingResponse,
   RateLimiter,
@@ -20,12 +25,126 @@ import {
   selectBestRelease,
 } from "./musicbrainz.ts";
 import { ensureTagLib } from "./taglib_init.ts";
-import { fetchCoverArt } from "./cover_art.ts";
+import type { CoverArtResult } from "./cover_art.ts";
+import { fetchCoverArt as realFetchCoverArt } from "./cover_art.ts";
 import type { FileQualityInfo } from "./duplicate_detection.ts";
 import { detectDuplicates } from "./duplicate_detection.ts";
-import type { ReviewItem } from "./review.ts";
-import { runBatchReview } from "./review.ts";
-import { buildOrganizedPath, cleanEmptyDirs, moveFile } from "./organizer.ts";
+import type { ReviewDecision, ReviewItem } from "./review.ts";
+import { runBatchReview as realRunBatchReview } from "./review.ts";
+import type { MoveResult } from "./organizer.ts";
+import {
+  buildOrganizedPath,
+  cleanEmptyDirs,
+  moveFile as realMoveFile,
+} from "./organizer.ts";
+
+// --- Audio File Handle (for DI) ---
+
+export type TagHandle = {
+  setTitle(v: string): void;
+  setArtist(v: string): void;
+  setAlbum(v: string): void;
+  setYear(v: number): void;
+  setGenre(v: string): void;
+  setTrack(v: number): void;
+};
+
+export type CoverArtInput = {
+  data: Uint8Array;
+  mimeType: string;
+  type: string;
+  description: string;
+};
+
+export type AudioFileHandle = {
+  tag(): TagHandle;
+  setProperty(key: string, value: string): void;
+  getPictures(): unknown[];
+  setPictures(pics: CoverArtInput[]): void;
+  saveToFile(): Promise<void>;
+  dispose(): void;
+};
+
+// --- Pipeline Services (DI) ---
+
+export type PipelineServices = {
+  discoverMusic: (
+    paths: string[],
+    options?: { useMetadataGrouping?: boolean },
+  ) => Promise<MusicDiscovery>;
+  generateFingerprint: (filePath: string) => Promise<string | null>;
+  getAudioDuration: (filePath: string) => Promise<number>;
+  lookupFingerprint: (
+    fingerprint: string,
+    duration: number,
+    apiKey: string,
+  ) => Promise<LookupResult | null>;
+  fetchRecording: (
+    recordingId: string,
+    rateLimiter: RateLimiter,
+  ) => Promise<MBRecordingResponse | null>;
+  getComprehensiveMetadata: (filePath: string) => Promise<ComprehensiveMeta>;
+  fetchCoverArt: (releaseId: string) => Promise<CoverArtResult>;
+  runBatchReview: (
+    items: ReviewItem[],
+  ) => Promise<Map<string, ReviewDecision>>;
+  openAudioFile: (path: string) => Promise<AudioFileHandle | null>;
+  moveFile: (
+    source: string,
+    destination: string,
+    dryRun: boolean,
+  ) => Promise<MoveResult>;
+};
+
+type ComprehensiveMeta = {
+  title?: string;
+  artist?: string;
+  album?: string;
+  year?: number;
+  genre?: string;
+  track?: number;
+  duration?: number;
+  bitrate?: number;
+} | null;
+
+async function defaultOpenAudioFile(
+  path: string,
+): Promise<AudioFileHandle | null> {
+  const taglib = await ensureTagLib();
+  const file = await taglib.open(path);
+  if (!file) return null;
+  return {
+    tag: () => file.tag(),
+    setProperty: (key: string, value: string) => file.setProperty(key, value),
+    getPictures: () => file.getPictures(),
+    setPictures: (pics: CoverArtInput[]) =>
+      file.setPictures(
+        pics.map((p) => ({
+          data: p.data,
+          mimeType: p.mimeType,
+          type: p.type as "FrontCover",
+          description: p.description,
+        })),
+      ),
+    saveToFile: () => file.saveToFile(),
+    dispose: () => file.dispose(),
+  };
+}
+
+function defaultServices(): PipelineServices {
+  return {
+    discoverMusic: realDiscoverMusic,
+    generateFingerprint: realGenerateFingerprint,
+    getAudioDuration: realGetAudioDuration,
+    lookupFingerprint: realLookupFingerprint,
+    fetchRecording: realFetchRecording,
+    getComprehensiveMetadata: realGetComprehensiveMetadata,
+    fetchCoverArt: realFetchCoverArt,
+    runBatchReview: realRunBatchReview,
+    openAudioFile: defaultOpenAudioFile,
+    moveFile: realMoveFile,
+  };
+}
 
 // --- Enrichment Diff ---
 
@@ -151,7 +270,10 @@ const ACOUSTID_RATE_LIMIT_MS = 334; // 3 requests/second
 
 export async function runPipeline(
   options: PipelineOptions,
+  services?: Partial<PipelineServices>,
 ): Promise<PipelineReport> {
+  const svc = { ...defaultServices(), ...services };
+
   const report: PipelineReport = {
     totalFiles: 0,
     matched: 0,
@@ -166,7 +288,7 @@ export async function runPipeline(
 
   // Stage 1: Discover
   if (!options.quiet) console.log("\nStage 1: Discovering audio files...");
-  const discovery = await discoverMusic([options.libraryRoot], {
+  const discovery = await svc.discoverMusic([options.libraryRoot], {
     useMetadataGrouping: true,
   });
 
@@ -198,7 +320,7 @@ export async function runPipeline(
     if (!options.quiet && fingerprintCount % 10 === 0) {
       console.log(`  Processing ${fingerprintCount}/${allFiles.length}...`);
     }
-    const fingerprint = await generateFingerprint(filePath);
+    const fingerprint = await svc.generateFingerprint(filePath);
     if (!fingerprint) {
       if (!options.quiet) {
         console.log(`  Skipped (no fingerprint): ${filePath}`);
@@ -206,9 +328,9 @@ export async function runPipeline(
       continue;
     }
 
-    const duration = await getAudioDuration(filePath);
+    const duration = await svc.getAudioDuration(filePath);
     await acoustIdRateLimiter.acquire();
-    const lookup = await lookupFingerprint(
+    const lookup = await svc.lookupFingerprint(
       fingerprint,
       duration,
       options.apiKey,
@@ -243,17 +365,18 @@ export async function runPipeline(
         `  Fetching recording ${recFetchCount}/${uniqueRecordingIds.size}...`,
       );
     }
-    const recording = await fetchRecording(recId, mbRateLimiter);
+    const recording = await svc.fetchRecording(recId, mbRateLimiter);
     if (recording) recordingCache.set(recId, recording);
   }
 
   // Cache metadata to avoid redundant file reads
-  type CachedMeta = Awaited<ReturnType<typeof getComprehensiveMetadata>>;
-  const metadataCache = new Map<string, CachedMeta>();
-  async function getCachedMetadata(filePath: string): Promise<CachedMeta> {
+  const metadataCache = new Map<string, ComprehensiveMeta>();
+  async function getCachedMetadata(
+    filePath: string,
+  ): Promise<ComprehensiveMeta> {
     const cached = metadataCache.get(filePath);
     if (cached !== undefined) return cached;
-    const meta = await getComprehensiveMetadata(filePath);
+    const meta = await svc.getComprehensiveMetadata(filePath);
     metadataCache.set(filePath, meta);
     return meta;
   }
@@ -345,8 +468,6 @@ export async function runPipeline(
   if (!options.quiet) {
     console.log("\nStage 5-6: Enriching and fetching cover art...");
   }
-  const taglib = await ensureTagLib();
-
   const reviewItems: ReviewItem[] = [];
   const pendingReviewData = new Map<string, {
     diff: EnrichmentDiff[];
@@ -380,7 +501,7 @@ export async function runPipeline(
     // Cover art (once per group/release)
     let coverArtData: Uint8Array | undefined;
     if (!options.noArt && confidence !== "low") {
-      const art = await fetchCoverArt(release.id);
+      const art = await svc.fetchCoverArt(release.id);
       if (art) coverArtData = art.data;
     }
 
@@ -417,7 +538,7 @@ export async function runPipeline(
 
       // Auto-apply high-confidence matches
       if (confidence === "high" && diff.length > 0 && !options.dryRun) {
-        const audioFile = await taglib.open(fileInfo.path);
+        const audioFile = await svc.openAudioFile(fileInfo.path);
         if (audioFile) {
           try {
             for (const d of diff) {
@@ -479,14 +600,14 @@ export async function runPipeline(
         `\nStage 7: ${reviewItems.length} item(s) need review...`,
       );
     }
-    const decisions = await runBatchReview(reviewItems);
+    const decisions = await svc.runBatchReview(reviewItems);
 
     for (const [path, decision] of decisions) {
       if (decision !== "accept") continue;
       const pending = pendingReviewData.get(path);
       if (!pending || options.dryRun) continue;
 
-      const audioFile = await taglib.open(path);
+      const audioFile = await svc.openAudioFile(path);
       if (audioFile) {
         try {
           for (const d of pending.diff) {
@@ -587,7 +708,7 @@ export async function runPipeline(
 
         if (destination === fileInfo.path) continue;
 
-        const result = await moveFile(
+        const result = await svc.moveFile(
           fileInfo.path,
           destination,
           options.dryRun,
@@ -631,8 +752,7 @@ function buildConfidenceReason(
   return "fingerprint matched, limited tag corroboration";
 }
 
-// deno-lint-ignore no-explicit-any
-function applyTagDiff(audioFile: any, diff: EnrichmentDiff): void {
+function applyTagDiff(audioFile: AudioFileHandle, diff: EnrichmentDiff): void {
   const tag = audioFile.tag();
   switch (diff.field) {
     case "Title":
