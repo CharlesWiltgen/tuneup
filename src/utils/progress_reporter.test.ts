@@ -162,4 +162,38 @@ describe("ProgressReporter", () => {
     const clearCount = (output.match(/\x1b\[2K\r/g) || []).length;
     assertEquals(clearCount >= 2, true);
   });
+
+  describe("discoveryCallback", () => {
+    it("should return a function that formats discovery progress", () => {
+      const output = captureStdout(() => {
+        const reporter = new ProgressReporter();
+        const cb = reporter.discoveryCallback();
+        cb("scan", 42);
+        reporter.dispose();
+      });
+
+      assertEquals(output.includes("→ scan: 42 files"), true);
+    });
+
+    it("should include total when provided", () => {
+      const output = captureStdout(() => {
+        const reporter = new ProgressReporter();
+        const cb = reporter.discoveryCallback();
+        cb("classify", 5, 10);
+        reporter.dispose();
+      });
+
+      assertEquals(output.includes("→ classify: 5/10 files"), true);
+    });
+
+    it("should be silent when quiet", () => {
+      const output = captureStdout(() => {
+        const reporter = new ProgressReporter({ quiet: true });
+        const cb = reporter.discoveryCallback();
+        cb("scan", 42);
+      });
+
+      assertEquals(output, "");
+    });
+  });
 });

@@ -37,6 +37,19 @@ export class ProgressReporter {
     }
   }
 
+  discoveryCallback(): (
+    phase: string,
+    current: number,
+    total?: number,
+  ) => void {
+    return (phase: string, current: number, total?: number) => {
+      if (this.options.quiet) return;
+      const count = total ? `${current}/${total}` : `${current}`;
+      const output = `\x1b[2K\r→ ${phase}: ${count} files`;
+      this.writer.writeSync(this.encoder.encode(output));
+    };
+  }
+
   dispose(): void {
     if (this.cursorHidden) {
       this.showCursor();
