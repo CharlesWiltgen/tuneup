@@ -94,6 +94,8 @@ export type PipelineServices = {
     destination: string,
     dryRun: boolean,
   ) => Promise<MoveResult>;
+  cleanEmptyDirs: (dirPath: string) => Promise<void>;
+  createRateLimiter: (minIntervalMs?: number) => RateLimiter;
 };
 
 type ComprehensiveMeta = {
@@ -144,6 +146,8 @@ function defaultServices(): PipelineServices {
     runBatchReview: realRunBatchReview,
     openAudioFile: defaultOpenAudioFile,
     moveFile: realMoveFile,
+    cleanEmptyDirs,
+    createRateLimiter: (ms?: number) => new RateLimiter(ms),
   };
 }
 
@@ -310,7 +314,7 @@ export async function runPipeline(
   if (!options.quiet) {
     console.log("\nStage 2-3: Fingerprinting and identifying...");
   }
-  const acoustIdRateLimiter = new RateLimiter(ACOUSTID_RATE_LIMIT_MS);
+  const acoustIdRateLimiter = svc.createRateLimiter(ACOUSTID_RATE_LIMIT_MS);
 
   const fileRecordingMap = new Map<string, string>(); // path -> recordingId
   const fileAcoustIdMap = new Map<string, string>(); // path -> acoustId
@@ -354,7 +358,7 @@ export async function runPipeline(
 
   // Stage 4: Match Releases
   if (!options.quiet) console.log("\nStage 4: Matching releases...");
-  const mbRateLimiter = new RateLimiter();
+  const mbRateLimiter = svc.createRateLimiter();
 
   const recordingCache = new Map<string, MBRecordingResponse>();
   const uniqueRecordingIds = new Set(fileRecordingMap.values());
@@ -721,7 +725,7 @@ export async function runPipeline(
           if (!options.quiet) {
             console.log(`  ${fileInfo.path} -> ${destination}`);
           }
-          await cleanEmptyDirs(dirname(fileInfo.path));
+          await svc.cleanEmptyDirs(dirname(fileInfo.path));
         } else if (result.status === "conflict") {
           report.conflicts++;
           if (!options.quiet) {

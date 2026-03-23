@@ -11,10 +11,10 @@ import { runPipeline } from "./pipeline.ts";
 import type { MusicDiscovery } from "../utils/fast_discovery.ts";
 import type { LookupResult } from "./acoustid.ts";
 import type { MBMedium, MBRecordingResponse } from "./musicbrainz.ts";
+import { RateLimiter } from "./musicbrainz.ts";
 import type { ReviewDecision, ReviewItem } from "./review.ts";
 import type { MoveResult } from "./organizer.ts";
 import type { CoverArtResult } from "./cover_art.ts";
-import type { RateLimiter } from "./musicbrainz.ts";
 
 // --- Constants ---
 
@@ -279,6 +279,8 @@ function createMockServices(overrides?: {
         destination,
         status: dryRun ? "dry-run" as const : "moved" as const,
       }),
+    cleanEmptyDirs: () => Promise.resolve(),
+    createRateLimiter: () => new RateLimiter(0),
   };
 }
 
@@ -290,13 +292,17 @@ describe("runPipeline", () => {
 
     const report = await runPipeline(baseOptions(), services);
 
-    assertEquals(report.totalFiles, 0);
-    assertEquals(report.matched, 0);
-    assertEquals(report.enriched, 0);
-    assertEquals(report.artAdded, 0);
-    assertEquals(report.duplicatesFound, 0);
-    assertEquals(report.unresolved, 0);
-    assertEquals(report.files.length, 0);
+    assertEquals(report, {
+      totalFiles: 0,
+      matched: 0,
+      enriched: 0,
+      artAdded: 0,
+      duplicatesFound: 0,
+      unresolved: 0,
+      organized: 0,
+      conflicts: 0,
+      files: [],
+    });
   });
 
   it("should auto-enrich high-confidence matches with tags and art", async () => {
@@ -417,32 +423,30 @@ describe("runPipeline", () => {
   });
 
   it("should replace existing tags when overwrite=true", async () => {
-    // Mismatched existing tags lower scoring → medium confidence → review.
+    // Existing tags are close enough to MB data to keep high confidence,
+    // but differ in title/genre to verify overwrite replaces them.
     const audioFiles = new Map<string, MockAudioFile>();
-    const reviewDecisions = new Map<string, ReviewDecision>();
-    reviewDecisions.set(TEST_FILE, "accept");
-
     const services = createMockServices({
       audioFiles,
-      reviewDecisions,
       existingMeta: {
-        title: "Old Title",
-        artist: "Old Artist",
-        album: "Old Album",
-        year: 2010,
+        title: "Track 1 (Live)",
+        artist: "Test Artist",
+        album: "Test Album",
+        albumArtist: "Test Artist",
+        year: 2020,
         genre: "jazz",
-        track: 5,
+        track: 1,
       },
     });
 
     const opts = { ...baseOptions(), overwrite: true };
     const report = await runPipeline(opts, services);
 
+    assertEquals(report.files[0].confidence, "high");
     assertEquals(report.enriched, 1);
     const audioFile = audioFiles.get(TEST_FILE)!;
     assertEquals(audioFile.tagHandle.written.title, "Track 1");
-    assertEquals(audioFile.tagHandle.written.artist, "Test Artist");
-    assertEquals(audioFile.tagHandle.written.album, "Test Album");
+    assertEquals(audioFile.tagHandle.written.genre, "rock");
   });
 
   it("should not write changes when dryRun=true", async () => {
