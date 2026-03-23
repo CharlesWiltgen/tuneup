@@ -174,8 +174,8 @@ Deno.test("processCommand - shows progress during processing", async () => {
       const text = new TextDecoder().decode(data);
       writes.push(text);
       if (
-        text.includes("Processing track:") ||
-        text.includes("Processing single:")
+        text.includes("Processing track") ||
+        text.includes("Processing single")
       ) {
         progressShown = true;
       }

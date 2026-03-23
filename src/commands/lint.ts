@@ -6,6 +6,7 @@ import {
 } from "../lib/lint_engine.ts";
 import { SEVERITY_ORDER } from "../lib/lint.ts";
 import type { LintIssue, LintSummary, Severity } from "../lib/lint.ts";
+import { ProgressReporter } from "../utils/progress_reporter.ts";
 
 const VALID_SEVERITIES = new Set(Object.keys(SEVERITY_ORDER));
 
@@ -40,10 +41,6 @@ function formatSummaryTerminal(summary: LintSummary): string {
     }`,
   ];
   return lines.join("\n");
-}
-
-function writeStderr(text: string) {
-  Deno.stderr.writeSync(new TextEncoder().encode(text));
 }
 
 export async function lintCommand(
@@ -93,59 +90,67 @@ export async function lintCommand(
     return;
   }
 
-  if (!options.quiet && !options.json) {
-    writeStderr(`Scanning ${files.length.toLocaleString()} files...\n\n`);
-  }
+  const reporter = new ProgressReporter({
+    stream: "stderr",
+    quiet: options.quiet || options.json,
+  });
 
-  const lintOptions: LintOptions = {
-    deep: options.deep,
-    severity: options.severity as Severity,
-    quiet: options.quiet,
-    json: options.json,
-  };
+  try {
+    if (!options.quiet && !options.json) {
+      Deno.stderr.writeSync(
+        new TextEncoder().encode(
+          `Scanning ${files.length.toLocaleString()} files...\n\n`,
+        ),
+      );
+    }
 
-  const terminalIssues: LintIssue[] = [];
-  let lastProgressUpdate = 0;
+    const lintOptions: LintOptions = {
+      deep: options.deep,
+      severity: options.severity as Severity,
+      quiet: options.quiet,
+      json: options.json,
+    };
 
-  const result: LintResult = await runLint(
-    files,
-    lintOptions,
-    (issue) => {
-      if (options.json) {
-        console.log(JSON.stringify(issue));
-      } else {
-        terminalIssues.push(issue);
+    const terminalIssues: LintIssue[] = [];
+    let lastProgressUpdate = 0;
+
+    const result: LintResult = await runLint(
+      files,
+      lintOptions,
+      (issue) => {
+        if (options.json) {
+          console.log(JSON.stringify(issue));
+        } else {
+          terminalIssues.push(issue);
+        }
+      },
+      (processed, total) => {
+        if (options.quiet || options.json) return;
+        const now = Date.now();
+        if (
+          processed === total || processed % 1000 === 0 ||
+          now - lastProgressUpdate > 1000
+        ) {
+          reporter.update(processed, total, "Scanning");
+          lastProgressUpdate = now;
+        }
+      },
+    );
+
+    if (options.json) {
+      console.log(JSON.stringify(result.summary));
+    } else {
+      for (const issue of terminalIssues) {
+        console.log(formatIssueTerminal(issue));
       }
-    },
-    (processed, total) => {
-      if (options.quiet || options.json) return;
-      const now = Date.now();
-      if (
-        processed === total || processed % 1000 === 0 ||
-        now - lastProgressUpdate > 1000
-      ) {
-        writeStderr(
-          `\x1b[2K\rScanning: ${processed.toLocaleString()}/${total.toLocaleString()} files`,
-        );
-        lastProgressUpdate = now;
+      if (terminalIssues.length > 0) {
+        console.log();
       }
-    },
-  );
+      console.log(formatSummaryTerminal(result.summary));
+    }
 
-  if (options.json) {
-    console.log(JSON.stringify(result.summary));
-  } else {
-    if (!options.quiet) {
-      writeStderr(`\x1b[2K\r`);
-    }
-    for (const issue of terminalIssues) {
-      console.log(formatIssueTerminal(issue));
-    }
-    if (terminalIssues.length > 0) {
-      console.log();
-    }
-    console.log(formatSummaryTerminal(result.summary));
+    Deno.exit(result.summary.errors > 0 ? 1 : 0);
+  } finally {
+    reporter.dispose();
   }
-
-  Deno.exit(result.summary.errors > 0 ? 1 : 0);
 }

@@ -6,30 +6,21 @@ import {
 } from "../utils/operation_stats.ts";
 import { processSoundCheck } from "../lib/soundcheck.ts";
 import { formatError } from "../utils/error_utils.ts";
+import { ProgressReporter } from "../utils/progress_reporter.ts";
 
 export async function soundcheckCommand(
   options: CommandOptions,
   ...files: string[]
 ): Promise<void> {
-  if (!options.quiet) {
-    Deno.stdout.writeSync(new TextEncoder().encode("\x1b[?25l"));
-  }
+  const reporter = new ProgressReporter({ quiet: options.quiet ?? false });
 
   try {
     if (!options.quiet) {
-      console.log("-> Discovering audio files...");
+      console.log("→ Discovering audio files...");
     }
 
     const discovery = await discoverMusic(files, {
-      onProgress: (phase, current) => {
-        if (!options.quiet) {
-          Deno.stdout.writeSync(
-            new TextEncoder().encode(
-              `\x1b[2K\r-> ${phase}: ${current} files`,
-            ),
-          );
-        }
-      },
+      onProgress: reporter.discoveryCallback(),
     });
 
     const filesToProcess = [
@@ -39,10 +30,8 @@ export async function soundcheckCommand(
     ].sort();
 
     if (!options.quiet) {
-      Deno.stdout.writeSync(
-        new TextEncoder().encode(
-          `\x1b[2K\r-> Discovered ${filesToProcess.length} audio files\n`,
-        ),
+      reporter.complete(
+        `Discovered ${filesToProcess.length} audio files`,
       );
     }
 
@@ -52,7 +41,7 @@ export async function soundcheckCommand(
       try {
         if (!options.quiet) {
           const fileName = file.substring(file.lastIndexOf("/") + 1);
-          console.log(`\n-> ${fileName}`);
+          console.log(`\n→ ${fileName}`);
         }
 
         const status = await processSoundCheck(file, {
@@ -75,8 +64,6 @@ export async function soundcheckCommand(
       options.dryRun,
     );
   } finally {
-    if (!options.quiet) {
-      Deno.stdout.writeSync(new TextEncoder().encode("\x1b[?25h"));
-    }
+    reporter.dispose();
   }
 }

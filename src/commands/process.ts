@@ -121,6 +121,7 @@ export async function processCommand(
       options,
       stats,
       paths,
+      reporter,
     });
 
     // Process compilations
@@ -130,6 +131,7 @@ export async function processCommand(
       options,
       stats,
       paths,
+      reporter,
     });
 
     // Process singles
@@ -139,6 +141,7 @@ export async function processCommand(
       options,
       stats,
       paths,
+      reporter,
     });
 
     stats.printSummary(
