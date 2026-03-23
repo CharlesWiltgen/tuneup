@@ -7,6 +7,21 @@ export class ProgressReporter {
   private encoder = new TextEncoder();
   private cursorHidden = false;
   private writer: { writeSync(p: Uint8Array): number };
+  private spinnerFrames = [
+    "\u28CB",
+    "\u2819",
+    "\u2839",
+    "\u2838",
+    "\u283C",
+    "\u2834",
+    "\u2826",
+    "\u2827",
+    "\u2807",
+    "\u280F",
+  ];
+  private spinnerFrame = 0;
+  private spinnerIntervalId: number | null = null;
+  private spinnerMessage = "";
 
   constructor(private options: ProgressReporterOptions = {}) {
     this.writer = options.stream === "stderr" ? Deno.stderr : Deno.stdout;
@@ -50,10 +65,43 @@ export class ProgressReporter {
     };
   }
 
+  startSpinner(message: string): void {
+    if (this.options.quiet) return;
+    this.stopSpinner();
+    if (!this.cursorHidden) this.hideCursor();
+    this.spinnerMessage = message;
+    this.renderSpinner();
+    this.spinnerIntervalId = setInterval(() => this.renderSpinner(), 80);
+  }
+
+  stopSpinner(message?: string): void {
+    if (this.spinnerIntervalId !== null) {
+      clearInterval(this.spinnerIntervalId);
+      this.spinnerIntervalId = null;
+    }
+    if (this.options.quiet) return;
+    if (message) {
+      this.writer.writeSync(
+        this.encoder.encode(`\x1b[2K\r\u2705 ${message}\n`),
+      );
+    } else {
+      this.writer.writeSync(this.encoder.encode("\x1b[2K\r"));
+    }
+  }
+
   dispose(): void {
+    this.stopSpinner();
     if (this.cursorHidden) {
       this.showCursor();
     }
+  }
+
+  private renderSpinner(): void {
+    const frame = this.spinnerFrames[this.spinnerFrame];
+    this.spinnerFrame = (this.spinnerFrame + 1) % this.spinnerFrames.length;
+    this.writer.writeSync(
+      this.encoder.encode(`\x1b[2K\r${frame} ${this.spinnerMessage}`),
+    );
   }
 
   private hideCursor(): void {

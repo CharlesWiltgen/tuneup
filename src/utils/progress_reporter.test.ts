@@ -163,6 +163,51 @@ describe("ProgressReporter", () => {
     assertEquals(clearCount >= 2, true);
   });
 
+  describe("spinner", () => {
+    it("should start and stop spinner without error", () => {
+      const output = captureStdout(() => {
+        const reporter = new ProgressReporter();
+        reporter.startSpinner("Working...");
+        reporter.stopSpinner("Done");
+        reporter.dispose();
+      });
+
+      assertEquals(output.includes("Done"), true);
+    });
+
+    it("should be silent when quiet", () => {
+      const output = captureStdout(() => {
+        const reporter = new ProgressReporter({ quiet: true });
+        reporter.startSpinner("Working...");
+        reporter.stopSpinner("Done");
+      });
+
+      assertEquals(output, "");
+    });
+
+    it("should stop previous spinner when starting new one", () => {
+      const output = captureStdout(() => {
+        const reporter = new ProgressReporter();
+        reporter.startSpinner("First");
+        reporter.startSpinner("Second");
+        reporter.stopSpinner();
+        reporter.dispose();
+      });
+
+      assertEquals(output.includes("\x1b[2K\r"), true);
+    });
+
+    it("should stop spinner on dispose", () => {
+      const output = captureStdout(() => {
+        const reporter = new ProgressReporter();
+        reporter.startSpinner("Working...");
+        reporter.dispose();
+      });
+
+      assertEquals(output.includes("\x1b[?25h"), true);
+    });
+  });
+
   describe("discoveryCallback", () => {
     it("should return a function that formats discovery progress", () => {
       const output = captureStdout(() => {
