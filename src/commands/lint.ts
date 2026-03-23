@@ -97,11 +97,7 @@ export async function lintCommand(
 
   try {
     if (!options.quiet && !options.json) {
-      Deno.stderr.writeSync(
-        new TextEncoder().encode(
-          `Scanning ${files.length.toLocaleString()} files...\n\n`,
-        ),
-      );
+      reporter.complete(`Scanning ${files.length.toLocaleString()} files...`);
     }
 
     const lintOptions: LintOptions = {
