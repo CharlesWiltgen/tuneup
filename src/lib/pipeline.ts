@@ -100,6 +100,7 @@ type ComprehensiveMeta = {
   title?: string;
   artist?: string;
   album?: string;
+  albumArtist?: string;
   year?: number;
   genre?: string;
   track?: number;
@@ -404,6 +405,7 @@ export async function runPipeline(
         existingTitle: meta?.title ?? undefined,
         existingArtist: meta?.artist ?? undefined,
         existingAlbum: meta?.album ?? undefined,
+        existingAlbumArtist: meta?.albumArtist ?? undefined,
         existingYear: meta?.year ?? undefined,
         existingGenre: meta?.genre ?? undefined,
       });
@@ -521,6 +523,7 @@ export async function runPipeline(
         title: fileInfo.existingTitle,
         artist: fileInfo.existingArtist,
         album: fileInfo.existingAlbum,
+        albumArtist: fileInfo.existingAlbumArtist,
         year: fileInfo.existingYear,
         genre: fileInfo.existingGenre,
         trackNumber: fileInfo.trackNumber,

@@ -395,8 +395,6 @@ describe("runPipeline", () => {
   });
 
   it("should preserve existing tags when overwrite=false", async () => {
-    // Pipeline doesn't read albumArtist from metadata, so AlbumArtist is
-    // always empty in existing → always gets filled → still triggers enrichment.
     const audioFiles = new Map<string, MockAudioFile>();
     const services = createMockServices({
       audioFiles,
@@ -404,6 +402,7 @@ describe("runPipeline", () => {
         title: "My Custom Title",
         artist: "My Artist",
         album: "My Album",
+        albumArtist: "My Album Artist",
         year: 2019,
         genre: "pop",
         track: 1,
@@ -413,15 +412,8 @@ describe("runPipeline", () => {
     const opts = { ...baseOptions(), overwrite: false };
     const report = await runPipeline(opts, services);
 
-    assertEquals(report.enriched, 1);
-
-    // Existing values should NOT be overwritten
-    const audioFile = audioFiles.get(TEST_FILE)!;
-    assertEquals(audioFile.tagHandle.written.title, undefined);
-    assertEquals(audioFile.tagHandle.written.artist, undefined);
-    assertEquals(audioFile.tagHandle.written.album, undefined);
-    // AlbumArtist is set via setProperty
-    assertEquals(audioFile.properties["ALBUMARTIST"], "Test Artist");
+    // All fields filled including albumArtist → no diffs → no enrichment
+    assertEquals(report.enriched, 0);
   });
 
   it("should replace existing tags when overwrite=true", async () => {

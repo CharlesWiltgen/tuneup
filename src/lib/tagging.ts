@@ -350,6 +350,7 @@ export async function getComprehensiveMetadata(
     title?: string;
     artist?: string;
     album?: string;
+    albumArtist?: string;
     comment?: string;
     genre?: string;
     year?: number;
@@ -397,6 +398,8 @@ export async function getComprehensiveMetadata(
     if (tag.genre) metadata.genre = tag.genre;
     if (tag.year) metadata.year = tag.year;
     if (tag.track) metadata.track = tag.track;
+    const albumArtist = audioFile.getProperty(PROPERTIES.albumArtist.key);
+    if (albumArtist) metadata.albumArtist = albumArtist;
 
     // Audio properties
     const props = audioFile.audioProperties();
