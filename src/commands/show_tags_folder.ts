@@ -1,6 +1,7 @@
 import { readMetadataBatch } from "@charlesw/taglib-wasm/simple";
 import { formatChannels, formatDuration } from "../utils/format.ts";
 import { formatError } from "../utils/error_utils.ts";
+import { ProgressReporter } from "../utils/progress_reporter.ts";
 
 /**
  * Format container format for display, adding descriptive names where appropriate
@@ -99,15 +100,7 @@ export async function showTagsWithFolderAPI(
   filesToProcess: string[],
   quiet: boolean,
 ): Promise<void> {
-  // Hide cursor
-  if (!quiet) {
-    Deno.stdout.writeSync(new TextEncoder().encode("\x1b[?25l"));
-    Deno.stdout.writeSync(
-      new TextEncoder().encode("→ Reading metadata: 0 files processed"),
-    );
-  }
-
-  let lastCount = 0;
+  const reporter = new ProgressReporter({ quiet });
 
   try {
     // Use the enhanced batch API directly
@@ -115,27 +108,15 @@ export async function showTagsWithFolderAPI(
       concurrency: 8,
       continueOnError: true,
       onProgress: (processed, total, _currentFile) => {
-        if (!quiet && processed !== lastCount) {
-          // Move cursor to beginning of line and clear it
-          Deno.stdout.writeSync(
-            new TextEncoder().encode(
-              `\x1b[2K\r→ Reading metadata: ${processed}/${total} files processed`,
-            ),
-          );
-          lastCount = processed;
-        }
+        reporter.update(processed, total, "Reading metadata");
       },
     });
 
+    reporter.complete(
+      `Reading metadata: ${batchResult.items.length} files processed`,
+    );
     if (!quiet) {
-      // Update with final count and checkmark
-      Deno.stdout.writeSync(
-        new TextEncoder().encode(
-          `\x1b[2K\r✅ Reading metadata: ${batchResult.items.length} files processed\n\n`,
-        ),
-      );
-      // Show cursor
-      Deno.stdout.writeSync(new TextEncoder().encode("\x1b[?25h"));
+      console.log();
     }
 
     // Process and display results immediately
@@ -296,11 +277,9 @@ export async function showTagsWithFolderAPI(
       console.log();
     }
   } catch (error) {
-    if (!quiet) {
-      // Show cursor on error
-      Deno.stdout.writeSync(new TextEncoder().encode("\x1b[?25h"));
-    }
     console.error(`Error: ${formatError(error)}`);
     throw error;
+  } finally {
+    reporter.dispose();
   }
 }
