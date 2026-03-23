@@ -15,127 +15,108 @@ import {
 import { formatError } from "../utils/error_utils.ts";
 import { showTagsWithFolderAPI } from "./show_tags_folder.ts";
 import { HIGH_CONCURRENCY } from "../constants.ts";
+import { ProgressReporter } from "../utils/progress_reporter.ts";
 
 export async function defaultCommand(
   options: CommandOptions & { debug?: boolean },
   ...files: string[]
 ): Promise<void> {
-  // Hide cursor
-  if (!options.quiet) {
-    Deno.stdout.writeSync(new TextEncoder().encode("\x1b[?25l"));
-  }
+  const reporter = new ProgressReporter({ quiet: options.quiet ?? false });
 
-  if (!options.quiet) {
-    console.log("→ Discovering audio files...");
-  }
-
-  const discovery = await discoverMusic(files, {
-    debug: options.debug,
-    onProgress: (phase, current) => {
-      if (!options.quiet) {
-        // Move cursor to beginning of line and clear it
-        Deno.stdout.writeSync(
-          new TextEncoder().encode(
-            `\x1b[2K\r→ ${phase}: ${current} files`,
-          ),
-        );
-      }
-    },
-  });
-
-  // Get all files from albums and singles
-  const filesToProcess = [
-    ...discovery.singles,
-    ...Array.from(discovery.albums.values()).flat(),
-  ].sort();
-
-  if (!options.quiet) {
-    // Update with final count and checkmark
-    Deno.stdout.writeSync(
-      new TextEncoder().encode(
-        `\x1b[2K\r✅ Discovered ${filesToProcess.length} audio files\n`,
-      ),
-    );
-    // Show cursor
-    Deno.stdout.writeSync(new TextEncoder().encode("\x1b[?25h"));
-  }
-
-  if (options.showTags) {
-    // Use the new batch API for maximum performance
-    await showTagsWithFolderAPI(filesToProcess, options.quiet);
-    return;
-  }
-
-  validateAudioFiles(filesToProcess);
-  logProcessingInfo(options, filesToProcess.length);
-
-  const stats = new OperationStats();
-
-  // Use batch processing for multiple files
-  if (filesToProcess.length > 1 && options.apiKey) {
+  try {
     if (!options.quiet) {
-      console.log(`\nBatch processing ${filesToProcess.length} files...`);
+      console.log("→ Discovering audio files...");
     }
 
-    try {
-      const results = await batchProcessAcoustIDTagging(
-        filesToProcess,
-        options.apiKey,
-        {
-          force: options.force || false,
-          quiet: options.quiet || false,
-          dryRun: options.dryRun || false,
-          concurrency: HIGH_CONCURRENCY,
-          onProgress: (processed, total, _currentFile) => {
-            if (!options.quiet) {
-              // Move cursor to beginning of line and clear it
-              Deno.stdout.writeSync(new TextEncoder().encode(
-                `\x1b[2K\r→ Processing: ${processed}/${total} files (${
-                  Math.round(processed / total * 100)
-                }%)`,
-              ));
-            }
-          },
-        },
-      );
+    const discovery = await discoverMusic(files, {
+      debug: options.debug,
+      onProgress: reporter.discoveryCallback(),
+    });
 
+    // Get all files from albums and singles
+    const filesToProcess = [
+      ...discovery.singles,
+      ...Array.from(discovery.albums.values()).flat(),
+    ].sort();
+
+    reporter.complete(`Discovered ${filesToProcess.length} audio files`);
+
+    if (options.showTags) {
+      // Use the new batch API for maximum performance
+      await showTagsWithFolderAPI(filesToProcess, options.quiet);
+      return;
+    }
+
+    validateAudioFiles(filesToProcess);
+    logProcessingInfo(options, filesToProcess.length);
+
+    const stats = new OperationStats();
+
+    // Use batch processing for multiple files
+    if (filesToProcess.length > 1 && options.apiKey) {
       if (!options.quiet) {
-        Deno.stdout.writeSync(new TextEncoder().encode("\n"));
+        console.log(`\nBatch processing ${filesToProcess.length} files...`);
       }
 
-      // Update stats from results
-      for (const [_file, status] of results) {
-        stats.increment(status);
-      }
-    } catch (error) {
-      console.error(
-        `Batch processing failed: ${formatError(error)}`,
-      );
-      for (const _file of filesToProcess) {
-        stats.incrementFailed();
-      }
-    }
-  } else {
-    // Fall back to individual processing for single files or no API key
-    for (const file of filesToProcess) {
       try {
-        if (!options.quiet && filesToProcess.length > 1) console.log("");
-        const status = await processAcoustIDTagging(
-          file,
-          options.apiKey || "",
-          options.force || false,
-          options.quiet,
-          options.dryRun || false,
+        const results = await batchProcessAcoustIDTagging(
+          filesToProcess,
+          options.apiKey,
+          {
+            force: options.force || false,
+            quiet: options.quiet || false,
+            dryRun: options.dryRun || false,
+            concurrency: HIGH_CONCURRENCY,
+            onProgress: (processed, total, _currentFile) => {
+              reporter.update(processed, total, "Processing");
+            },
+          },
         );
-        stats.increment(status);
+
+        if (!options.quiet) {
+          console.log();
+        }
+
+        // Update stats from results
+        for (const [_file, status] of results) {
+          stats.increment(status);
+        }
       } catch (error) {
         console.error(
-          `Unexpected error processing ${file}: ${formatError(error)}`,
+          `Batch processing failed: ${formatError(error)}`,
         );
-        stats.incrementFailed();
+        for (const _file of filesToProcess) {
+          stats.incrementFailed();
+        }
+      }
+    } else {
+      // Fall back to individual processing for single files or no API key
+      for (const file of filesToProcess) {
+        try {
+          if (!options.quiet && filesToProcess.length > 1) console.log("");
+          const status = await processAcoustIDTagging(
+            file,
+            options.apiKey || "",
+            options.force || false,
+            options.quiet,
+            options.dryRun || false,
+          );
+          stats.increment(status);
+        } catch (error) {
+          console.error(
+            `Unexpected error processing ${file}: ${formatError(error)}`,
+          );
+          stats.incrementFailed();
+        }
       }
     }
-  }
 
-  stats.printSummary("Processing Complete", PROCESSING_SUMMARY, options.dryRun);
+    stats.printSummary(
+      "Processing Complete",
+      PROCESSING_SUMMARY,
+      options.dryRun,
+    );
+  } finally {
+    reporter.dispose();
+  }
 }
